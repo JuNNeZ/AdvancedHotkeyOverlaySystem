@@ -1,0 +1,25 @@
+## Interface: 100207
+## Title: |T626001:16:16:0:0|t |cff00D4AAAdvanced |cffffd700Hotkey |cff00D4AAOverlay |cffffd700System|r
+## Notes: |cffffd700Advanced Hotkey Overlay System|r |cff00D4AA- Intelligent UI detection, live updates, and beautiful customization.|r
+## Author: |cff00D4AAJuNNeZ|r |cff888888with AI assistance|r
+## Version: |cffffd7001.3.1|r
+## SavedVariablesPerCharacter: AdvancedHotkeyOverlaySystemDB
+## IconTexture: Interface\AddOns\AdvancedHotkeyOverlaySystem\media\logo
+## X-Category: Action Bars
+## X-Website: https://github.com/junnez/advancedhotkeyoverlaysystem
+## X-Curse-Project-ID: advanced-hotkey-overlay-system
+## X-WoWI-ID: advanced-hotkey-overlay-system
+
+# Libraries
+Libs\LibStub\LibStub.lua
+Libs\AceAddon-3.0\AceAddon-3.0.xml
+Libs\AceConfig-3.0\AceConfig-3.0.xml
+Libs\AceConsole-3.0\AceConsole-3.0.xml
+Libs\AceDB-3.0\AceDB-3.0.xml
+Libs\AceEvent-3.0\AceEvent-3.0.xml
+Libs\AceTimer-3.0\AceTimer-3.0.xml
+Libs\LibSharedMedia-3.0\lib.xml
+Libs\LibDBIcon-1.0\embeds.xml
+
+# Main AddOn Code
+AdvancedHotkeyOverlaySystem.lua
