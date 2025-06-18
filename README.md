@@ -2,83 +2,57 @@
 
 **Advanced Hotkey Overlay System for World of Warcraft** - **Version 1.3.2**
 
-## ✨ What's New in v1.3.0
+## ✨ What's New in v1.3.2
 
-- **🎨 Complete Visual Overhaul**: Stunning new options panel with modern styling, icons, and professional organization
-- **⚡ Enhanced User Experience**: Intuitive layout with grouped sections, comprehensive tooltips, and visual feedback
-- **🎯 Smart Interface Design**: Dynamic elements that change based on state, full-width buttons, and consistent branding
-- **� Professional Polish**: Enhanced confirmation dialogs, color-coded status messages, and improved visual hierarchy
-- **📱 Modern Layout System**: Logical grouping of all settings with clear visual separators and emoji indicators
+- **🐛 Critical Bug Fix**: Resolved options panel loading error that prevented addon initialization
+- **🎛️ Smart Options Management**: Master toggle now automatically hides/shows all other options for a cleaner interface
+- **🎨 Streamlined Layout**: Moved master toggle to top, removed redundant header, integrated profile selector with status bar
+- **🔒 Improved Stability**: Added proper type checking to prevent runtime errors
 
 ## 🌟 Key Features
 
 - **⚡ Live updating hotkey overlays** with ConsolePort-style abbreviations
 - **🎨 Real-time configuration**: All changes apply instantly (font, color, position, scale, etc.)
-- **🔒 Smart lock system**: Prevent accidental changes with beautiful confirmation dialogs
-- **👤 Enhanced profile management**: Per-character and global profiles with modern UI
+- **🔒 Smart lock system**: Prevent accidental changes during gameplay
+- **👤 Profile management**: Per-character and global profiles
 - **🎭 Advanced customization**: Comprehensive font, color, shadow, outline, and positioning options
 - **🤖 Intelligent UI detection**: Automatically adapts to AzeriteUI, ElvUI, Bartender4, Dominos, and Blizzard UI
-- **🎛️ Beautifully organized options**: Professional interface with grouped settings, icons, and visual hierarchy
+- **🎛️ Smart options management**: Master toggle hides irrelevant options when disabled
 - **⚙️ Full Ace3 integration**: Robust addon framework with sophisticated configuration system
-- **💬 Enhanced slash commands**: Colored output with emoji status indicators and comprehensive help
-- **🗺️ Minimap integration**: Click to toggle the stunning configuration panel
-- **📊 Titan Panel support**: Status display with quick access and visual indicators
+- **💬 Enhanced slash commands**: Comprehensive help and debugging tools
+- **🗺️ Minimap integration**: Click to toggle the configuration panel
+- **📊 Titan Panel support**: Status display with quick access
 - **🎯 Optimized defaults**: Perfect settings for immediate usability across all UI addons
-- **🌍 Localization ready**: Professional structure prepared for multiple languages
 
 ## 🎮 How to Use
 
 ### Slash Commands (Enhanced)
 
-- `/ahos` or `/advancedhotkeyoverlaysystem` — Main command with beautiful colored output
-  - `show` — Open the sleek configuration panel
-  - `lock` 🔒 — Lock overlays (with visual confirmation)
-  - `unlock` 🔓 — Unlock overlays (with visual confirmation)
-  - `reset` ⚠️ — Reset settings to optimized defaults
-  - `toggle` ✓/✗ — Enable/disable overlays with status
+- `/ahos` or `/advancedhotkeyoverlaysystem` — Main command
+  - `show` — Open the configuration panel
+  - `lock` 🔒 — Lock overlays
+  - `unlock` 🔓 — Unlock overlays
+  - `reset` ⚠️ — Reset settings to defaults
+  - `toggle` ✓/✗ — Enable/disable overlays
   - `reload` 🔄 — Smart refresh of all overlays
-  - `help` 📚 — Show formatted help with all commands
+  - `help` 📚 — Show help with all commands
   - `debug` 🐛 — Toggle debug mode for troubleshooting
-  - `detectui` 🔍 — Manually trigger UI detection with results
+  - `detectui` 🔍 — Manually trigger UI detection
 
 ### Interface Features
 
-- **🗺️ Minimap button**: Click to toggle the beautiful, redesigned options panel
-- **⚡ Live updates**: All settings change instantly with sophisticated visual feedback
+- **🗺️ Minimap button**: Click to toggle the options panel
+- **⚡ Live updates**: All settings change instantly
 - **🎛️ Smart options management**: Master toggle automatically hides/shows all options for a cleaner interface
-- **🔒 Lock protection**: Smart system with elegant confirmation dialogs prevents accidental changes
-- **📱 Professional organization**: Settings grouped into logical sections with clear visual hierarchy:
-  - 📊 **Status Information**: Real-time UI detection and version display
-  - ⚡ **Master Toggle**: Enhanced main control with comprehensive descriptions
-  - 🔧 **Quick Actions**: Smart Refresh and Temporary Clear with detailed tooltips
-  - 🗺️ **Position Controls**: Precise positioning with directional arrow indicators
-  - ✨ **Visual Properties**: Scale, transparency, and frame layer management
-  - 📝 **Font & Text Style**: Complete typography control with visual previews
-  - � **Profile Management**: Character-specific and global profile system
-  - 🔒 **Security & Lock**: Intelligent protection with dynamic state display
-
-## 🎨 Visual Design Features
-
-### Modern Interface Elements
-
-- **Consistent Branding**: Turquoise (#00D4AA) color scheme with lightning bolt (⚡) identity
-- **Professional Icons**: Relevant icons and emojis for every major function and section
-- **Enhanced Tooltips**: Comprehensive descriptions with visual separators and practical examples
-- **Dynamic UI**: Elements that change appearance based on current state and settings
-
-### Smart User Experience
-
-- **Full-Width Buttons**: No more text truncation - all buttons properly sized
-- **Visual Separators**: Clear section divisions with consistent spacing
-- **Color-Coded Feedback**: Status messages with appropriate colors and emoji indicators
-- **Intuitive Navigation**: Logical flow from basic to advanced settings
-
-### Professional Polish
-
-- **Enhanced Confirmation Dialogs**: Beautiful popups with proper styling and clear actions
-- **Real-Time Feedback**: Immediate visual confirmation for all setting changes
-- **Consistent Typography**: Professional text hierarchy throughout the interface
-- **Modern Layout**: Clean, organized presentation that matches current WoW addon standards
+- **🔒 Lock protection**: Prevent accidental changes during combat or gameplay
+- **📱 Organized settings**: Grouped into logical sections:
+  - **Master Toggle**: Enable/disable the entire addon
+  - **Status & Profile Bar**: UI detection, version info, and profile selector
+  - **Quick Actions**: Smart Refresh and Temporary Clear tools
+  - **Position Controls**: Precise positioning options
+  - **Visual Properties**: Scale, transparency, and frame layer settings
+  - **Font & Text Style**: Complete typography control
+  - **Security & Lock**: Protection settings
 
 ## 📋 Requirements
 
@@ -91,10 +65,9 @@
 ## 🔧 Installation & Setup
 
 1. **Download & Install**: Extract to your `Interface\AddOns` folder
-2. **Verify Files**: Ensure `AdvancedHotkeyOverlaySystem.toc` is present and is the only .toc file
-3. **Launch WoW**: The addon will auto-detect your UI and apply optimal defaults
-4. **Configure**: Use `/ahos` to open the beautiful options panel
-5. **Enjoy**: Your hotkeys are now beautifully enhanced with intelligent overlays!
+2. **Launch WoW**: The addon will auto-detect your UI and apply optimal defaults
+3. **Configure**: Use `/ahos` to open the options panel
+4. **Enjoy**: Your hotkeys are now enhanced with intelligent overlays!
 
 ## 🐛 Troubleshooting & Support
 
@@ -114,6 +87,7 @@ If the addon doesn't detect your UI correctly:
 - **📐 Positioning issues**: Use `/ahos unlock` to adjust settings safely
 - **🔍 Wrong UI detected**: Run `/ahos detectui` to manually re-detect your interface
 - **🔒 Can't change settings**: Check if settings are locked (look for lock icon in options)
+- **⚠️ Options panel error**: Restart WoW if you encounter loading issues (fixed in v1.3.2)
 
 ### Debug Information
 
@@ -127,15 +101,14 @@ Debug mode (`/ahos debug`) provides comprehensive information about:
 
 ## 📈 Recent Changes
 
-**Latest Version: 1.3.0** - See [CHANGELOG.md](CHANGELOG.md) for complete update history.
+**Latest Version: 1.3.2** - See [CHANGELOG.md](CHANGELOG.md) for complete update history.
 
 ### What's New
 
-- Complete visual overhaul with modern interface design
-- Professional organization with grouped settings and visual hierarchy
-- Enhanced user experience with comprehensive tooltips and feedback
-- Dynamic UI elements that adapt to current state
-- Improved accessibility and usability across all features
+- **Critical bug fix**: Resolved options panel loading error
+- **Smart interface management**: Master toggle now hides irrelevant options when disabled
+- **Streamlined layout**: Optimized space usage with integrated status and profile bar
+- **Enhanced stability**: Improved error handling and type checking
 
 ## 🌍 Localization Support
 
@@ -162,4 +135,4 @@ This project is licensed under the terms specified in the LICENSE file.
 
 ---
 
-**⚡ Advanced Hotkey Overlay System v1.3.0** - *Making WoW hotkeys beautiful, one overlay at a time!*
+**⚡ Advanced Hotkey Overlay System v1.3.2** - *Making WoW hotkeys beautiful, one overlay at a time!*
