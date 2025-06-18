@@ -23,7 +23,7 @@ The system will automatically manage hotkey overlays and abbreviations for suppo
 -- 1. Addon Initialization and Library Setup
 -------------------------------------------------------------------------------
 local ADDON_NAME = "AdvancedHotkeyOverlay"
-local ADDON_VERSION = "1.3.1"
+local ADDON_VERSION = "1.3.2"
 local AdvancedHotkeyOverlaySystem = LibStub("AceAddon-3.0"):NewAddon(ADDON_NAME, "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0")
 local AceConfig = LibStub("AceConfig-3.0")
 local AceConfigDialog = LibStub("AceConfigDialog-3.0")
@@ -901,12 +901,13 @@ end
 local livePatchedOptions = setmetatable({}, {__mode = "k"})
 local function PatchLiveUpdateOptions(options)
     for _, group in pairs(options.args) do
-        if group.args then
+        if type(group) == "table" and group.args then
             for key, opt in pairs(group.args) do
                 if opt.set and type(opt.set) == "function" and not livePatchedOptions[opt] then
                     local oldSet = opt.set
                     opt.set = function(...)
-                        oldSet(...)                        if AdvancedHotkeyOverlaySystem and AdvancedHotkeyOverlaySystem.CleanupAllOverlays and AdvancedHotkeyOverlaySystem.UpdateAllButtons then
+                        oldSet(...)
+                        if AdvancedHotkeyOverlaySystem and AdvancedHotkeyOverlaySystem.CleanupAllOverlays and AdvancedHotkeyOverlaySystem.UpdateAllButtons then
                             AdvancedHotkeyOverlaySystem:CleanupAllOverlays()
                             AdvancedHotkeyOverlaySystem:UpdateAllButtons()
                         end

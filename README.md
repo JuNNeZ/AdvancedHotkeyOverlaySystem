@@ -1,6 +1,6 @@
 # ⚡ Advanced Hotkey Overlay System
 
-**Advanced Hotkey Overlay System for World of Warcraft** - **Version 1.3.1**
+**Advanced Hotkey Overlay System for World of Warcraft** - **Version 1.3.2**
 
 ## ✨ What's New in v1.3.0
 

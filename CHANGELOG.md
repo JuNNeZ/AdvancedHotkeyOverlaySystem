@@ -1,5 +1,15 @@
 # Advanced Hotkey Overlay System Changelog
 
+## 1.3.2 (2025-06-18)
+
+### 🐛 Critical Bug Fix
+
+- **Fixed Options Panel Loading**: Resolved "attempt to index local 'group' (a function value)" error that prevented the addon from loading
+- **Improved Type Safety**: Added proper type checking in the PatchLiveUpdateOptions function to prevent indexing non-table values
+- **Stability Enhancement**: Options panel now loads correctly without runtime errors
+
+---
+
 ## 1.3.1 (2025-06-18)
 
 ### 🎛️ Master Toggle Enhancement
