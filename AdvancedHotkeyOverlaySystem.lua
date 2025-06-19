@@ -1,31 +1,38 @@
 ---@diagnostic disable: undefined-global
 --[[
-Advanced Hotkey Overlay System - Advanced Hotkey Overlay System
-==========================================
+Advanced Hotkey Overlay System
+=============================
 
-Description:
-------------
-This module provides the Advanced Hotkey Overlay System for World of Warcraft action bars. 
-It addresses several issues found in previous implementations, including:
+Module: AdvancedHotkeyOverlaySystem.lua
 
-- Proper restoration of original hotkey text when the overlay is cleaned up.
-- Improved abbreviation system for hotkey labels (e.g., "SHIFT-BUTTON3" is now abbreviated as "SMB3" instead of "SMMB").
-- Accurate detection and handling of ActionBar1 and ActionBar3.
-- Fixes for memory leaks and ensures overlays are properly restored.
+Overview:
+---------
+This module implements the Advanced Hotkey Overlay System for World of Warcraft action bars. 
+It enhances the display and management of hotkey overlays, providing improved abbreviation, 
+restoration, and memory management compared to previous solutions.
+
+Features:
+---------
+- Restores original hotkey text when overlays are removed.
+- Uses an improved abbreviation system for hotkey labels (e.g., "SHIFT-BUTTON3" becomes "SMB3").
+- Accurately detects and manages overlays for ActionBars.
 
 Usage:
 ------
-Place this file in your AddOn's directory and ensure it is loaded by your AddOn's .toc file.
-The system will automatically manage hotkey overlays and abbreviations for supported action bars.
+1. Place this file in your AddOn's directory.
+2. Add it to your AddOn's .toc file to ensure it loads.
+3. The system will automatically handle hotkey overlays and abbreviations for supported action bars.
+
+Author:
+-------
+cffFFD700JuNNeZ
+
+License:
+--------
+MIT License
+This code is free to use and modify under the terms of the MIT License.
 --]]
 
--------------------------------------------------------------------------------
--- 1. Addon Initialization and Library Setup
--------------------------------------------------------------------------------
-local ADDON_NAME = "AdvancedHotkeyOverlay"
-local ADDON_VERSION = "1.3.2"
-local AdvancedHotkeyOverlaySystem = LibStub("AceAddon-3.0"):NewAddon(ADDON_NAME, "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0")
-local AceConfig = LibStub("AceConfig-3.0")
 local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 local AceDB = LibStub("AceDB-3.0")
 
