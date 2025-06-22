@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2025-06-22
+
+### Added
+
+- Full Ace3 profile management UI (copy, delete, switch, robust handling).
+- Overlay settings (font, color, etc.) now update instantly on profile or option changes.
+- Lock/unlock feature: `/ahos lock` greys out all options and prevents changes; attempting to change settings while locked shows a high-strata popup with unlock prompt.
+- StaticPopup dialog for unlocking settings, with Yes/No options.
+- Debug-only button to delete all profiles except the current one.
+
+### Changed
+
+- Only Ace3 profile management UI is used (custom profile UI removed).
+- Improved error handling for profile changes and minimap icon registration.
+- Versioning and documentation updated for 2.2.0.
+
+### Fixed
+
+- No more duplicate options panel errors.
+- Profile deletion and switching is now robust and bug-free.
+- Minimap icon unregister errors resolved.
+- Settings lock now actually prevents changes in the options panel.
+
+---
+
 ## [2.1.0] - 2025-06-22
 
 ### Added
@@ -50,7 +75,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
-## [1.0.0] - 2024-XX-XX
+## [1.0.0] - 2024-06-17
 
 ### Added
 
@@ -60,3 +85,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Minimap icon and options panel access.
 
 ---
+
+[2.2.0]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.2.0
+[2.1.0]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.1.0
+[2.0.0-alpha]: #
+[1.0.0]: #

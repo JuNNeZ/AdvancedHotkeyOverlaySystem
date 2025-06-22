@@ -17,23 +17,41 @@ end
 
 local keybindCache = {}
 
+-- Helper function to get the correct binding command string from a Blizzard action ID.
+function Keybinds:GetBindingCommandFromAction(actionID)
+    if not actionID or actionID < 1 then return nil end
+    if actionID >= 1 and actionID <= 12 then
+        return "ACTIONBUTTON" .. actionID
+    elseif actionID >= 13 and actionID <= 24 then
+        return "MULTIACTIONBAR1BUTTON" .. (actionID - 12)
+    elseif actionID >= 25 and actionID <= 36 then
+        return "MULTIACTIONBAR2BUTTON" .. (actionID - 24)
+    elseif actionID >= 37 and actionID <= 48 then
+        return "MULTIACTIONBAR3BUTTON" .. (actionID - 36)
+    elseif actionID >= 49 and actionID <= 60 then
+        return "MULTIACTIONBAR4BUTTON" .. (actionID - 48)
+    -- Other ranges like pet bar, stance bar etc. can be added here if needed
+    end
+    return nil
+end
+
 -- Abbreviation logic (ConsolePort-style)
 local abbreviations = {
-    -- Modifiers (strict order: C, S, A)
-    ["CTRL-"] = "C-",
-    ["SHIFT-"] = "S-",
-    ["ALT-"] = "A-",
+    -- Modifiers (no separator)
+    ["CTRL-"] = "C",
+    ["SHIFT-"] = "S",
+    ["ALT-"] = "A",
     -- Mouse buttons
-    ["MOUSEBUTTON1"] = "M1",
-    ["MOUSEBUTTON2"] = "M2",
-    ["MOUSEBUTTON3"] = "M3",
-    ["MOUSEBUTTON4"] = "M4",
-    ["MOUSEBUTTON5"] = "M5",
-    ["BUTTON1"] = "M1",
-    ["BUTTON2"] = "M2",
-    ["BUTTON3"] = "M3",
-    ["BUTTON4"] = "M4",
-    ["BUTTON5"] = "M5",
+    ["MOUSEBUTTON1"] = "B1",
+    ["MOUSEBUTTON2"] = "B2",
+    ["MOUSEBUTTON3"] = "B3",
+    ["MOUSEBUTTON4"] = "B4",
+    ["MOUSEBUTTON5"] = "B5",
+    ["BUTTON1"] = "B1",
+    ["BUTTON2"] = "B2",
+    ["BUTTON3"] = "B3",
+    ["BUTTON4"] = "B4",
+    ["BUTTON5"] = "B5",
     ["MOUSEWHEELUP"] = "WU",
     ["MOUSEWHEELDOWN"] = "WD",
     -- Numpad
@@ -105,25 +123,40 @@ local abbreviations = {
     ["PAD12"] = "START",
 }
 
--- Modifier normalization (ConsolePort-style: always C, S, A, in that order)
+-- Modifier normalization: always A, C, S, in that order, no separators.
 local function normalizeModifiers(key)
-    local mods = {}
-    -- Only match and remove full modifier prefixes
-    if key:find("^CTRL%-") then table.insert(mods, "C") end
-    if key:find("^SHIFT%-") then table.insert(mods, "S") end
-    if key:find("^ALT%-") then table.insert(mods, "A") end
-    -- Remove all leading modifiers (in any order)
-    local base = key
-    base = base:gsub("^CTRL%-", "")
-    base = base:gsub("^SHIFT%-", "")
-    base = base:gsub("^ALT%-", "")
-    -- If multiple modifiers, repeat until all are gone
-    while base:find("^CTRL%-") or base:find("^SHIFT%-") or base:find("^ALT%-") do
-        base = base:gsub("^CTRL%-", "")
-        base = base:gsub("^SHIFT%-", "")
-        base = base:gsub("^ALT%-", "")
+    if not key or key == "" then return "", "" end
+
+    local parts = {}
+    for part in key:gmatch("([^-]+)") do
+        table.insert(parts, part)
     end
-    return table.concat(mods), base
+
+    local modsAbbr = {}
+    local baseKey = ""
+
+    local modMap = {
+        ALT = "A",
+        CTRL = "C",
+        SHIFT = "S",
+    }
+
+    -- Find the base key (the first part that isn't a modifier)
+    for i, part in ipairs(parts) do
+        if modMap[part] then
+            table.insert(modsAbbr, modMap[part])
+        else
+            baseKey = part
+        end
+    end
+
+    -- The canonical order is Alt, Ctrl, Shift.
+    local sortOrder = { A = 1, C = 2, S = 3 }
+    table.sort(modsAbbr, function(a, b)
+        return sortOrder[a] < sortOrder[b]
+    end)
+
+    return table.concat(modsAbbr, ""), baseKey
 end
 
 function Keybinds:ClearCache()
@@ -137,98 +170,159 @@ function Keybinds:GetBinding(button)
         return keybindCache[buttonName]
     end
 
-    local key
-    -- AzeriteUI main bar mapping
-    local azBar, azBtn = buttonName:match("^AzeriteActionBar(%d+)Button(%d+)$")
-    if azBar and azBtn then
-        azBar = tonumber(azBar)
-        azBtn = tonumber(azBtn)
-        if azBar == 1 then
-            key = GetBindingKey("ACTIONBUTTON" .. azBtn)
-        elseif azBar == 2 then
-            key = GetBindingKey("MULTIACTIONBAR1BUTTON" .. azBtn)
-        elseif azBar == 3 then
-            key = GetBindingKey("MULTIACTIONBAR2BUTTON" .. azBtn)
-        end
-    end
-    -- AzeriteUI stance bar mapping
-    local stanceBtn = buttonName:match("^AzeriteStanceBarButton(%d+)$")
-    if stanceBtn then
-        key = GetBindingKey("SHAPESHIFTBUTTON" .. stanceBtn)
-    end
-    -- Try to resolve Blizzard action button bindings
-    if not key then
-        if button.action then
-            -- For standard action buttons, use ACTIONBUTTON#
-            if buttonName:find("ActionButton") then
-                local slot = button.action
-                key = GetBindingKey("ACTIONBUTTON" .. tostring(slot))
-            -- For MultiBar buttons
-            elseif buttonName:find("MultiBarBottomLeftButton") then
-                local slot = button.action - 12
-                key = GetBindingKey("MULTIACTIONBAR1BUTTON" .. tostring(slot))
-            elseif buttonName:find("MultiBarBottomRightButton") then
-                local slot = button.action - 24
-                key = GetBindingKey("MULTIACTIONBAR2BUTTON" .. tostring(slot))
-            elseif buttonName:find("MultiBarRightButton") then
-                local slot = button.action - 36
-                key = GetBindingKey("MULTIACTIONBAR3BUTTON" .. tostring(slot))
-            elseif buttonName:find("MultiBarLeftButton") then
-                local slot = button.action - 48
-                key = GetBindingKey("MULTIACTIONBAR4BUTTON" .. tostring(slot))
-            -- AzeriteUI and other custom bars: fallback to action slot if available
-            elseif button.action then
-                key = GetBindingKey("ACTIONBUTTON" .. tostring(button.action))
-            end
-        end
-    end
-    -- Fallback: try the button's global name
-    if not key or key == "" then
-        key = GetBindingKey(buttonName)
-    end
+    local fullKey = self:GetFullBindingText(button)
+
     if addon.db and addon.db.profile and addon.db.profile.debug then
-        addon:Print("[AHOS DEBUG] Keybinds:GetBinding for button " .. buttonName .. " (action=" .. tostring(button.action) .. ") = " .. tostring(key))
+        addon:Print("[AHOS DEBUG] Keybinds:GetBinding for button " .. buttonName .. " found full key: " .. tostring(fullKey))
     end
-    if not key then
+
+    if not fullKey or fullKey == "" then
         keybindCache[buttonName] = ""
         return ""
     end
-    local abbreviatedKey = self:Abbreviate(key)
+
+    local abbreviatedKey = self:Abbreviate(fullKey)
     keybindCache[buttonName] = abbreviatedKey
     return abbreviatedKey
 end
 
 function Keybinds:Abbreviate(key)
-    if not (addon.db and addon.db.profile and addon.db.profile.text and addon.db.profile.text.abbreviations) then
-        return key
+    if not key or key == "" then return "" end
+    if not addon.db.profile.text.abbreviations then return key end
+
+    local mods, base = normalizeModifiers(key)
+
+    -- Abbreviate the base key if a mapping exists.
+    if abbreviations[base] then
+        base = abbreviations[base]
     end
-    local newKey = string.upper(key)
-    -- Custom user abbreviations first
-    if addon.db.profile.text.customAbbreviations then
-        for k, v in pairs(addon.db.profile.text.customAbbreviations) do
-            newKey = newKey:gsub(string.upper(k), v)
+
+    -- Combine modifiers and the base key without a separator.
+    local result = mods .. base
+
+    -- Truncate to max length if needed.
+    if addon.db.profile.text.maxLength and #result > addon.db.profile.text.maxLength then
+        return result:sub(1, addon.db.profile.text.maxLength)
+    end
+
+    return result
+end
+
+function Keybinds:GetFullBindingText(button)
+    if not button or not button.GetName then return "" end
+    local buttonName = button:GetName()
+    local key
+
+    -- First, try to get the binding via the button's action ID, as this is the most reliable method.
+    if button.action and tonumber(button.action) and button.action > 0 then
+        local command = self:GetBindingCommandFromAction(button.action)
+        if command then
+            key = GetBindingKey(command)
+            if addon.db and addon.db.profile and addon.db.profile.debug then
+                addon:Print(string.format("[AHOS DEBUG] Keybinds:GetFullBindingText found key '%s' for %s via button.action %d (command: %s)", tostring(key), buttonName, button.action, command))
+            end
         end
     end
-    -- Normalize modifier order and split
-    local mods, base = normalizeModifiers(newKey)
-    -- Standard abbreviations
-    for k, v in pairs(abbreviations) do
-        base = base:gsub(k, v)
+
+    -- If that failed (e.g., no .action property), fall back to name matching for specific UIs.
+    if not key or key == "" then
+        -- AzeriteUI main bar mapping
+        local azBar, azBtn = buttonName:match("^AzeriteActionBar(%d+)Button(%d+)$")
+        if azBar and azBtn then
+            azBar = tonumber(azBar)
+            azBtn = tonumber(azBtn)
+            local command
+            if azBar == 1 then command = "ACTIONBUTTON" .. azBtn
+            elseif azBar == 2 then command = "MULTIACTIONBAR1BUTTON" .. azBtn
+            elseif azBar == 3 then command = "MULTIACTIONBAR2BUTTON" .. azBtn
+            elseif azBar == 4 then command = "MULTIACTIONBAR3BUTTON" .. azBtn
+            elseif azBar == 5 then command = "MULTIACTIONBAR4BUTTON" .. azBtn
+            end
+            if command then key = GetBindingKey(command) end
+        end
+
+        -- AzeriteUI stance bar mapping
+        local stanceBtn = buttonName:match("^AzeriteStanceBarButton(%d+)$")
+        if stanceBtn then
+            key = GetBindingKey("SHAPESHIFTBUTTON" .. stanceBtn)
+        end
     end
-    -- Option: separator between mods and key
-    local sep = ""
-    if addon.db.profile.text.modSeparator then
-        sep = addon.db.profile.text.modSeparator
+
+    -- Final fallback: try the button's global name. This works for some buttons like StanceButton1.
+    if not key or key == "" then
+        key = GetBindingKey(buttonName)
     end
-    newKey = mods ~= "" and (mods .. sep .. base) or base
-    -- Remove trailing separator if present
-    newKey = newKey:gsub(sep .. "$", "")
-    -- Limit length
-    local maxLength = addon.db.profile.text.maxLength or 6
-    if string.len(newKey) > maxLength then
-        newKey = string.sub(newKey, 1, maxLength)
+
+    return key or ""
+end
+
+function Keybinds:GetButtonDebugInfo(button)
+    if not button or not button:GetName() then return "Invalid button provided." end
+    local buttonName = button:GetName()
+    local hotkeyRegion = _G[buttonName .. "HotKey"]
+    local currentHotkeyText = hotkeyRegion and hotkeyRegion:GetText() or "N/A"
+    local storedOriginalText = (addon.db.profile.originalHotkeys and addon.db.profile.originalHotkeys[buttonName]) or "Not stored"
+
+    local info = {
+        string.format("|cFF00FF00[AHOS Inspect: %s]|r", buttonName),
+        "--------------------------------------------------",
+        string.format("  - Button Name: |cFFFFFF00%s|r", buttonName),
+        string.format("  - Button Action: |cFFFFFF00%s|r", tostring(button.action)),
+        string.format("  - Current Hotkey Text: |cFFFFFF00%s|r", tostring(currentHotkeyText)),
+        string.format("  - IsAbbreviation(current): |cFFFFFF00%s|r", tostring(self:IsAbbreviation(currentHotkeyText))),
+        "--------------------------------------------------",
+        string.format("  - Stored Original Text: |cFFFFFF00%s|r", tostring(storedOriginalText)),
+        string.format("  - IsAbbreviation(stored): |cFFFFFF00%s|r", tostring(self:IsAbbreviation(storedOriginalText))),
+        "--------------------------------------------------",
+        string.format("  - GetFullBindingText(): |cFFFFFF00%s|r", tostring(self:GetFullBindingText(button))),
+        string.format("  - GetBinding() (abbrev): |cFFFFFF00%s|r", tostring(self:GetBinding(button))),
+        "--------------------------------------------------",
+    }
+
+    -- Also try to get bindings directly
+    local directBinding = GetBindingKey(buttonName)
+    info[#info + 1] = string.format("  - GetBindingKey('%s'): |cFFFFFF00%s|r", buttonName, tostring(directBinding))
+
+    if button.action then
+        local actionBinding = GetBindingKey("ACTIONBUTTON" .. button.action)
+        info[#info + 1] = string.format("  - GetBindingKey('ACTIONBUTTON%s'): |cFFFFFF00%s|r", button.action, tostring(actionBinding))
     end
-    return newKey
+
+    return table.concat(info, "\n")
+end
+
+-- Checks if a given text is likely an abbreviation created by this addon.
+-- This is a heuristic used to avoid saving our own abbreviated text as the
+-- original Blizzard hotkey text when the addon reloads or updates.
+function Keybinds:IsAbbreviation(text)
+    if not text or text == "" then return false end
+
+    -- If it contains a hyphen, it's very likely a standard Blizzard keybind (e.g., "SHIFT-1").
+    -- Our default abbreviations do not contain hyphens unless the user configures it.
+    if text:find("-") then
+        return false
+    end
+
+    -- If it's purely a number, it's the original hotkey text.
+    if tonumber(text) then
+        return false
+    end
+
+    -- Our abbreviations must contain at least one uppercase letter (from a modifier or key).
+    if not text:match("[A-Z]") then
+        return false
+    end
+
+    -- If the text is longer than the configured max length, it's unlikely to be our abbreviation.
+    -- Add a small buffer to be safe.
+    local maxLength = (addon.db and addon.db.profile and addon.db.profile.text and addon.db.profile.text.maxLength) or 4
+    if #text > (maxLength + 1) then
+        return false
+    end
+
+    -- If it has a mix of numbers and letters and is short, it's very likely one of our abbreviations (e.g., "S1", "M4").
+    -- This is still a guess, but it's much safer than the previous implementation.
+    return true
 end
 
 -- Called when the addon profile changes.

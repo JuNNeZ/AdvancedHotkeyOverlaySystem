@@ -37,14 +37,20 @@ end
 LibStub("AceConfig-3.0"):RegisterOptionsTable(addonName, function()
     return addon.Options and addon.Options.GetOptions and addon.Options:GetOptions() or {}
 end)
-LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName, addonName)
+if not optionsAddedToBliz then
+    LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName, addonName)
+    optionsAddedToBliz = true
+end
 
 -- Helper to ensure options table is always registered after DB/profile changes
 function addon:RegisterOptionsTable()
     LibStub("AceConfig-3.0"):RegisterOptionsTable(addonName, function()
         return addon.Options and addon.Options.GetOptions and addon.Options:GetOptions() or {}
     end)
-    LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName, addonName)
+    if not optionsAddedToBliz then
+        LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName, addonName)
+        optionsAddedToBliz = true
+    end
 end
 
 -- Addon state
@@ -201,6 +207,13 @@ function addon:OnProfileChanged(event, db, newProfileKey)
             self:SafeCall(name, module.OnProfileChanged)
         end
     end
+    -- Force AceConfigDialog to refresh all options panels
+    local reg = LibStub and LibStub("AceConfigRegistry-3.0", true)
+    if reg then
+        reg:NotifyChange(addonName)
+    end
+    -- Force a full update to ensure overlays and fonts are refreshed
+    self:UpdateAllButtons()
 end
 
 -- REMOVE ALL LEGACY/BACKUP MINIMAP ICON CODE BELOW
@@ -432,3 +445,5 @@ AdvancedHotkeyOverlaySystem.UIColors = {
     NDui = {0.0, 0.75, 0.98},
     None = {1, 1, 1},
 }
+
+local optionsAddedToBliz = false

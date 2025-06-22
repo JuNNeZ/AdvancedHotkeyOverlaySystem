@@ -67,36 +67,49 @@ function Display:UpdateOverlayForButton(button)
     end
 
     local buttonName = button:GetName()
-    local keybindText = addon.Keybinds:GetBinding(button)
-    local abbreviated = addon.Keybinds:Abbreviate(keybindText)
-    if addon.db and addon.db.profile and addon.db.profile.debug then
-        addon:Print("[AHOS DEBUG] Button " .. buttonName .. " keybind: " .. tostring(keybindText) .. ", abbreviated: " .. tostring(abbreviated))
-    end
+    local overlayText = addon.Keybinds:GetBinding(button) -- This is the (potentially) abbreviated text for our overlay.
 
-    -- Hide original hotkey text if desired
+    -- Manage original hotkey text (save, hide, or restore)
     local hotkeyTextRegion = _G[buttonName .. "HotKey"]
     if hotkeyTextRegion then
-        -- Save the original text if not already saved
+        -- Save the original text if we haven't already.
         if originalHotkeyTexts[buttonName] == nil then
-            originalHotkeyTexts[buttonName] = hotkeyTextRegion:GetText()
+            -- First, get the raw, canonical keybinding (e.g., "SHIFT-MOUSEBUTTON5")
+            local fullBindingKey = addon.Keybinds:GetFullBindingText(button)
+
+            if fullBindingKey and fullBindingKey ~= "" then
+                -- Next, convert that raw key into the text Blizzard would actually display (e.g., "S-M5")
+                local displayBindingText = GetBindingText(fullBindingKey, "HOTKEY")
+                originalHotkeyTexts[buttonName] = displayBindingText or ""
+                if addon.db and addon.db.profile and addon.db.profile.debug then
+                    addon:Print(string.format("[AHOS DEBUG] Saved original Blizzard display text for %s: '%s' (from raw key '%s')", buttonName, tostring(displayBindingText), tostring(fullBindingKey)))
+                end
+            else
+                -- No binding found, save an empty string to prevent re-checking
+                originalHotkeyTexts[buttonName] = ""
+            end
         end
-        if addon.db and addon.db.profile and addon.db.profile.display and addon.db.profile.display.hideOriginal then
-            hotkeyTextRegion:SetText("")
+
+        -- Now, either hide the text or restore the original we just saved.
+        if addon.db.profile.display.hideOriginal then
+            -- Hide if it's not already hidden
+            if hotkeyTextRegion:GetText() ~= "" then
+                hotkeyTextRegion:SetText("")
+            end
         else
-            -- If not hiding, attempt to restore the original text.
-            -- Note: GetBindingText is a protected Blizzard function.
-            local success, originalText = pcall(GetBindingText, buttonName, "HOTKEY")
-            if success and originalText then
+            -- Restore if it's not already showing the correct original text
+            local originalText = originalHotkeyTexts[buttonName]
+            if originalText and hotkeyTextRegion:GetText() ~= originalText then
                 hotkeyTextRegion:SetText(originalText)
+                if addon.db and addon.db.profile and addon.db.profile.debug then
+                    addon:Print(string.format("[AHOS DEBUG] Restoring original hotkey text for %s: '%s'", buttonName, tostring(originalText)))
+                end
             end
         end
     end
 
-    -- If no keybind, remove any existing overlay
-    if not keybindText or keybindText == "" then
-        if addon.db and addon.db.profile and addon.db.profile.debug then
-            addon:Print("[AHOS DEBUG] No keybind for button: " .. tostring(buttonName))
-        end
+    -- If no keybind text for an overlay, remove any existing overlay and stop.
+    if not overlayText or overlayText == "" then
         if activeOverlays[buttonName] then
             ReleaseOverlayToPool(activeOverlays[buttonName])
             activeOverlays[buttonName] = nil
@@ -104,21 +117,18 @@ function Display:UpdateOverlayForButton(button)
         return
     end
 
-    -- Get or create overlay
+    -- Get or create the overlay frame
     local overlay = activeOverlays[buttonName]
     if not overlay then
-        if addon.db and addon.db.profile and addon.db.profile.debug then
-            addon:Print("[AHOS DEBUG] Creating overlay for button: " .. tostring(buttonName))
-        end
         overlay = GetOverlayFromPool(button)
         activeOverlays[buttonName] = overlay
     end
 
-    -- Configure and style the overlay
+    -- Configure and style the overlay with the correct text
     if addon.db and addon.db.profile and addon.db.profile.debug then
-        addon:Print("[AHOS DEBUG] Styling overlay for button: " .. tostring(buttonName) .. " with text: " .. tostring(abbreviated))
+        addon:Print(string.format("[AHOS DEBUG] Styling overlay for button: %s with text: %s", tostring(buttonName), tostring(overlayText)))
     end
-    self:StyleOverlay(overlay, button, abbreviated)
+    self:StyleOverlay(overlay, button, overlayText)
 end
 
 function Display:StyleOverlay(overlay, parent, text)
@@ -130,11 +140,40 @@ function Display:StyleOverlay(overlay, parent, text)
     overlay:SetAllPoints(parent)
 
     -- Text Styling
-    local fontPath = addon.Config and addon.Config.GetFontPath and addon.Config:GetFontPath(db.text.font) or "Fonts\\FRIZQT__.TTF"
+    local fontName = db.text.font or "Default"
+    local fontPath = addon.Config and addon.Config.GetFontPath and addon.Config:GetFontPath(fontName) or "Fonts\\FRIZQT__.TTF"
     local outline = db.text.outline and "OUTLINE" or ""
-    overlay.text:SetFont(fontPath, db.text.fontSize, outline)
+
+    -- Check font existence if using LibSharedMedia
+    local fontExists = true
+    local LibSharedMedia = LibStub and LibStub("LibSharedMedia-3.0", true)
+    if LibSharedMedia and fontName and fontName ~= "Default" then
+        local fetched = LibSharedMedia:Fetch("font", fontName, true)
+        fontExists = fetched and true or false
+        if addon.db and addon.db.profile and addon.db.profile.debug then
+            addon:Print("[AHOS DEBUG] LibSharedMedia:Fetch font '", fontName, "' existence:", tostring(fontExists), " path:", tostring(fetched))
+        end
+        if fontExists then
+            fontPath = fetched
+        end
+    end
+
+    if addon.db and addon.db.profile and addon.db.profile.debug then
+        addon:Print("[AHOS DEBUG] StyleOverlay: fontName=", fontName, "fontPath=", fontPath, "fontSize=", db.text.fontSize, "outline=", outline)
+    end
+    
+    -- Set the font and force refresh
+    local setFontResult = overlay.text:SetFont(fontPath, db.text.fontSize, outline)
     overlay.text:SetText(text)
     overlay.text:SetTextColor(unpack(db.text.color))
+
+    -- Force refresh: hide and show the FontString
+    overlay.text:Hide()
+    overlay.text:Show()
+
+    if addon.db and addon.db.profile and addon.db.profile.debug then
+        addon:Print("[AHOS DEBUG] StyleOverlay: SetFont result:", tostring(setFontResult), " overlay.text:IsShown()=", tostring(overlay.text:IsShown()), ", overlay:IsShown()=", tostring(overlay:IsShown()))
+    end
 
     if db.text.shadowEnabled then
         overlay.text:SetShadowColor(0, 0, 0, 1)
@@ -172,7 +211,6 @@ function Display:StyleOverlay(overlay, parent, text)
     -- Debug output for troubleshooting overlays
     if addon.db and addon.db.profile and addon.db.profile.debug then
         addon:Print("[AHOS DEBUG] StyleOverlay: parent=" .. tostring(parent and parent:GetName() or "nil") .. ", overlay framelevel=" .. tostring(overlay:GetFrameLevel()) .. ", text='" .. tostring(text) .. "', fontPath=" .. tostring(fontPath) .. ", fontSize=" .. tostring(db.text.fontSize) .. ", outline=" .. tostring(outline))
-        addon:Print("[AHOS DEBUG] StyleOverlay: overlay.text:IsShown()=" .. tostring(overlay.text:IsShown()) .. ", overlay:IsShown()=" .. tostring(overlay:IsShown()))
     end
 end
 
@@ -200,17 +238,33 @@ end
 
 -- Called on profile change to re-apply all settings
 function Display:OnProfileChanged()
+    -- Always update overlays and restyle overlays on profile change
     addon:SafeCall("Display", "UpdateAllOverlays")
+    -- Also restyle overlays in case font or color changed
+    if self.UpdateAllOverlayStyles then
+        self:UpdateAllOverlayStyles()
+    end
 end
 
-function Display:UpdateAllButtons(...)
+-- Add a helper to restyle all overlays (font, color, etc.)
+function Display:UpdateAllOverlayStyles()
+    for buttonName, overlay in pairs(activeOverlays) do
+        local button = _G[buttonName]
+        if button and overlay then
+            local overlayText = addon.Keybinds:GetBinding(button)
+            self:StyleOverlay(overlay, button, overlayText)
+        end
+    end
+end
+
+function Display:UpdateAllButtons()
     -- Alias for UpdateAllOverlays to ensure overlays are updated on all events
-    return self:UpdateAllOverlays(...)
+    return self:UpdateAllOverlays()
 end
 
 function Display:RemoveAllOverlays()
     if addon.db and addon.db.profile and addon.db.profile.debug then
-        addon:Print("[AHOS DEBUG] Display:RemoveAllOverlays called. activeOverlays count: " .. tostring(self.activeOverlays and table.getn(self.activeOverlays) or 0))
+        addon:Print("[AHOS DEBUG] Display:RemoveAllOverlays called. activeOverlays count: " .. tostring(activeOverlays and table.getn(activeOverlays) or 0))
     end
     -- Restore original Blizzard hotkey text for all tracked buttons
     local buttons = addon.Bars:GetAllButtons()
@@ -224,7 +278,7 @@ function Display:RemoveAllOverlays()
             end
         end
     end
-    wipe(self.activeOverlays)
+    wipe(activeOverlays)
     wipe(originalHotkeyTexts)
     if addon.db and addon.db.profile and addon.db.profile.debug then
         addon:Print("[AHOS DEBUG] All overlays removed and original keybinds restored.")

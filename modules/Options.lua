@@ -4,12 +4,19 @@ local addonName, privateScope = ...
 local addon = privateScope.addon
 local Options = addon.Options
 
+Options.selectedProfile = nil
+
 local function getSafeProfile()
     if addon and addon.db and addon.db.profile then
         return addon.db.profile
     end
     return setmetatable({}, { __index = function() return nil end })
 end
+
+local function isLocked()
+        local db = getSafeProfile()
+        return db.display and db.display.locked
+    end
 
 function Options:GetOptions()
     -- If the database isn't ready, provide a placeholder options table.
@@ -31,12 +38,40 @@ function Options:GetOptions()
     return {
         type = "group",
         name = addonName,
+        disabled = isLocked,
         get = function(info)
             local db = getSafeProfile()
             return db[info[#info]]
         end,
         set = function(info, value)
             local db = getSafeProfile()
+            if db.display and db.display.locked then
+                if not StaticPopupDialogs["AHOS_UNLOCK_SETTINGS"] then
+                    StaticPopupDialogs["AHOS_UNLOCK_SETTINGS"] = {
+                        text = "The settings are locked. Do you want to unlock?",
+                        button1 = "Yes",
+                        button2 = "No",
+                        OnAccept = function()
+                            db.display.locked = false
+                            addon:Print("|cff4A9EFFSettings unlocked|r - |cff888888you can now modify settings|r")
+                            -- Re-apply the change
+                            Options.lastSet(info, value)
+                        end,
+                        OnCancel = function() end,
+                        timeout = 0,
+                        whileDead = true,
+                        hideOnEscape = true,
+                        preferredIndex = 3,
+                    }
+                end
+                Options.lastSet = function(i, v)
+                    local db2 = getSafeProfile()
+                    db2[i[#i]] = v
+                    if addon:IsReady() then addon.Core:FullUpdate() end
+                end
+                StaticPopup_Show("AHOS_UNLOCK_SETTINGS")
+                return
+            end
             db[info[#info]] = value
             if addon:IsReady() then
                 addon.Core:FullUpdate()
@@ -121,7 +156,7 @@ function Options:GetOptions()
             },
             version = {
                 type = "description",
-                name = "|cff888888Version:|r |cffffd7002.0.0-alpha|r",
+                name = "|cff888888Version:|r |cffffd7002.2.0|r",
                 fontSize = "medium",
                 order = 22,
                 width = "full",
@@ -155,6 +190,17 @@ function Options:GetOptions()
                         name = "Hide Original Hotkey Text",
                         desc = "Hides the default hotkey text on action buttons.",
                         order = 1,
+                        get = function()
+                            local db = getSafeProfile()
+                            return db.display and db.display.hideOriginal
+                        end,
+                        set = function(info, val)
+                            local db = getSafeProfile()
+                            if db.display then
+                                db.display.hideOriginal = val
+                                addon.Core:FullUpdate()
+                            end
+                        end,
                     },
                     anchor = {
                         type = "select",
@@ -231,9 +277,14 @@ function Options:GetOptions()
                         order = 1,
                         values = function()
                             if addon.Config and addon.Config.GetFontList then
-                                return addon.Config:GetFontList()
+                                local list = addon.Config:GetFontList()
+                                local out = {}
+                                for _, name in ipairs(list) do
+                                    out[name] = name
+                                end
+                                return out
                             end
-                            return { "Default" }
+                            return { ["Default"] = "Default" }
                         end,
                         get = function() local db = getSafeProfile() return db.text and db.text.font end,
                         set = function(info, val) local db = getSafeProfile() if db.text then db.text.font = val; addon.Core:FullUpdate() end end,

@@ -91,19 +91,23 @@ function UI:EnsureMinimapIcon()
         "AdvancedHotkeyOverlayMinimapIcon"
     }
     for _, name in ipairs(legacyNames) do
-        if name ~= iconName and libDBIcon:IsRegistered(name) then
+        if name ~= iconName and libDBIcon.IsRegistered and libDBIcon:IsRegistered(name) then
             if addon.db and addon.db.profile and addon.db.profile.debug then
                 addon:Print("[AHOS DEBUG] Unregistering legacy minimap icon: " .. name)
             end
-            libDBIcon:Unregister(name)
+            if libDBIcon.Unregister then
+                libDBIcon:Unregister(name)
+            end
         end
     end
     -- Register only the desired icon name
     if addon.db and addon.db.profile and addon.db.profile.debug then
         addon:Print("[AHOS DEBUG] Registering minimap icon with LibDBIcon as " .. iconName)
     end
-    if libDBIcon:IsRegistered(iconName) then
-        libDBIcon:Unregister(iconName)
+    if libDBIcon.IsRegistered and libDBIcon:IsRegistered(iconName) then
+        if libDBIcon.Unregister then
+            libDBIcon:Unregister(iconName)
+        end
     end
     libDBIcon:Register(iconName, ldb:GetDataObjectByName(addonName), addon.db.profile.minimap)
     if addon.db.profile.minimap.hide then

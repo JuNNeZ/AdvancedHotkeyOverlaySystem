@@ -91,8 +91,12 @@ function Core:UnregisterEvents()
 end
 
 function Core:OnProfileChanged(event, db, newProfileKey)
-    if addon.db.profile.debug then
-        addon:Print("Profile changed to '" .. newProfileKey .. "'. Reloading.")
+    if addon.db and addon.db.profile and addon.db.profile.debug then
+        if newProfileKey then
+            addon:Print("Profile changed to '" .. tostring(newProfileKey) .. "'. Reloading.")
+        else
+            addon:Print("Profile changed. Reloading.")
+        end
     end
     self:FullUpdate()
 end
@@ -179,7 +183,16 @@ function Core:ChatCommand(input)
         addon.Config:DetectUI()
         addon:Print("UI re-detected as: " .. (addon.detectedUI or "Unknown"))
         self:FullUpdate()
+    elseif args[1] == "inspect" and args[2] then
+        local buttonName = string.upper(args[2])
+        local button = _G[buttonName]
+        if button then
+            local info = addon.Keybinds:GetButtonDebugInfo(button)
+            addon:Print(info)
+        else
+            addon:Print("Button '" .. tostring(args[2]) .. "' not found.")
+        end
     else
-        addon:Print("Usage: /ahos [refresh|debug|detect]")
+        addon:Print("Usage: /ahos [refresh|debug|detect|inspect <ButtonName>]")
     end
 end
