@@ -1,14 +1,32 @@
 ## Interface: 110107
-## Title: |T626001:16:16:0:0|t |cff00D4AAAdvanced |cffffd700Hotkey |cff00D4AAOverlay |cffffd700System|r
+## Title: |T626001:16:16:0:0|t |cff00D4AAAdvanced |cffffd700Hotkey |cffffffffOverlay |cffffd700System|r
 ## Notes: |cffffd700Advanced Hotkey Overlay System|r |cff00D4AA- Intelligent UI detection, live updates, and beautiful customization.|r
-## Author: |cff00D4AAJuNNeZ|r |cff888888with AI assistance|r
-## Version: |cffffd7001.3.2|r
-## SavedVariablesPerCharacter: AdvancedHotkeyOverlaySystemDB
+## Author: |cff00D4AAJuNNeZ|r
+## Version: 2.1.0
+## SavedVariables: AdvancedHotkeyOverlaySystemDB
 ## IconTexture: Interface\AddOns\AdvancedHotkeyOverlaySystem\media\logo
 ## X-Category: Action Bars
 ## X-Website: https://github.com/junnez/advancedhotkeyoverlaysystem
 ## X-Curse-Project-ID: advanced-hotkey-overlay-system
 ## X-WoWI-ID: advanced-hotkey-overlay-system
+## X-Compatible-With: 110107
+## X-Min-Interface: 110107
+## X-PackageMeta-ID: ahos-retail
+## X-LoadOn-Demand: 1
+
+# IMPORTANT: File Load Order
+# ----------------------------
+# This file controls the load order of the addon components.
+# DO NOT change the order of files without understanding the dependencies.
+# Breaking the load order will result in nil errors and broken functionality.
+#
+# Required order:
+# 1. Libraries (Ace3, etc.)
+# 2. Main addon file
+# 3. Modules in dependency order
+#
+# If you need to add new files, place them in the appropriate section
+# and maintain the dependency chain.
 
 # Libraries
 Libs\LibStub\LibStub.lua
@@ -21,5 +39,15 @@ Libs\AceTimer-3.0\AceTimer-3.0.xml
 Libs\LibSharedMedia-3.0\lib.xml
 Libs\LibDBIcon-1.0\embeds.xml
 
-# Main AddOn Code
+# Addon Core - Main AddOn Code (must be first)
 AdvancedHotkeyOverlaySystem.lua
+
+# Module Files - Load Order is Critical!
+modules\Config.lua
+modules\Options.lua
+modules\Core.lua
+modules\Bars.lua
+modules\Keybinds.lua
+modules\Display.lua
+modules\Performance.lua
+modules\UI.lua
