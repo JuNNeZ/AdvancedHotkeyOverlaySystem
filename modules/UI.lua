@@ -50,9 +50,10 @@ function UI:EnsureMinimapIcon()
         if addon.db and addon.db.profile and addon.db.profile.debug then
             addon:Print("[AHOS DEBUG] Creating LDB object for minimap icon.")
         end
+        local displayName = "Advanced Hotkey Overlay System"
         ldb:NewDataObject(addonName, {
             type = "launcher",
-            text = addonName,
+            text = displayName,
             icon = "Interface\\AddOns\\AdvancedHotkeyOverlaySystem\\media\\small-logo.tga",
             OnClick = function(_, button)
                 if type(_G.OpenAHOSOptionsPanel) == "function" and button == "LeftButton" then
@@ -60,7 +61,7 @@ function UI:EnsureMinimapIcon()
                 elseif button == "RightButton" then
                     local db = addon.db.profile
                     db.enabled = not db.enabled
-                    addon:Print(addonName .. (db.enabled and " enabled." or " disabled."))
+                    addon:Print(displayName .. (db.enabled and " enabled." or " disabled."))
                     if db.enabled then
                         addon.Core:OnEnable()
                     else
@@ -70,7 +71,7 @@ function UI:EnsureMinimapIcon()
             end,
             OnTooltipShow = function(tooltip)
                 if not tooltip or not tooltip.AddLine then return end
-                tooltip:AddLine(addonName)
+                tooltip:AddLine(displayName)
                 tooltip:AddLine("|cffeda55fLeft-click|r to open settings.")
                 tooltip:AddLine("|cffeda55fRight-click|r to toggle addon.")
             end,
@@ -104,12 +105,14 @@ function UI:EnsureMinimapIcon()
     if addon.db and addon.db.profile and addon.db.profile.debug then
         addon:Print("[AHOS DEBUG] Registering minimap icon with LibDBIcon as " .. iconName)
     end
-    if libDBIcon.IsRegistered and libDBIcon:IsRegistered(iconName) then
-        if libDBIcon.Unregister then
-            libDBIcon:Unregister(iconName)
+    -- Only register if not already registered
+    if not (libDBIcon.objects and libDBIcon.objects[iconName]) then
+        libDBIcon:Register(iconName, ldb:GetDataObjectByName(addonName), addon.db.profile.minimap)
+    else
+        if addon.db and addon.db.profile and addon.db.profile.debug then
+            addon:Print("[AHOS DEBUG] Minimap icon '" .. iconName .. "' already registered, skipping.")
         end
     end
-    libDBIcon:Register(iconName, ldb:GetDataObjectByName(addonName), addon.db.profile.minimap)
     if addon.db.profile.minimap.hide then
         if addon.db and addon.db.profile and addon.db.profile.debug then
             addon:Print("[AHOS DEBUG] Hiding minimap icon (profile setting).")

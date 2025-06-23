@@ -20,8 +20,24 @@ addon.Display = addon:NewModule("Display", "AceEvent-3.0")
 addon.Performance = addon:NewModule("Performance", "AceTimer-3.0")
 addon.UI = addon:NewModule("UI", "AceEvent-3.0")
 
+-- Compatibility helper for checking if an addon is loaded
+local function IsAddOnLoadedCompat(name)
+    if C_AddOns and C_AddOns.IsAddOnLoaded then
+        return C_AddOns.IsAddOnLoaded(name)
+    elseif IsAddOnLoaded then
+        return IsAddOnLoaded(name)
+    end
+    return false
+end
+
 -- Wrapper to call the correct module's UpdateAllButtons
 function addon:UpdateAllButtons(...)
+    if not self:ShouldShowOverlays() or not (self.db and self.db.profile and self.db.profile.enabled) then
+        if self.Display and self.Display.ClearAllOverlays then
+            self.Display:ClearAllOverlays()
+        end
+        return
+    end
     if self.Core and type(self.Core.UpdateAllButtons) == "function" then
         return self.Core:UpdateAllButtons(...)
     elseif self.Bars and type(self.Bars.UpdateAllButtons) == "function" then
@@ -33,23 +49,23 @@ function addon:UpdateAllButtons(...)
     end
 end
 
--- Register options table with AceConfigRegistry and add to Blizzard options
-LibStub("AceConfig-3.0"):RegisterOptionsTable(addonName, function()
-    return addon.Options and addon.Options.GetOptions and addon.Options:GetOptions() or {}
-end)
-if not optionsAddedToBliz then
-    LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName, addonName)
-    optionsAddedToBliz = true
-end
+-- Global reference for the options panel display name
+_G.AHOS_OPTIONS_PANEL_NAME = "Advanced Hotkey Overlay System"
 
--- Helper to ensure options table is always registered after DB/profile changes
-function addon:RegisterOptionsTable()
-    LibStub("AceConfig-3.0"):RegisterOptionsTable(addonName, function()
-        return addon.Options and addon.Options.GetOptions and addon.Options:GetOptions() or {}
-    end)
-    if not optionsAddedToBliz then
-        LibStub("AceConfigDialog-3.0"):AddToBlizOptions(addonName, addonName)
-        optionsAddedToBliz = true
+-- SAFETY: Update OpenAHOSOptionsPanel to use the plain config category
+_G.OpenAHOSOptionsPanel = function()
+    local AceConfigDialog = LibStub("AceConfigDialog-3.0", true)
+    local appName = _G.AHOS_OPTIONS_PANEL_NAME
+    if AceConfigDialog then
+        if AceConfigDialog.OpenFrames[appName] then
+            AceConfigDialog:Close(appName)
+        else
+            AceConfigDialog:Open(appName)
+            -- SAFETY: Do not set custom title, let Ace3/Blizzard handle it
+        end
+    elseif InterfaceOptionsFrame_OpenToCategory then
+        InterfaceOptionsFrame_OpenToCategory(appName)
+        InterfaceOptionsFrame_OpenToCategory(appName)
     end
 end
 
@@ -128,6 +144,14 @@ function addon:SetReady()
         if self.db.profile.debug then self:Print("PLAYER_REGEN_ENABLED: Updating overlays after combat.") end
         self:ScheduleTimer(function() self:UpdateAllButtons() end, 1)
     end)
+    self:RegisterEvent("PLAYER_ENTERING_WORLD", function()
+        if self.db.profile.debug then self:Print("PLAYER_ENTERING_WORLD: Updating overlays.") end
+        self:UpdateAllButtons()
+    end)
+    self:RegisterEvent("ZONE_CHANGED_NEW_AREA", function()
+        if self.db.profile.debug then self:Print("ZONE_CHANGED_NEW_AREA: Updating overlays.") end
+        self:UpdateAllButtons()
+    end)
 end
 
 -- Print a message to the default chat frame
@@ -139,6 +163,12 @@ end
 function addon:OnInitialize()
     -- Initialize the database
     self.db = LibStub("AceDB-3.0"):New("AdvancedHotkeyOverlaySystemDB", self.Config:GetDynamicDefaults(), true)
+
+    -- Register the options table once
+    LibStub("AceConfig-3.0"):RegisterOptionsTable(_G.AHOS_OPTIONS_PANEL_NAME, function()
+        return self.Options and self.Options.GetOptions and self.Options:GetOptions() or {}
+    end)
+    LibStub("AceConfigDialog-3.0"):AddToBlizOptions(_G.AHOS_OPTIONS_PANEL_NAME, _G.AHOS_OPTIONS_PANEL_NAME)
 
     -- Register for profile changes
     self.db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
@@ -159,10 +189,14 @@ function addon:OnInitialize()
         self:ScheduleTimer(function() self:UpdateAllButtons() end, 1)
         self:ScheduleTimer(function() self:UpdateAllButtons() end, 3)
     end)
+    -- Setup minimap icon after DB is ready
+    self:SetupMinimapButton()
     -- Remove overlay update event registrations from here
     if self.db.profile.debug then
         self:Print("Addon initialized and all overlay update events registered.")
     end
+    -- Show a popup if ElvUI is detected and overlays are not forced
+    C_Timer.After(2, function() self:MaybeShowElvUIWarningOnLoad() end)
 end
 
 function addon:OnPlayerLogin()
@@ -212,45 +246,30 @@ function addon:OnProfileChanged(event, db, newProfileKey)
     if reg then
         reg:NotifyChange(addonName)
     end
+    -- Update minimap icon visibility on profile change
+    self:SetupMinimapButton()
     -- Force a full update to ensure overlays and fonts are refreshed
     self:UpdateAllButtons()
 end
 
 -- REMOVE ALL LEGACY/BACKUP MINIMAP ICON CODE BELOW
--- (This disables the old DataBroker/minimap icon creation)
---[[]
-local LDB = LibStub("LibDataBroker-1.1", true)
-local LibDBIcon = LibStub("LibDBIcon-1.0", true)
-local minimapIconName = "AdvancedHotkeyOverlayMinimap"
-
-if LDB then
-    if not LDB:GetDataObjectByName(minimapIconName) then
-        LDB:NewDataObject(minimapIconName, {
-            type = "launcher",
-            text = "AHO",
-            icon = "Interface\\AddOns\\AdvancedHotkeyOverlaySystem\\media\\small-logo.tga",
-            OnClick = function(_, _)
-                if type(_G.OpenAHOSOptionsPanel) == "function" then
-                    _G.OpenAHOSOptionsPanel()
-                else
-                    print("[AHOS] Options panel function not available.")
-                end
-            end,
-            OnTooltipShow = function(tooltip)
-                tooltip:AddLine("AdvancedHotkeyOverlay")
-                tooltip:AddLine("Click: Toggle Options Panel")
-            end,
-        })
+-- Modern DataBroker/LibDBIcon minimap icon setup
+-- Use only the UI module for minimap icon registration
+function addon:SetupMinimapButton()
+    if addon.UI and type(addon.UI.EnsureMinimapIcon) == "function" then
+        -- Only register if not already registered
+        if not addon.UI.minimapIconRegistered then
+            local ok, err = pcall(function() addon.UI:EnsureMinimapIcon() end)
+            if ok then
+                addon.UI.minimapIconRegistered = true
+            else
+                self:Print("|cffff0000Error registering minimap icon:|r", err)
+            end
+        end
+    else
+        self:Print("|cffff0000UI module or EnsureMinimapIcon missing! Minimap icon not registered.|r")
     end
 end
-
-function AdvancedHotkeyOverlaySystem:SetupMinimapButton()
-    if LibDBIcon and type(LibDBIcon.Register) == "function" and LDB then
-        self.db.profile.minimap = self.db.profile.minimap or { hide = false }
-        LibDBIcon:Register(minimapIconName, LDB:GetDataObjectByName(minimapIconName), self.db.profile.minimap)
-    end
-end
-]]
 
 -- Basic localization table (expand as needed)
 local L = setmetatable({
@@ -274,7 +293,8 @@ local locale = GetLocale() or "enUS"
 local LocalizedStrings = L[locale] or L.enUS
 
 -- Slash Command Handler
-function AdvancedHotkeyOverlaySystem:SlashHandler(input)
+function AdvancedHotkeyOverlaySystem:SlashHandler(input
+)
     local cmd, rest = input:match("^(%S*)%s*(.-)$")
     cmd = cmd:lower() or ""
     if cmd == "" or cmd == "show" or cmd == "options" then
@@ -334,25 +354,18 @@ function AdvancedHotkeyOverlaySystem:SlashHandler(input)
         self:Print("|cffFFD700/ahos debug|r - |cff888888Toggle debug mode|r")
         self:Print("|cffFFD700/ahos detectui|r - |cff888888Manually detect UI addon|r")
         self:Print("|cffFFD700/ahos help|r - |cff888888Show this help message|r")
+    elseif cmd == "junnez" then
+        -- Fun Easter Egg!
+        self:Print("|cffFFD700Junnez is the secret overlord of hotkeys! |cff4A9EFF All your binds are belong to Junnez! |r")
+        for i = 1, 3 do
+            C_Timer.After(i * 0.5, function()
+                RaidNotice_AddMessage(RaidWarningFrame, "Praise Junnez!", ChatTypeInfo["RAID_WARNING"])
+            end)
+        end
+        PlaySound(12867) -- UI EpicLoot Toast
     else
         self:Print("|cffFF6B6BUnknown command:|r |cffFFD700" .. cmd .. "|r")
         self:Print("|cff888888Type|r |cffFFD700/ahos help|r |cff888888for available commands|r")
-    end
-end
-
--- Ensure OpenAHOSOptionsPanel is defined at the top-level and available everywhere
-_G.OpenAHOSOptionsPanel = function()
-    local AceConfigDialog = LibStub("AceConfigDialog-3.0", true)
-    local appName = "AdvancedHotkeyOverlaySystem" -- must match AceConfig registration (no spaces)
-    if AceConfigDialog then
-        if AceConfigDialog.OpenFrames[appName] then
-            AceConfigDialog:Close(appName)
-        else
-            AceConfigDialog:Open(appName)
-        end
-    elseif InterfaceOptionsFrame_OpenToCategory then
-        InterfaceOptionsFrame_OpenToCategory(appName)
-        InterfaceOptionsFrame_OpenToCategory(appName)
     end
 end
 
@@ -396,11 +409,11 @@ function AdvancedHotkeyOverlaySystem:DetectUI()
     -- Existing UI detection logic...
     local detectedUI = "Blizzard" -- Default to Blizzard UI
     -- Check for other known UI addons and set detectedUI accordingly
-    if IsAddOnLoaded("ElvUI") then
+    if IsAddOnLoadedCompat("ElvUI") then
         detectedUI = "ElvUI"
-    elseif IsAddOnLoaded("Tukui") then
+    elseif IsAddOnLoadedCompat("Tukui") then
         detectedUI = "Tukui"
-    elseif IsAddOnLoaded("AzeriteUI") then
+    elseif IsAddOnLoadedCompat("AzeriteUI") then
         detectedUI = "AzeriteUI"
     end
 
@@ -432,6 +445,8 @@ local UI_DETECTED_COLORS = {
     None = "ffffffff", -- fallback white
 }
 
+AdvancedHotkeyOverlaySystem.UI_DETECTED_COLORS = UI_DETECTED_COLORS
+
 AdvancedHotkeyOverlaySystem.UIColors = {
     Blizzard = {0.71, 0.88, 1.0},
     AzeriteUI = {0.90, 0.76, 0.00},
@@ -447,3 +462,69 @@ AdvancedHotkeyOverlaySystem.UIColors = {
 }
 
 local optionsAddedToBliz = false
+
+-- Optionally disable overlays if ElvUI is detected, or allow user override
+addon.elvuiDetected = false
+
+function addon:ShouldShowOverlays()
+    -- If ElvUI is loaded and user hasn't forced overlays, disable overlays
+    if IsAddOnLoadedCompat("ElvUI") then
+        self.elvuiDetected = true
+        return self.db and self.db.profile and self.db.profile.forceOverlaysWithElvUI
+    end
+    self.elvuiDetected = false
+    return true
+end
+
+-- In your UpdateAllButtons and overlay update logic, wrap overlay code:
+-- if addon:ShouldShowOverlays() then ... end
+-- Optionally, in your options panel, add:
+-- [ ] Force overlays even if ElvUI is loaded
+
+-- In your options table (modules/Options.lua), add:
+-- forceOverlaysWithElvUI = {
+--     type = "toggle",
+--     name = "Force Overlays with ElvUI",
+--     desc = "Show overlays even if ElvUI is loaded (may cause conflicts).",
+--     order = 99,
+--     get = function() local db = getSafeProfile() return db.forceOverlaysWithElvUI end,
+--     set = function(_, val) local db = getSafeProfile() db.forceOverlaysWithElvUI = val; addon.Core:FullUpdate() end,
+-- },
+-- And in overlay update code, check addon:ShouldShowOverlays().
+
+-- Show a popup if ElvUI is detected and overlays are not forced
+function addon:ShowElvUIOverlayWarning()
+    if not self.elvuiDetected or (self.db and self.db.profile and self.db.profile.forceOverlaysWithElvUI) then return end
+    if not StaticPopupDialogs["AHOS_ELVUI_WARNING"] then
+        StaticPopupDialogs["AHOS_ELVUI_WARNING"] = {
+            text = "ElvUI detected! Both ElvUI and Advanced Hotkey Overlay System provide keybind overlays.\n\nDo you want to disable AHO overlays (recommended)?",
+            button1 = "Yes (Disable AHO Overlays)",
+            button2 = "No (Keep Both)",
+            OnAccept = function()
+                local db = self.db and self.db.profile
+                if db then db.forceOverlaysWithElvUI = false; self.Core:FullUpdate() end
+            end,
+            OnCancel = function()
+                local db = self.db and self.db.profile
+                if db then db.forceOverlaysWithElvUI = true; self.Core:FullUpdate() end
+            end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+            preferredIndex = 3,
+        }
+    end
+    StaticPopup_Show("AHOS_ELVUI_WARNING")
+end
+
+-- Call this after DB is ready and overlays are about to be shown
+function addon:MaybeShowElvUIWarningOnLoad()
+    -- Ensure elvuiDetected is set correctly
+    self.elvuiDetected = IsAddOnLoadedCompat("ElvUI")
+    if self.db and self.db.profile then
+        self:Print("[DEBUG] ElvUI detected:", tostring(self.elvuiDetected), "forceOverlaysWithElvUI:", tostring(self.db.profile.forceOverlaysWithElvUI))
+    end
+    if self.elvuiDetected and self.db and self.db.profile and self.db.profile.forceOverlaysWithElvUI == nil then
+        self:ShowElvUIOverlayWarning()
+    end
+end

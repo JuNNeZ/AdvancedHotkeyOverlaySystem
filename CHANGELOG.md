@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2025-06-23
+
+### Modernization & Polish
+- Modernized and cleaned up all options panel registration and naming logic
+- No more color codes or icons in the options panel or .toc metadata
+- Only one options panel is registered, with robust error handling
+- Minimap/DataBroker icon and Blizzard options panel now always show the correct, user-friendly name
+- ElvUI compatibility and user prompt logic improved
+- Legacy and duplicate code removed for reliability
+- All overlays and minimap icon logic now robust and error-free
+
 ## [2.2.0] - 2025-06-22
 
 ### Added
@@ -86,6 +97,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+[2.3.0]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.3.0
 [2.2.0]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.2.0
 [2.1.0]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.1.0
 [2.0.0-alpha]: #

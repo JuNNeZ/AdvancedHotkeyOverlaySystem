@@ -24,7 +24,7 @@ function Options:GetOptions()
     if not addon.db or not addon.db.profile then
         return {
             type = "group",
-            name = addonName,
+            name = _G.AHOS_OPTIONS_PANEL_NAME,
             args = {
                 info = {
                     type = "description",
@@ -37,7 +37,7 @@ function Options:GetOptions()
 
     return {
         type = "group",
-        name = addonName,
+        name = _G.AHOS_OPTIONS_PANEL_NAME,
         disabled = isLocked,
         get = function(info)
             local db = getSafeProfile()
@@ -263,6 +263,15 @@ function Options:GetOptions()
                         get = function() local db = getSafeProfile() return db.display and db.display.strata or "HIGH" end,
                         set = function(info, val) local db = getSafeProfile() if db.display then db.display.strata = val; addon.Core:FullUpdate() end end,
                     },
+                    frameLevel = {
+                        type = "range",
+                        name = "Overlay Frame Level",
+                        desc = "Fine-tune overlay stacking within the chosen strata. Higher values appear above lower ones in the same strata.",
+                        order = 9,
+                        min = 1, max = 128, step = 1,
+                        get = function() local db = getSafeProfile() return db.display and db.display.frameLevel or 10 end,
+                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.frameLevel = val; addon.Core:FullUpdate() end end,
+                    },
                 },
             },
             text = {
@@ -342,6 +351,29 @@ function Options:GetOptions()
                         set = function(_, val)
                             addon.db.profile.text.modSeparator = val
                             addon:SafeCall("Core", "FullUpdate")
+                        end,
+                    },
+                },
+            },
+            minimap = {
+                type = "group",
+                name = "Minimap Icon",
+                order = 1.5,
+                inline = true,
+                args = {
+                    hide = {
+                        type = "toggle",
+                        name = "Hide Minimap Icon",
+                        desc = "Hide or show the minimap icon.",
+                        get = function()
+                            local db = getSafeProfile()
+                            return db.minimap and db.minimap.hide
+                        end,
+                        set = function(_, val)
+                            local db = getSafeProfile()
+                            db.minimap = db.minimap or {}
+                            db.minimap.hide = val
+                            if addon.SetupMinimapButton then addon:SetupMinimapButton() end
                         end,
                     },
                 },

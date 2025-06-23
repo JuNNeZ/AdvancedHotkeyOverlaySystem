@@ -207,6 +207,9 @@ function Display:StyleOverlay(overlay, parent, text)
     -- Set overlay frame strata from options
     local strata = (addon.db and addon.db.profile and addon.db.profile.display and addon.db.profile.display.strata) or "HIGH"
     overlay:SetFrameStrata(strata)
+    -- Set overlay frame level from options (default 10)
+    local frameLevel = (addon.db and addon.db.profile and addon.db.profile.display and addon.db.profile.display.frameLevel) or 10
+    overlay:SetFrameLevel(frameLevel)
 
     -- Debug output for troubleshooting overlays
     if addon.db and addon.db.profile and addon.db.profile.debug then
