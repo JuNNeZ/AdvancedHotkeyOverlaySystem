@@ -20,10 +20,11 @@ function UI:OnEnable()
         UI:RegisterEvent("PLAYER_LOGIN", function()
             if addon.db and addon.db.profile and addon.db.profile.debug then
                 addon:Print("[AHOS] PLAYER_LOGIN: Ensuring minimap icon...")
-            else
-                -- Show colored version string on normal enable
-                local version = "2.1.0" -- keep in sync with TOC
-                local msg = "|cff00D4AAAdvanced |cffffd700Hotkey |cffffffffOverlay |cffffd700System|r v.|cff00ffff" .. version .. "|r |cffffffffenabled.|r"
+            end
+            -- Show colored version string on normal enable
+            local version = "2.1.0" -- keep in sync with TOC
+            local msg = "|cff00D4AAAdvanced |cffffd700Hotkey |cffffffffOverlay |cffffd700System|r v.|cff00ffff" .. version .. "|r |cffffffffenabled.|r"
+            if not (addon.db and addon.db.profile and addon.db.profile.debug) then
                 addon:Print(msg)
             end
             addon:SafeCall("UI", "EnsureMinimapIcon")

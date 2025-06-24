@@ -156,7 +156,9 @@ local function normalizeModifiers(key)
         return sortOrder[a] < sortOrder[b]
     end)
 
-    return table.concat(modsAbbr, ""), baseKey
+    -- Use the configured separator from options, default to none
+    local sep = addon.db and addon.db.profile and addon.db.profile.text and addon.db.profile.text.modSeparator or ""
+    return table.concat(modsAbbr, sep), baseKey
 end
 
 function Keybinds:ClearCache()
@@ -253,7 +255,13 @@ function Keybinds:GetFullBindingText(button)
         key = GetBindingKey(buttonName)
     end
 
-    return key or ""
+    -- WoW's GetBindingKey can return nil, an empty string, or even a null character for unbound keys.
+    -- We normalize all of these to a simple empty string to prevent issues downstream.
+    if not key or key == "" or key == "\0" then
+        return ""
+    end
+
+    return key
 end
 
 function Keybinds:GetButtonDebugInfo(button)

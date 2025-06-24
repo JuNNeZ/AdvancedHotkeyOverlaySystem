@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2025-06-24
+
+### Added
+- In-game changelog and version info tab
+- Debug export window and /ahos debugexport command
+- LibSerialize/LibDeflate support for profile export
+- Help & Debugging tab in options
+
+### Changed
+- Updated documentation and versioning for 2.4.0
+- Many bugfixes and polish
+
 ## [2.3.0] - 2025-06-23
 
 ### Modernization & Polish
@@ -97,6 +109,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+[2.4.0]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.4.0
 [2.3.0]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.3.0
 [2.2.0]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.2.0
 [2.1.0]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.1.0

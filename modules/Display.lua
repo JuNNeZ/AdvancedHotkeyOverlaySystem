@@ -38,6 +38,11 @@ function Display:ClearAllOverlays()
     -- Do NOT wipe originalHotkeyTexts here!
 end
 
+-- Helper: Returns true if the text is a Blizzard fallback glyph for unbound keys
+local function IsFallbackHotkeyGlyph(text)
+    return text == "●" or text == "\226\151\136" or text == "\u{25CF}" -- covers UTF-8 and Lua representations
+end
+
 function Display:UpdateAllOverlays()
     if not addon:IsReady() then
         if addon.db and addon.db.profile and addon.db.profile.debug then
@@ -47,8 +52,33 @@ function Display:UpdateAllOverlays()
     end
     self:ClearAllOverlays()
     local buttons = addon.Bars:GetAllButtons()
+    if not buttons or #buttons == 0 then
+        if addon.db and addon.db.profile and addon.db.profile.debug then
+            addon:Print("[AHOS DEBUG] Display:UpdateAllOverlays: No buttons found, skipping overlay logic.")
+        end
+        return
+    end
     if addon.db and addon.db.profile and addon.db.profile.debug then
         addon:Print("[AHOS DEBUG] Display:UpdateAllOverlays processing " .. tostring(#buttons) .. " buttons.")
+    end
+    -- When overlays are toggled off or 'hide original' is toggled off, force Blizzard to repopulate and capture the original hotkey text if not already stored
+    if addon.db and addon.db.profile and addon.db.profile.display and not addon.db.profile.display.hideOriginal then
+        for _, button in ipairs(buttons) do
+            local buttonName = button:GetName()
+            local hotkeyTextRegion = _G[buttonName .. "HotKey"]
+            if hotkeyTextRegion and (not originalHotkeyTexts[buttonName] or originalHotkeyTexts[buttonName] == "") then
+                if button.UpdateHotkeys then
+                    button:UpdateHotkeys()
+                end
+                local blizzText = hotkeyTextRegion:GetText()
+                if blizzText and blizzText ~= "" and not IsFallbackHotkeyGlyph(blizzText) then
+                    originalHotkeyTexts[buttonName] = blizzText
+                    if addon.db and addon.db.profile and addon.db.profile.debug then
+                        addon:Print("[AHOS DEBUG] Captured original Blizzard hotkey for " .. buttonName .. ": '" .. tostring(blizzText) .. "'")
+                    end
+                end
+            end
+        end
     end
     for _, button in ipairs(buttons) do
         self:UpdateOverlayForButton(button)
@@ -59,71 +89,99 @@ function Display:UpdateAllOverlays()
 end
 
 function Display:UpdateOverlayForButton(button)
-    if not button or not button:IsVisible() or not button:GetName() or not addon:IsReady() then
+    if not button or not button:IsVisible() or not button.GetName or not button:GetName() or not addon:IsReady() then
         if addon.db and addon.db.profile and addon.db.profile.debug then
             addon:Print("[AHOS DEBUG] Skipping button: " .. tostring(button and button.GetName and button:GetName() or "nil"))
         end
         return
     end
-
     local buttonName = button:GetName()
-    local overlayText = addon.Keybinds:GetBinding(button) -- This is the (potentially) abbreviated text for our overlay.
-
+    local overlayText = addon.Keybinds:GetBinding(button)
     -- Manage original hotkey text (save, hide, or restore)
     local hotkeyTextRegion = _G[buttonName .. "HotKey"]
     if hotkeyTextRegion then
-        -- Save the original text if we haven't already.
-        if originalHotkeyTexts[buttonName] == nil then
-            -- First, get the raw, canonical keybinding (e.g., "SHIFT-MOUSEBUTTON5")
-            local fullBindingKey = addon.Keybinds:GetFullBindingText(button)
-
-            if fullBindingKey and fullBindingKey ~= "" then
-                -- Next, convert that raw key into the text Blizzard would actually display (e.g., "S-M5")
-                local displayBindingText = GetBindingText(fullBindingKey, "HOTKEY")
-                originalHotkeyTexts[buttonName] = displayBindingText or ""
-                if addon.db and addon.db.profile and addon.db.profile.debug then
-                    addon:Print(string.format("[AHOS DEBUG] Saved original Blizzard display text for %s: '%s' (from raw key '%s')", buttonName, tostring(displayBindingText), tostring(fullBindingKey)))
-                end
-            else
-                -- No binding found, save an empty string to prevent re-checking
-                originalHotkeyTexts[buttonName] = ""
+        local currentText = hotkeyTextRegion:GetText()
+        if currentText == nil or currentText == "" or currentText == "\0" or IsFallbackHotkeyGlyph(currentText) then
+            currentText = ""
+        end
+        local overlayAbbrev = addon.Keybinds:GetBinding(button)
+        -- Only save the original ONCE, before any overlays or hiding, and only if it's not blank/null/overlay/fallback glyph
+        if originalHotkeyTexts[buttonName] == nil and currentText ~= "" and currentText ~= "\0" and currentText ~= overlayAbbrev and not IsFallbackHotkeyGlyph(currentText) then
+            originalHotkeyTexts[buttonName] = currentText
+            if addon.db and addon.db.profile and addon.db.profile.debug then
+                addon:Print("[AHOS DEBUG] Saved original hotkey text for " .. buttonName .. ": '" .. tostring(currentText) .. "'")
             end
         end
-
-        -- Now, either hide the text or restore the original we just saved.
-        if addon.db.profile.display.hideOriginal then
-            -- Hide if it's not already hidden
+        if addon.db.profile.display.hideOriginal and overlayText and overlayText ~= "" then
+            -- Hide Blizzard hotkey text if overlays are present and hideOriginal is on
             if hotkeyTextRegion:GetText() ~= "" then
                 hotkeyTextRegion:SetText("")
+                if addon.db and addon.db.profile and addon.db.profile.debug then
+                    addon:Print("[AHOS DEBUG] Hiding Blizzard hotkey text for " .. buttonName)
+                end
             end
         else
-            -- Restore if it's not already showing the correct original text
-            local originalText = originalHotkeyTexts[buttonName]
-            if originalText and hotkeyTextRegion:GetText() ~= originalText then
-                hotkeyTextRegion:SetText(originalText)
-                if addon.db and addon.db.profile and addon.db.profile.debug then
-                    addon:Print(string.format("[AHOS DEBUG] Restoring original hotkey text for %s: '%s'", buttonName, tostring(originalText)))
+            -- Show Blizzard hotkey text if overlays are off or hideOriginal is off
+            local orig = originalHotkeyTexts[buttonName]
+            if orig and not IsFallbackHotkeyGlyph(orig) then
+                hotkeyTextRegion:SetText(orig)
+            else
+                -- Try to force Blizzard to update the hotkey text
+                if button.UpdateHotkeys then
+                    button:UpdateHotkeys()
                 end
+                -- After update, try to save the new original
+                local newText = hotkeyTextRegion:GetText()
+                if newText and newText ~= "" and not IsFallbackHotkeyGlyph(newText) then
+                    originalHotkeyTexts[buttonName] = newText
+                end
+            end
+            if not hotkeyTextRegion:IsShown() then
+                hotkeyTextRegion:Show()
             end
         end
     end
-
     -- If no keybind text for an overlay, remove any existing overlay and stop.
     if not overlayText or overlayText == "" then
         if activeOverlays[buttonName] then
             ReleaseOverlayToPool(activeOverlays[buttonName])
             activeOverlays[buttonName] = nil
         end
+        -- Restore or repopulate Blizzard hotkey if overlays are off or no overlay is shown
+        local hotkeyTextRegion = _G[buttonName .. "HotKey"]
+        local orig = originalHotkeyTexts[buttonName]
+        if hotkeyTextRegion then
+            -- Always set to empty if unbound or fallback glyph
+            if not orig or orig == "" or IsFallbackHotkeyGlyph(orig) then
+                hotkeyTextRegion:SetText("")
+                if addon.db and addon.db.profile and addon.db.profile.debug then
+                    addon:Print("[AHOS DEBUG] Set hotkey text to empty for unbound or fallback: " .. buttonName)
+                end
+            elseif orig and not IsFallbackHotkeyGlyph(orig) then
+                hotkeyTextRegion:SetText(orig)
+            else
+                if button.UpdateHotkeys then
+                    button:UpdateHotkeys()
+                end
+                local newText = hotkeyTextRegion:GetText()
+                if newText and newText ~= "" and not IsFallbackHotkeyGlyph(newText) then
+                    originalHotkeyTexts[buttonName] = newText
+                elseif not newText or newText == "" or IsFallbackHotkeyGlyph(newText) then
+                    hotkeyTextRegion:SetText("")
+                    if addon.db and addon.db.profile and addon.db.profile.debug then
+                        addon:Print("[AHOS DEBUG] Set hotkey text to empty after Blizzard update for unbound: " .. buttonName)
+                    end
+                end
+            end
+        end
         return
     end
-
     -- Get or create the overlay frame
     local overlay = activeOverlays[buttonName]
     if not overlay then
         overlay = GetOverlayFromPool(button)
         activeOverlays[buttonName] = overlay
     end
-
     -- Configure and style the overlay with the correct text
     if addon.db and addon.db.profile and addon.db.profile.debug then
         addon:Print(string.format("[AHOS DEBUG] Styling overlay for button: %s with text: %s", tostring(buttonName), tostring(overlayText)))
@@ -241,7 +299,8 @@ end
 
 -- Called on profile change to re-apply all settings
 function Display:OnProfileChanged()
-    -- Always update overlays and restyle overlays on profile change
+    -- Always clear overlays before updating on profile change
+    self:ClearAllOverlays()
     addon:SafeCall("Display", "UpdateAllOverlays")
     -- Also restyle overlays in case font or color changed
     if self.UpdateAllOverlayStyles then
@@ -274,15 +333,29 @@ function Display:RemoveAllOverlays()
     for _, button in ipairs(buttons) do
         local buttonName = button:GetName()
         local hotkeyTextRegion = _G[buttonName .. "HotKey"]
-        if hotkeyTextRegion and originalHotkeyTexts[buttonName] ~= nil then
-            hotkeyTextRegion:SetText(originalHotkeyTexts[buttonName])
+        local orig = originalHotkeyTexts[buttonName]
+        if hotkeyTextRegion and orig ~= nil and not IsFallbackHotkeyGlyph(orig) then
+            hotkeyTextRegion:SetText(orig)
             if addon.db and addon.db.profile and addon.db.profile.debug then
-                addon:Print("[AHOS DEBUG] Restored hotkey text for " .. buttonName .. ": " .. tostring(originalHotkeyTexts[buttonName]))
+                addon:Print("[AHOS DEBUG] Restored hotkey text for " .. buttonName .. ": '" .. tostring(orig) .. "'")
+            end
+        elseif hotkeyTextRegion and orig ~= nil and IsFallbackHotkeyGlyph(orig) then
+            hotkeyTextRegion:SetText("")
+            if addon.db and addon.db.profile and addon.db.profile.debug then
+                addon:Print("[AHOS DEBUG] Suppressed fallback glyph for " .. buttonName)
+            end
+        elseif hotkeyTextRegion then
+            -- If we never saved a valid original, try to force Blizzard to redraw
+            hotkeyTextRegion:SetText("")
+            hotkeyTextRegion:Hide()
+            hotkeyTextRegion:Show()
+            if addon.db and addon.db.profile and addon.db.profile.debug then
+                addon:Print("[AHOS DEBUG] Forced Blizzard redraw for missing original hotkey text on " .. buttonName)
             end
         end
     end
     wipe(activeOverlays)
-    wipe(originalHotkeyTexts)
+    -- wipe(originalHotkeyTexts) -- Do not clear originals; needed for restoration across toggles
     if addon.db and addon.db.profile and addon.db.profile.debug then
         addon:Print("[AHOS DEBUG] All overlays removed and original keybinds restored.")
     end

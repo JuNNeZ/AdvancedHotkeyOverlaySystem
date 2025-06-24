@@ -2,7 +2,7 @@
 ## Title: |T626001:16:16:0:0|t |cff00D4AAAdvanced |cffffd700Hotkey |cffffffffOverlay |cffffd700System|r
 ## Notes: |cffffd700Advanced Hotkey Overlay System|r |cff00D4AA- Intelligent UI detection, live updates, and beautiful customization.|r
 ## Author: |cff00D4AAJuNNeZ|r
-## Version: 2.3.0
+## Version: 2.4.0
 ## SavedVariables: AdvancedHotkeyOverlaySystemDB
 ## IconTexture: Interface\AddOns\AdvancedHotkeyOverlaySystem\media\logo
 ## X-Category: Action Bars
@@ -37,6 +37,8 @@ Libs\AceEvent-3.0\AceEvent-3.0.xml
 Libs\AceTimer-3.0\AceTimer-3.0.xml
 Libs\LibSharedMedia-3.0\lib.xml
 Libs\LibDBIcon-1.0\embeds.xml
+Libs\LibSerialize-1.2.1\lib.xml
+Libs\LibDeflate\lib.xml
 
 # Addon Core - Main AddOn Code (must be first)
 AdvancedHotkeyOverlaySystem.lua

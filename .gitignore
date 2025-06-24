@@ -1,6 +1,5 @@
 /.vscode
-CurseForge-Description.md
+CURSEFORGE.md
 AdvancedHotkeyOverlaySystem.code-workspace
 ChangeLog.md
-# Ignore all files in the build directory
 /build/

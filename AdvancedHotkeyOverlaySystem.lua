@@ -234,7 +234,6 @@ function addon:OnProfileChanged(event, db, newProfileKey)
     if self.db.profile.debug then
         self:Print("Profile changed to", newProfileKey)
     end
-    self:RegisterOptionsTable()
     -- Notify all modules of the profile change
     for name, module in self:IterateModules() do
         if module.OnProfileChanged then
@@ -363,6 +362,23 @@ function AdvancedHotkeyOverlaySystem:SlashHandler(input
             end)
         end
         PlaySound(12867) -- UI EpicLoot Toast
+    elseif cmd == "inspect" then
+        local buttonName = rest and rest:match("^(%S+)")
+        if not buttonName or buttonName == "" then
+            self:Print("|cffFF6B6BUsage:|r |cffFFD700/ahos inspect <ButtonName>|r")
+        else
+            local button = _G[buttonName]
+            if button then
+                if self.Keybinds and self.Keybinds.GetButtonDebugInfo then
+                    local info = self.Keybinds:GetButtonDebugInfo(button)
+                    self:Print(info)
+                else
+                    self:Print("|cffFF6B6BKeybinds module not available.|r")
+                end
+            else
+                self:Print("|cffFF6B6BButton not found:|r |cffFFD700" .. buttonName .. "|r")
+            end
+        end
     else
         self:Print("|cffFF6B6BUnknown command:|r |cffFFD700" .. cmd .. "|r")
         self:Print("|cff888888Type|r |cffFFD700/ahos help|r |cff888888for available commands|r")
@@ -527,4 +543,85 @@ function addon:MaybeShowElvUIWarningOnLoad()
     if self.elvuiDetected and self.db and self.db.profile and self.db.profile.forceOverlaysWithElvUI == nil then
         self:ShowElvUIOverlayWarning()
     end
+end
+
+local LibSerialize = LibStub and LibStub("LibSerialize")
+local LibDeflate = LibStub and LibStub("LibDeflate")
+
+-- Debug Export Window
+function addon:ShowDebugExportWindow(data)
+    if not addon.DebugExportFrame then
+        local f = CreateFrame("Frame", "AHOS_DebugExportFrame", UIParent, "BackdropTemplate")
+        f:SetSize(600, 300)
+        f:SetPoint("CENTER")
+        f:SetFrameStrata("DIALOG")
+        f:SetBackdrop({ bgFile = "Interface/Tooltips/UI-Tooltip-Background", edgeFile = "Interface/Tooltips/UI-Tooltip-Border", tile = true, tileSize = 16, edgeSize = 16, insets = { left = 4, right = 4, top = 4, bottom = 4 } })
+        f:SetBackdropColor(0,0,0,0.85)
+        f:SetMovable(true)
+        f:EnableMouse(true)
+        f:RegisterForDrag("LeftButton")
+        f:SetScript("OnDragStart", f.StartMoving)
+        f:SetScript("OnDragStop", f.StopMovingOrSizing)
+        f:Hide()
+        local eb = CreateFrame("EditBox", nil, f)
+        eb:SetMultiLine(true)
+        eb:SetFontObject(ChatFontNormal)
+        eb:SetSize(560, 220)
+        eb:SetPoint("TOP", 0, -30)
+        eb:SetAutoFocus(true)
+        eb:SetScript("OnEscapePressed", function() f:Hide() end)
+        eb:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+        f.EditBox = eb
+        local scroll = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
+        scroll:SetPoint("TOPLEFT", 20, -30)
+        scroll:SetPoint("BOTTOMRIGHT", -30, 40)
+        scroll:SetScrollChild(eb)
+        local close = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+        close:SetText("Close")
+        close:SetWidth(80)
+        close:SetPoint("BOTTOMRIGHT", -20, 10)
+        close:SetScript("OnClick", function() f:Hide() end)
+        f.CloseButton = close
+        local label = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        label:SetPoint("TOP", 0, -10)
+        label:SetText("AHOS Debug Export")
+        f.Label = label
+        addon.DebugExportFrame = f
+    end
+    addon.DebugExportFrame.EditBox:SetText(data or "[No data]")
+    addon.DebugExportFrame:Show()
+    addon.DebugExportFrame.EditBox:HighlightText()
+end
+
+function addon:DebugExportTable(tbl)
+    if not tbl then self:ShowDebugExportWindow("[No table provided]"); return end
+    local serialized = LibSerialize and LibSerialize:Serialize(tbl)
+    if serialized and LibDeflate then
+        local compressed = LibDeflate:CompressDeflate(serialized)
+        local encoded = LibDeflate:EncodeForPrint(compressed)
+        self:ShowDebugExportWindow(encoded)
+    elseif serialized then
+        self:ShowDebugExportWindow(serialized)
+    else
+        self:ShowDebugExportWindow("[Serialization not available]")
+    end
+end
+
+-- Add /ahos debugexport <tablepath> command
+local origSlashHandler = AdvancedHotkeyOverlaySystem.SlashHandler
+function AdvancedHotkeyOverlaySystem:SlashHandler(input)
+    local cmd, rest = input:match("^(%S*)%s*(.-)$")
+    cmd = cmd:lower() or ""
+    if cmd == "debugexport" then
+        local path = rest and rest:match("^(%S+)")
+        local tbl = addon.db and addon.db.profile
+        if path and path ~= "" then
+            for key in string.gmatch(path, "[^%.]+") do
+                if tbl and type(tbl) == "table" then tbl = tbl[key] else tbl = nil; break end
+            end
+        end
+        self:DebugExportTable(tbl)
+        return
+    end
+    origSlashHandler(self, input)
 end

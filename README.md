@@ -1,18 +1,16 @@
 # Advanced Hotkey Overlay System (AHOS)
 
-![Version](https://img.shields.io/badge/version-2.3.0-cyan)
+![Version](https://img.shields.io/badge/version-2.4.0-cyan)
 
 A modular, robust hotkey overlay system for World of Warcraft action bars, supporting Blizzard, AzeriteUI, and ConsolePort-style keybind abbreviations.
 
-## Version 2.3.0 Highlights
+## Version 2.4.0 Highlights
 
-- Modernized and cleaned up all options panel registration and naming logic
-- No more color codes or icons in the options panel or .toc metadata
-- Only one options panel is registered, with robust error handling
-- Minimap/DataBroker icon and Blizzard options panel now always show the correct, user-friendly name
-- ElvUI compatibility and user prompt logic improved
-- Legacy and duplicate code removed for reliability
-- All overlays and minimap icon logic now robust and error-free
+- In-game changelog and version info tab
+- Debug export window and /ahos debugexport command
+- LibSerialize/LibDeflate support for profile export
+- Help & Debugging tab in options
+- Many bugfixes and polish
 
 ## Features
 

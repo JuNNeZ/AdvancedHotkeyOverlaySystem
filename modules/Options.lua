@@ -78,6 +78,142 @@ function Options:GetOptions()
             end
         end,
         args = {
+            profiles = {
+                type = "group",
+                name = "Profiles",
+                order = 100,
+                args = {
+                    aceProfiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(addon.db),
+                    customProfileManagement = {
+                        type = "group",
+                        name = "Profile Management",
+                        order = 2,
+                        args = {
+                            currentProfile = {
+                                type = "description",
+                                name = function()
+                                    if addon.db and addon.db:GetCurrentProfile() then
+                                        return "|cff4A9EFFCurrent Profile:|r |cffffd700" .. addon.db:GetCurrentProfile() .. "|r"
+                                    else
+                                        return "|cff4A9EFFCurrent Profile:|r |cffffd700Unknown|r"
+                                    end
+                                end,
+                                order = 0.5,
+                                width = "full",
+                            },
+                            useGlobal = {
+                                type = "execute",
+                                name = "Use Global Profile",
+                                desc = "Switch to the global (Default) profile.",
+                                order = 1,
+                                func = function()
+                                    if addon.db then
+                                        StaticPopupDialogs["AHOS_CONFIRM_PROFILE_SWITCH"] = {
+                                            text = "Switch to the global (Default) profile? This will overwrite your current settings.",
+                                            button1 = "Yes",
+                                            button2 = "No",
+                                            OnAccept = function()
+                                                addon.db:SetProfile("Default")
+                                                addon:Print("|cff4A9EFFSwitched to global profile:|r Default")
+                                            end,
+                                            OnCancel = function() end,
+                                            timeout = 0,
+                                            whileDead = true,
+                                            hideOnEscape = true,
+                                            preferredIndex = 3,
+                                        }
+                                        StaticPopup_Show("AHOS_CONFIRM_PROFILE_SWITCH")
+                                    end
+                                end,
+                            },
+                            useCharacter = {
+                                type = "execute",
+                                name = "Use Character Profile",
+                                desc = "Switch to a character-specific profile.",
+                                order = 2,
+                                func = function()
+                                    if addon.db then
+                                        local charProfile = UnitName("player") .. " - " .. GetRealmName()
+                                        StaticPopupDialogs["AHOS_CONFIRM_PROFILE_SWITCH_CHAR"] = {
+                                            text = "Switch to the character-specific profile? This will overwrite your current settings.",
+                                            button1 = "Yes",
+                                            button2 = "No",
+                                            OnAccept = function()
+                                                addon.db:SetProfile(charProfile)
+                                                addon:Print("|cff4A9EFFSwitched to character profile:|r " .. charProfile)
+                                            end,
+                                            OnCancel = function() end,
+                                            timeout = 0,
+                                            whileDead = true,
+                                            hideOnEscape = true,
+                                            preferredIndex = 3,
+                                        }
+                                        StaticPopup_Show("AHOS_CONFIRM_PROFILE_SWITCH_CHAR")
+                                    end
+                                end,
+                            },
+                            copyProfile = {
+                                type = "input",
+                                name = "Copy Current Profile To...",
+                                desc = "Enter a new profile name to copy current settings.",
+                                order = 3,
+                                get = function() return "" end,
+                                set = function(_, val)
+                                    if addon.db and val and val ~= "" then
+                                        addon.db:CopyProfile(val)
+                                        addon:Print("|cff4A9EFFCopied current profile to:|r " .. val)
+                                    end
+                                end,
+                            },
+                            resetAll = {
+                                type = "execute",
+                                name = "Reset All Profiles",
+                                desc = "Reset all profiles to default settings (advanced).",
+                                order = 4,
+                                func = function()
+                                    if addon.db then
+                                        StaticPopupDialogs["AHOS_CONFIRM_RESET_ALL"] = {
+                                            text = "Reset ALL profiles to default? This cannot be undone!",
+                                            button1 = "Yes",
+                                            button2 = "No",
+                                            OnAccept = function()
+                                                addon.db:ResetDB("Default")
+                                                addon:Print("|cffff0000All profiles reset to default!|r")
+                                            end,
+                                            OnCancel = function() end,
+                                            timeout = 0,
+                                            whileDead = true,
+                                            hideOnEscape = true,
+                                            preferredIndex = 3,
+                                        }
+                                        StaticPopup_Show("AHOS_CONFIRM_RESET_ALL")
+                                    end
+                                end,
+                            },
+                            printProfile = {
+                                type = "execute",
+                                name = "Print Current Profile Data",
+                                desc = "Prints the current profile data to the chat for debugging.",
+                                order = 5,
+                                func = function()
+                                    if addon.db and addon.db.profile then
+                                        local serialized = LibSerialize and LibSerialize:Serialize(addon.db.profile)
+                                        if serialized and LibDeflate then
+                                            local compressed = LibDeflate:CompressDeflate(serialized)
+                                            local encoded = LibDeflate:EncodeForPrint(compressed)
+                                            addon:Print("|cffFFD700Current Profile Data (compressed):|r\n" .. ("\n" .. ("|cff888888" .. encoded .. "|r")))
+                                        elseif serialized then
+                                            addon:Print("|cffFFD700Current Profile Data:|r\n" .. ("\n" .. ("|cff888888" .. serialized .. "|r")))
+                                        else
+                                            addon:Print("[Serialization not available]")
+                                        end
+                                    end
+                                end,
+                            },
+                        },
+                    },
+                },
+            },
             toggles = {
                 type = "group",
                 inline = true,
@@ -156,7 +292,7 @@ function Options:GetOptions()
             },
             version = {
                 type = "description",
-                name = "|cff888888Version:|r |cffffd7002.2.0|r",
+                name = "|cff888888Version:|r |cffffd7002.3.0|r",
                 fontSize = "medium",
                 order = 22,
                 width = "full",
@@ -378,7 +514,71 @@ function Options:GetOptions()
                     },
                 },
             },
-            profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(addon.db),
+            help = {
+                type = "group",
+                name = "Help & Debugging",
+                order = 0,
+                args = {
+                    helpdesc = {
+                        type = "description",
+                        name = "|cffFFD700How to Report Bugs|r\n" ..
+                            "- Please include your WoW version, addon version, and a description of the issue.\n" ..
+                            "- For UI or overlay issues, include a screenshot if possible.\n" ..
+                            "- You can export your profile or debug data using the options below or the /ahos debugexport command.\n\n" ..
+                            "|cffFFD700Available Slash Commands|r\n" ..
+                            "/ahos show - Open options panel\n" ..
+                            "/ahos lock|unlock - Lock/unlock settings\n" ..
+                            "/ahos reset - Reset all settings\n" ..
+                            "/ahos toggle - Enable/disable overlays\n" ..
+                            "/ahos reload|refresh - Reload overlays\n" ..
+                            "/ahos cleanup - Clear overlays\n" ..
+                            "/ahos debug - Toggle debug mode\n" ..
+                            "/ahos detectui - Manually detect UI\n" ..
+                            "/ahos inspect <ButtonName> - Print debug info for a button\n" ..
+                            "/ahos debugexport [tablepath] - Export profile or subtable for debugging\n\n" ..
+                            "|cffFFD700Debugging Tips|r\n" ..
+                            "- Enable debug mode with /ahos debug to see extra output.\n" ..
+                            "- Use /ahos debugexport to copy your profile or a subtable for bug reports.\n" ..
+                            "- Paste exported data in your bug report for faster help!\n\n" ..
+                            "|cffFFD700Changelog & Version Info|r\n" ..
+                            "- See the 'Changelog' tab for recent updates and version history.\n\n" ..
+                            "|cffFFD700Addon Version:|r 2.4.0 (2025-06-24)",
+                        order = 1,
+                    },
+                },
+            },
+            changelog = {
+                type = "group",
+                name = "Changelog",
+                order = 100,
+                args = {
+                    changelogdesc = {
+                        type = "description",
+                        name = [[
+|cffFFD700Advanced Hotkey Overlay System|r
+
+|cff00D4AA2.4.0 (2025-06-24) - In-Game Changelog, Debug Export Window, and More|r
+- In-game changelog and version info tab
+- Debug export window and /ahos debugexport command
+- LibSerialize/LibDeflate support for profile export
+- Help & Debugging tab in options
+- Many bugfixes and polish
+
+|cff00D4AA2.3.0 (2025-06-23)|r
+- Modernized and cleaned up all options panel registration and naming logic
+- No more color codes or icons in the options panel or .toc metadata
+- Only one options panel is registered, with robust error handling
+- Minimap/DataBroker icon and Blizzard options panel now always show the correct, user-friendly name
+- ElvUI compatibility and user prompt logic improved
+- Legacy and duplicate code removed for reliability
+- All overlays and minimap icon logic now robust and error-free
+
+See README.md or CurseForge for full changelog.
+                        ]],
+                        order = 1,
+                    },
+                },
+            },
         },
     }
 end
