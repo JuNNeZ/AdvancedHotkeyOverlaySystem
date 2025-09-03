@@ -18,6 +18,8 @@ ignore:
     - .github
     - .git
     - .gitignore
+    - .vscode
+    - AdvancedHotkeyOverlaySystem.code-workspace
 
 manual-changelog:
     filename: CHANGELOG.md

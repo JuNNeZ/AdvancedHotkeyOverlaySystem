@@ -21,9 +21,10 @@ function UI:OnEnable()
             if addon.db and addon.db.profile and addon.db.profile.debug then
                 addon:Print("[AHOS] PLAYER_LOGIN: Ensuring minimap icon...")
             end
-            -- Show colored version string on normal enable
-            local version = "2.1.0" -- keep in sync with TOC
-            local msg = "|cff00D4AAAdvanced |cffffd700Hotkey |cffffffffOverlay |cffffd700System|r v.|cff00ffff" .. version .. "|r |cffffffffenabled.|r"
+            -- Show colored version string using TOC metadata
+            local version = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(addonName, "Version"))
+                or (GetAddOnMetadata and GetAddOnMetadata(addonName, "Version")) or "unknown"
+            local msg = "|cff00D4AAAdvanced |cffffd700Hotkey |cffffffffOverlay |cffffd700System|r v.|cff00ffff" .. tostring(version) .. "|r |cffffffffenabled.|r"
             if not (addon.db and addon.db.profile and addon.db.profile.debug) then
                 addon:Print(msg)
             end

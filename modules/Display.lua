@@ -61,12 +61,12 @@ function Display:UpdateAllOverlays()
     if addon.db and addon.db.profile and addon.db.profile.debug then
         addon:Print("[AHOS DEBUG] Display:UpdateAllOverlays processing " .. tostring(#buttons) .. " buttons.")
     end
-    -- When overlays are toggled off or 'hide original' is toggled off, force Blizzard to repopulate and capture the original hotkey text if not already stored
+    -- When overlays are toggled off or 'hide original' is toggled off, force Blizzard to repopulate and capture the original hotkey text for ALL buttons
     if addon.db and addon.db.profile and addon.db.profile.display and not addon.db.profile.display.hideOriginal then
         for _, button in ipairs(buttons) do
             local buttonName = button:GetName()
             local hotkeyTextRegion = _G[buttonName .. "HotKey"]
-            if hotkeyTextRegion and (not originalHotkeyTexts[buttonName] or originalHotkeyTexts[buttonName] == "") then
+            if hotkeyTextRegion then
                 if button.UpdateHotkeys then
                     button:UpdateHotkeys()
                 end
@@ -74,7 +74,7 @@ function Display:UpdateAllOverlays()
                 if blizzText and blizzText ~= "" and not IsFallbackHotkeyGlyph(blizzText) then
                     originalHotkeyTexts[buttonName] = blizzText
                     if addon.db and addon.db.profile and addon.db.profile.debug then
-                        addon:Print("[AHOS DEBUG] Captured original Blizzard hotkey for " .. buttonName .. ": '" .. tostring(blizzText) .. "'")
+                        addon:Print("[AHOS DEBUG] Recaptured original Blizzard hotkey for " .. buttonName .. ": '" .. tostring(blizzText) .. "'")
                     end
                 end
             end

@@ -49,8 +49,19 @@ function addon:UpdateAllButtons(...)
     end
 end
 
--- Global reference for the options panel display name
+-- Global reference for the options panel display name (keep this stable; do not include version)
 _G.AHOS_OPTIONS_PANEL_NAME = "Advanced Hotkey Overlay System"
+
+-- Helper: read addon version from TOC metadata
+local function AHOS_GetVersion()
+    local ver
+    if C_AddOns and C_AddOns.GetAddOnMetadata then
+        ver = C_AddOns.GetAddOnMetadata(addonName, "Version")
+    elseif GetAddOnMetadata then
+        ver = GetAddOnMetadata(addonName, "Version")
+    end
+    return ver or "unknown"
+end
 
 -- SAFETY: Update OpenAHOSOptionsPanel to use the plain config category
 _G.OpenAHOSOptionsPanel = function()
@@ -154,21 +165,62 @@ function addon:SetReady()
     end)
 end
 
--- Print a message to the default chat frame
-function addon:Print(...)
-    print("|cff3399ff" .. addonName .. ":|r", ...)
-end
-
 -- Called when the addon is initialized
 function addon:OnInitialize()
     -- Initialize the database
     self.db = LibStub("AceDB-3.0"):New("AdvancedHotkeyOverlaySystemDB", self.Config:GetDynamicDefaults(), true)
 
-    -- Register the options table once
-    LibStub("AceConfig-3.0"):RegisterOptionsTable(_G.AHOS_OPTIONS_PANEL_NAME, function()
-        return self.Options and self.Options.GetOptions and self.Options:GetOptions() or {}
-    end)
-    LibStub("AceConfigDialog-3.0"):AddToBlizOptions(_G.AHOS_OPTIONS_PANEL_NAME, _G.AHOS_OPTIONS_PANEL_NAME)
+    -- Register the options table once (safe lookups to avoid hard error if a user is missing embedded libs)
+    local AceConfig = LibStub("AceConfig-3.0", true)
+    local AceConfigDialog = LibStub("AceConfigDialog-3.0", true)
+    local appName = _G.AHOS_OPTIONS_PANEL_NAME
+
+    if AceConfig then
+        AceConfig:RegisterOptionsTable(appName, function()
+            return self.Options and self.Options.GetOptions and self.Options:GetOptions() or {}
+        end)
+    else
+        -- Retry shortly in case AceConfig loads a tick later on some installs
+        C_Timer.After(1, function()
+            local AC = LibStub("AceConfig-3.0", true)
+            if AC then
+                AC:RegisterOptionsTable(appName, function()
+                    return self.Options and self.Options.GetOptions and self.Options:GetOptions() or {}
+                end)
+            end
+        end)
+    end
+
+        -- Helper to register our options in the Blizzard panel only once
+        local function EnsureBlizOptionsRegistered(name)
+            local ACD = LibStub("AceConfigDialog-3.0", true)
+            if not ACD then return end
+            -- Avoid duplicate categories even if older builds used a versioned title
+            local function alreadyRegistered()
+                local tbl = ACD.BlizOptions
+                if type(tbl) ~= "table" then return false end
+                for key in pairs(tbl) do
+                    if type(key) == "string" then
+                        if key == name or key == "Advanced Hotkey Overlay System" or key:match("^Advanced Hotkey Overlay System v%d+%.%d+%.%d+") then
+                            return true
+                        end
+                    end
+                end
+                return false
+            end
+            if alreadyRegistered() then return end
+            ACD:AddToBlizOptions(name, name)
+        end
+
+        local tmpACD = LibStub("AceConfigDialog-3.0", true)
+        if tmpACD then
+            EnsureBlizOptionsRegistered(appName)
+    else
+        -- Fallback: try again after login when all addons are guaranteed loaded
+        C_Timer.After(2, function()
+                EnsureBlizOptionsRegistered(appName)
+        end)
+    end
 
     -- Register for profile changes
     self.db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
@@ -188,6 +240,9 @@ function addon:OnInitialize()
         self:UpdateAllButtons()
         self:ScheduleTimer(function() self:UpdateAllButtons() end, 1)
         self:ScheduleTimer(function() self:UpdateAllButtons() end, 3)
+
+        -- Ensure the options panel exists if AceConfigDialog became available only after login
+    EnsureBlizOptionsRegistered(appName)
     end)
     -- Setup minimap icon after DB is ready
     self:SetupMinimapButton()
@@ -292,8 +347,7 @@ local locale = GetLocale() or "enUS"
 local LocalizedStrings = L[locale] or L.enUS
 
 -- Slash Command Handler
-function AdvancedHotkeyOverlaySystem:SlashHandler(input
-)
+function AdvancedHotkeyOverlaySystem:SlashHandler(input)
     local cmd, rest = input:match("^(%S*)%s*(.-)$")
     cmd = cmd:lower() or ""
     if cmd == "" or cmd == "show" or cmd == "options" then
@@ -312,6 +366,7 @@ function AdvancedHotkeyOverlaySystem:SlashHandler(input
         self:Print("|cff4A9EFF Settings unlocked|r - |cff888888you can now modify settings|r")
     elseif cmd == "reset" then
         self.db:ResetProfile()
+    self:Print("|cffFFD700/ahos version|r - |cff888888Show addon version|r")
         self.Core:FullUpdate()
         self:Print("|cffFFD700Settings reset|r |cff888888to default values|r")
     elseif cmd == "toggle" then
@@ -340,6 +395,15 @@ function AdvancedHotkeyOverlaySystem:SlashHandler(input
         local ui = self.detectedUI or "None"
         local color = UI_DETECTED_COLORS[ui] or UI_DETECTED_COLORS["Blizzard"]
         self:Print("|cffFFD700Current detected UI:|r |c" .. color .. ui .. "|r")
+    elseif cmd == "debugexport" then
+        local path = rest and rest:match("^(%S+)")
+        local tbl = addon.db and addon.db.profile
+        if path and path ~= "" then
+            for key in string.gmatch(path, "[^%.]+") do
+                if tbl and type(tbl) == "table" then tbl = tbl[key] else tbl = nil; break end
+            end
+        end
+        self:DebugExportTable(tbl)
     elseif cmd == "help" then
         self:Print("|cffFFD700Advanced Hotkey Overlay System|r |cff4A9EFF- Commands:|r")
         self:Print("|cffFFD700/ahos show|r - |cff888888Open options panel|r")
@@ -607,21 +671,186 @@ function addon:DebugExportTable(tbl)
     end
 end
 
--- Add /ahos debugexport <tablepath> command
-local origSlashHandler = AdvancedHotkeyOverlaySystem.SlashHandler
-function AdvancedHotkeyOverlaySystem:SlashHandler(input)
-    local cmd, rest = input:match("^(%S*)%s*(.-)$")
-    cmd = cmd:lower() or ""
-    if cmd == "debugexport" then
-        local path = rest and rest:match("^(%S+)")
-        local tbl = addon.db and addon.db.profile
-        if path and path ~= "" then
-            for key in string.gmatch(path, "[^%.]+") do
-                if tbl and type(tbl) == "table" then tbl = tbl[key] else tbl = nil; break end
+-- debugexport handled inside SlashHandler above
+
+function addon.ImportProfileString(val)
+    local str = val
+    if type(val) == "table" then
+        str = val.text or val.value or ""
+    end
+    if not str or str == "" then addon:Print("No import string provided."); return end
+    local LibDeflate = LibStub and LibStub("LibDeflate")
+    local LibSerialize = LibStub and LibStub("LibSerialize")
+    if not LibDeflate or not LibSerialize then addon:Print("LibDeflate/LibSerialize missing."); return end
+    local decoded = LibDeflate:DecodeForPrint(str)
+    if not decoded then addon:Print("Failed to decode string."); return end
+    local decompressed = LibDeflate:DecompressDeflate(decoded)
+    if not decompressed then addon:Print("Failed to decompress string."); return end
+    local success, tbl = LibSerialize:Deserialize(decompressed)
+    if not success or type(tbl) ~= "table" then addon:Print("Failed to deserialize string."); return end
+    if addon.db and addon.db.profile then
+        for k, v in pairs(tbl) do addon.db.profile[k] = v end
+        addon:Print("Profile imported successfully. Reload UI to apply all changes.")
+        addon.Core:FullUpdate()
+    end
+end
+
+function addon.DebugImportString(val)
+    local str = val
+    if type(val) == "table" then
+        str = val.text or val.value or ""
+    end
+    if not str or str == "" then addon:Print("No debug import string provided."); return end
+    local LibDeflate = LibStub and LibStub("LibDeflate")
+    local LibSerialize = LibStub and LibStub("LibSerialize")
+    if not LibDeflate or not LibSerialize then addon:Print("LibDeflate/LibSerialize missing."); return end
+    local decoded = LibDeflate:DecodeForPrint(str)
+    if not decoded then addon:Print("Failed to decode string."); return end
+    local decompressed = LibDeflate:DecompressDeflate(decoded)
+    if not decompressed then addon:Print("Failed to decompress string."); return end
+    local success, tbl = LibSerialize:Deserialize(decompressed)
+    if not success then addon:Print("Failed to deserialize string."); return end
+    addon:ShowDebugExportWindow(tbl and addon:TableToPrettyString(tbl) or "[No data]")
+end
+
+-- Utility: Pretty-print a table as a string for debug window
+function addon:TableToPrettyString(tbl, indent)
+    indent = indent or 0
+    if type(tbl) ~= "table" then return tostring(tbl) end
+    local str = ""
+    for k, v in pairs(tbl) do
+        str = str .. string.rep("  ", indent) .. tostring(k) .. ": "
+        if type(v) == "table" then
+            str = str .. "\n" .. self:TableToPrettyString(v, indent + 1)
+        else
+            str = str .. tostring(v) .. "\n"
+        end
+    end
+    return str
+end
+
+-- Per-Character/Spec Profile Auto-Switch
+local frame = CreateFrame("Frame")
+frame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+frame:SetScript("OnEvent", function(_, event, unit)
+    if event == "PLAYER_SPECIALIZATION_CHANGED" and unit == "player" then
+        local db = addon.db and addon.db.profile
+        if db and db.autoSwitchProfile then
+            local spec = GetSpecialization() and GetSpecializationInfo(GetSpecialization())
+            if spec then
+                local specName = select(2, GetSpecializationInfoByID(spec))
+                if specName and addon.db then
+                    local profileName = UnitName("player") .. "-" .. GetRealmName() .. "-" .. specName
+                    addon.db:SetProfile(profileName)
+                    addon:Print("Auto-switched to profile: " .. profileName)
+                end
             end
         end
-        self:DebugExportTable(tbl)
-        return
     end
-    origSlashHandler(self, input)
+end)
+
+-- Performance Metrics
+addon.perfMetrics = {}
+function addon:LogPerfMetric(name, duration)
+    self.perfMetrics[name] = duration
+    if self.db and self.db.profile and self.db.profile.showPerfMetrics then
+        self:Print(string.format("[Perf] %s: %.2f ms", name, duration * 1000))
+    end
+end
+
+-- Debug Log Window
+addon.debugLogBuffer = addon.debugLogBuffer or {}
+function addon:LogDebug(msg)
+    if not msg then return end
+    table.insert(self.debugLogBuffer, tostring(msg))
+    if #self.debugLogBuffer > 200 then table.remove(self.debugLogBuffer, 1) end -- keep last 200 lines
+    if self.DebugLogFrame and self.DebugLogFrame:IsShown() then
+        self:UpdateDebugLogWindow()
+    end
+end
+
+function addon:ShowDebugLogWindow()
+    if not self.DebugLogFrame then
+        local f = CreateFrame("Frame", "AHOS_DebugLogFrame", UIParent, "BackdropTemplate")
+        f:SetSize(700, 400)
+        f:SetPoint("CENTER")
+        f:SetFrameStrata("DIALOG")
+        f:SetBackdrop({ bgFile = "Interface/Tooltips/UI-Tooltip-Background", edgeFile = "Interface/Tooltips/UI-Tooltip-Border", tile = true, tileSize = 16, edgeSize = 16, insets = { left = 4, right = 4, top = 4, bottom = 4 } })
+        f:SetBackdropColor(0,0,0,0.92)
+        f:SetMovable(true)
+        f:EnableMouse(true)
+        f:RegisterForDrag("LeftButton")
+        f:SetScript("OnDragStart", f.StartMoving)
+        f:SetScript("OnDragStop", f.StopMovingOrSizing)
+        f:Hide()
+        local eb = CreateFrame("EditBox", nil, f)
+        eb:SetMultiLine(true)
+        eb:SetFontObject(ChatFontNormal)
+        eb:SetSize(650, 320)
+        eb:SetPoint("TOP", 0, -40)
+        eb:SetAutoFocus(false)
+        eb:SetScript("OnEscapePressed", function() f:Hide() end)
+        eb:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+        f.EditBox = eb
+        local scroll = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
+        scroll:SetPoint("TOPLEFT", 20, -40)
+        scroll:SetPoint("BOTTOMRIGHT", -30, 50)
+        scroll:SetScrollChild(eb)
+        local close = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+        close:SetText("Close")
+        close:SetWidth(80)
+        close:SetPoint("BOTTOMRIGHT", -20, 15)
+        close:SetScript("OnClick", function() f:Hide() end)
+        f.CloseButton = close
+        local copy = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+        copy:SetText("Copy All")
+        copy:SetWidth(80)
+        copy:SetPoint("BOTTOMLEFT", 20, 15)
+        copy:SetScript("OnClick", function() eb:SetFocus(); eb:HighlightText() end)
+        f.CopyButton = copy
+        local label = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        label:SetPoint("TOP", 0, -15)
+        label:SetText("AHOS Debug Log")
+        f.Label = label
+        self.DebugLogFrame = f
+    end
+    self:UpdateDebugLogWindow()
+    self.DebugLogFrame:Show()
+    self.DebugLogFrame.EditBox:HighlightText()
+end
+
+function addon:UpdateDebugLogWindow()
+    if not self.DebugLogFrame then return end
+    local lines = table.concat(self.debugLogBuffer, "\n")
+    self.DebugLogFrame.EditBox:SetText(lines)
+end
+
+-- Override addon:Print to only log to debug window (not chat)
+addon._origPrint = addon._origPrint or addon.Print
+function addon:Print(...)
+    local msg = ""
+    for i = 1, select("#", ...) do
+        msg = msg .. tostring(select(i, ...)) .. " "
+    end
+    self:LogDebug(msg)
+    -- Do NOT call self:_origPrint(msg) or print to avoid chat spam
+end
+
+-- Override global print to also log to debug window
+if not _G._AHOS_OriginalPrint then
+    _G._AHOS_OriginalPrint = print
+    print = function(...)
+        local msg = ""
+        for i = 1, select("#", ...) do
+            msg = msg .. tostring(select(i, ...)) .. " "
+        end
+        if addon and addon.LogDebug then addon:LogDebug(msg) end
+        _G._AHOS_OriginalPrint(...)
+    end
+end
+
+-- Slash command to open debug log window
+SLASH_AHOSDEBUGLOG1 = "/ahoslog"
+SlashCmdList["AHOSDEBUGLOG"] = function()
+    addon:ShowDebugLogWindow()
 end

@@ -1,6 +1,6 @@
 # Advanced Hotkey Overlay System
 
-**Enhanced hotkey overlays for all action bar addons with intelligent UI detection and real-time customization**
+Enhanced hotkey overlays for all action bar addons with intelligent UI detection and real-time customization
 
 ## What does this addon do?
 
@@ -8,32 +8,38 @@ Advanced Hotkey Overlay System replaces the default hotkey text on your action b
 
 ## Key Features
 
-**Universal Compatibility**
+### Universal Compatibility
+
 - Automatically detects and adapts to ElvUI, Bartender4, Dominos, AzeriteUI, and Blizzard UI
 - Works with any action bar addon—no manual setup required
 - Intelligent button detection for new and custom action bars
 
-**Real-Time Customization**
+### Real-Time Customization
+
 - All settings apply instantly—no UI reload needed
 - Live preview of font, color, position, and scale changes
 - ConsolePort-style hotkey abbreviations (e.g., Ctrl → C, Shift → S)
 
-**Complete Visual Control**
+### Complete Visual Control
+
 - Choose font family, size, color, and transparency
 - Text shadows and outlines for maximum readability
 - Pixel-perfect positioning and multiple anchor points
 
-**Smart Protection System**
+### Smart Protection System
+
 - Lock settings to prevent accidental changes during gameplay
 - Confirmation dialogs for protected options
 - Master toggle to hide all overlays and options when disabled
 
-**Profile Management**
+### Profile Management
+
 - Per-character and global profiles via Ace3
 - Effortless switching between configurations
 - Import/export settings for easy sharing
 
-**Advanced Tools**
+### Advanced Tools
+
 - Comprehensive debug mode and in-game inspection commands
 - Smart refresh to re-detect UI changes
 - Temporary overlay clearing for screenshots
@@ -58,15 +64,18 @@ Advanced Hotkey Overlay System replaces the default hotkey text on your action b
 ## Troubleshooting
 
 **Overlays not appearing?**
+
 - Check if the addon is enabled with `/ahos toggle`
 - Try `/ahos reload` to refresh detection
 - Use `/ahos debug` for detailed troubleshooting
 
 **Wrong UI detected?**
+
 - Use `/ahos detectui` to manually re-detect your interface
 - Check debug output to see which addons were found
 
 **Settings not saving?**
+
 - Ensure the addon loaded properly by testing `/ahos`
 - Make sure settings aren’t locked (unlock with `/ahos unlock`)
 
@@ -77,12 +86,13 @@ Advanced Hotkey Overlay System replaces the default hotkey text on your action b
 - LibSharedMedia-3.0 (included)
 - LibDBIcon-1.0 (included)
 
-## Recent Updates (v2.1.0)
+## Recent Updates (v2.4.2)
 
-- Full Ace3 profile management for copying, deleting, and switching profiles
-- Overlay restyling now updates instantly on profile or option changes
-- Improved error handling and stability
-- Cleaner SavedVariables and robust debug tools
+- Embedded AceGUI-3.0 and wired AceConfig-3.0 Dialog (self-contained options UI).
+- Robust options registration: prevents duplicate Blizzard categories and late-load crashes.
+- Minimap/Titan icon uses addon media (media/small-logo.tga); addon list icon uses media/logo.tga.
+- Options/About panels read Version from TOC metadata (no hardcoded strings).
+- New `/ahos version` command.
 
 ---
 

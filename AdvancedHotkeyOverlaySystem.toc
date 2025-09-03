@@ -1,10 +1,10 @@
-## Interface: 110200
+## Interface: 110107, 110200
 ## Title: |T626001:16:16:0:0|t |cff00D4AAAdvanced |cffffd700Hotkey |cffffffffOverlay |cffffd700System|r
 ## Notes: |cffffd700Advanced Hotkey Overlay System|r |cff00D4AA- Intelligent UI detection, live updates, and beautiful customization.|r
 ## Author: |cff00D4AAJuNNeZ|r
-## Version: 2.4.0
+## Version: 2.4.2
 ## SavedVariables: AdvancedHotkeyOverlaySystemDB
-## IconTexture: Interface\AddOns\AdvancedHotkeyOverlaySystem\media\logo
+## IconTexture: Interface\AddOns\AdvancedHotkeyOverlaySystem\media\logo.tga
 ## X-Category: Action Bars
 ## X-Website: https://github.com/junnez/advancedhotkeyoverlaysystem
 ## X-Curse-Project-ID: 1289540
@@ -12,6 +12,7 @@
 ## X-Compatible-With: 110200
 ## X-Min-Interface: 110107
 ## X-PackageMeta-ID: ahos-retail
+## OptionalDeps: Ace3
 
 # IMPORTANT: File Load Order
 # ----------------------------
@@ -30,6 +31,7 @@
 # Libraries
 Libs\LibStub\LibStub.lua
 Libs\AceAddon-3.0\AceAddon-3.0.xml
+Libs\AceGUI-3.0\AceGUI-3.0.xml
 Libs\AceConfig-3.0\AceConfig-3.0.xml
 Libs\AceConsole-3.0\AceConsole-3.0.xml
 Libs\AceDB-3.0\AceDB-3.0.xml
