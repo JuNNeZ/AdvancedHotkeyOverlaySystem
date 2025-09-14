@@ -26,6 +26,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Retail (AzeriteUI): Removed placeholder square/bullet glyphs on unbound buttons by disabling visual fallback on Retail and filtering fallback glyphs in the visual reader.
 - Dominos: Improved overlay visibility without requiring reload; ensured native labels stay hidden when Dominos keybinding mode ends.
 
+## [2.5.2] - 2025-09-14
+
+### Added (2.5.2)
+
+- Options: Font outline styles (NONE/OUTLINE/THICKOUTLINE/MONOCHROME combos) with legacy fallback retained.
+
+### Fixed (2.5.2)
+
+- Classic: Avoid registering PLAYER_BINDING_CHANGED; gate the event to Retail only using WOW_PROJECT_ID with build fallback.
+
 ### Added
 
 - Retail + Classic compatibility in one build; Classic-safe keybinding resolution for ActionButton, BonusActionButton, MultiBars, Stance, Pet, and Possess.
@@ -184,3 +194,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [2.4.2]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.4.2
 [2.5.0]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.0
 [2.5.1]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.1
+[2.5.2]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.2

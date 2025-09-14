@@ -1,14 +1,14 @@
 # Advanced Hotkey Overlay System (AHOS)
 
-![Version](https://img.shields.io/badge/version-2.5.1-cyan)
+![Version](https://img.shields.io/badge/version-2.5.2-cyan)
 
 A modular, robust hotkey overlay system for World of Warcraft action bars, supporting Blizzard, AzeriteUI, and ConsolePort-style keybind abbreviations.
 
-2.5.1
-- Retail (AzeriteUI): Removed placeholder square/bullet on unbound buttons; safer native label suppression with deep-scan.
-- Classic: Fixed invalid event registration by gating Retail-only events.
-- Dominos: Overlays show immediately without reload; native labels remain hidden after binding mode.
-- Overlay layering: Frame level bump above nested overlay containers; better with Masque/AzeriteUI.
+2.5.2
+
+- Options: Added font outline styles (NONE/OUTLINE/THICKOUTLINE/MONOCHROME combos) with legacy fallback.
+- Classic: Fixed attempt to register unknown event PLAYER_BINDING_CHANGED by gating it to Retail only.
+- Mainline: Simplified addon Title in TOC to plain name (for storefronts/listing clarity).
 
 ## Features
 

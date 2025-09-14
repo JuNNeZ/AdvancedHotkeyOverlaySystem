@@ -86,9 +86,10 @@ Advanced Hotkey Overlay System replaces the default hotkey text on your action b
 - LibSharedMedia-3.0 (included)
 - LibDBIcon-1.0 (included)
 
-## Recent Updates (v2.5.1)
+## Recent Updates (v2.5.2)
 - Retail (AzeriteUI): Removed placeholder square/bullet on unbound buttons; safer native label suppression with deep-scan.
-- Classic: Fixed invalid event registration by gating Retail-only events.
+- Options: Added font outline styles (NONE/OUTLINE/THICKOUTLINE/MONOCHROME combos) with legacy fallback.
+- Classic: Fixed invalid event registration by gating Retail-only events (PLAYER_BINDING_CHANGED is Retail-only).
 - Dominos: Overlays visible immediately without reload; native labels stay hidden after binding mode.
 - Overlay layering: Bumped frame level to sit above nested containers and skins (Masque/AzeriteUI).
 
