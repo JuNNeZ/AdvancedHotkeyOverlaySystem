@@ -3,6 +3,11 @@
 local addonName, addonScope = ...
 local addon = LibStub("AceAddon-3.0"):NewAddon(addonName, "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0")
 addonScope.addon = addon
+-- Localization table (loaded from locales/*.lua); ensure a table exists
+addon.L = _G.AHOS_L or addon.L or {}
+_G.AHOS_L = addon.L
+-- Back-compat global for options panel title
+_G.AHOS_OPTIONS_PANEL_NAME = _G.AHOS_OPTIONS_PANEL_NAME or addon.L.OPTIONS_PANEL_NAME or "AHOS Options"
 
 -- Remove any global AdvancedHotkeyOverlaySystem table creation (orphaned/legacy)
 _G["AdvancedHotkeyOverlaySystem"] = nil
@@ -353,53 +358,64 @@ local LocalizedStrings = L[locale] or L.enUS
 -- Slash Command Handler
 function AdvancedHotkeyOverlaySystem:SlashHandler(input)
     local cmd, rest = input:match("^(%S*)%s*(.-)$")
-    cmd = cmd:lower() or ""
+    cmd = (cmd and cmd:lower()) or ""
+    local Loc = self and self.L or {}
+
     if cmd == "" or cmd == "show" or cmd == "options" or cmd == "ui" or cmd == "config" or cmd == "settings" then
         if type(_G.OpenAHOSOptionsPanel) == "function" then
             _G.OpenAHOSOptionsPanel()
         else
-            print("[AHOS] Options panel function not available.")
+            print(Loc.OPTIONS_PANEL_NOT_AVAILABLE or "[AHOS] Options panel function not available.")
         end
+
     elseif cmd == "lock" then
         self.db.profile.display.locked = true
         self.Core:FullUpdate()
-        self:Print("|cffFFD700Settings locked|r - |cff888888protected from changes|r")
+        self:Print(Loc.MSG_SETTINGS_LOCKED or "|cffFFD700Settings locked|r - |cff888888protected from changes|r")
+
     elseif cmd == "unlock" then
         self.db.profile.display.locked = false
         self.Core:FullUpdate()
-        self:Print("|cff4A9EFF Settings unlocked|r - |cff888888you can now modify settings|r")
+        self:Print(Loc.MSG_SETTINGS_UNLOCKED or "|cff4A9EFF Settings unlocked|r - |cff888888you can now modify settings|r")
+
     elseif cmd == "reset" then
         self.db:ResetProfile()
-    self:Print("|cffFFD700/ahos version|r - |cff888888Show addon version|r")
         self.Core:FullUpdate()
-        self:Print("|cffFFD700Settings reset|r |cff888888to default values|r")
+        self:Print(Loc.MSG_SETTINGS_RESET or "|cffFFD700Settings reset|r |cff888888to default values|r")
+
     elseif cmd == "toggle" then
         self.db.profile.enabled = not self.db.profile.enabled
         self.Core:FullUpdate()
         self:Print("Overlay " .. (self.db.profile.enabled and "|cff4A9EFFenabled|r" or "|cffFF6B6Bdisabled|r"))
+
     elseif cmd == "reload" or cmd == "refresh" then
         self.Core:FullUpdate()
-        self:Print("|cff4A9EFFOverlays reloaded|r |cff888888and refreshed|r")
+        self:Print(Loc.MSG_OVERLAYS_RELOADED or "|cff4A9EFFOverlays reloaded|r |cff888888and refreshed|r")
+
     elseif cmd == "update" then
         if not self:IsReady() and UnitAffectingCombat("player") == false and IsLoggedIn() then
-            self:Print("[AHOS] Forcing addon ready state for update (player is in world).")
+            self:Print(Loc.MSG_FORCE_READY or "[AHOS] Forcing addon ready state for update (player is in world).")
             self:SetReady()
         end
         self.Core:FullUpdate()
-        self:Print("|cff4A9EFFOverlays updated|r |cff888888(full update triggered)|r")
+        self:Print(Loc.MSG_OVERLAYS_UPDATED or "|cff4A9EFFOverlays updated|r |cff888888(full update triggered)|r")
+
     elseif cmd == "cleanup" then
         self.Display:ClearAllOverlays()
-        self:Print("|cffFFD700Overlays temporarily cleared|r - |cff888888use Smart Refresh or change settings to restore|r")
+        self:Print(Loc.MSG_OVERLAYS_TEMP_CLEARED or "|cffFFD700Overlays temporarily cleared|r - |cff888888use Smart Refresh or change settings to restore|r")
+
     elseif cmd == "debug" then
         self.db.profile.debug = not self.db.profile.debug
-        self:Print("|cffFFD700Debug mode|r " .. (self.db.profile.debug and "|cff4A9EFFenabled|r" or "|cffFF6B6Bdisabled|r"))
+        self:Print((Loc.DEBUG_MODE_LABEL or "|cffFFD700Debug mode|r ") .. (self.db.profile.debug and (Loc.DEBUG_ENABLED or "|cff4A9EFFenabled|r") or (Loc.DEBUG_DISABLED or "|cffFF6B6Bdisabled|r")))
+
     elseif cmd == "detectui" then
-        self:Print("|cff4A9EFFManually detecting UI...|r")
+        self:Print(Loc.MSG_MANUAL_DETECT_UI or "|cff4A9EFFManually detecting UI...|r")
         self:DetectUI()
-    local ui = self.detectedUI or "None"
-    local colors = self.UI_DETECTED_COLORS or addon.UI_DETECTED_COLORS or {}
-    local color = colors[ui] or colors["Blizzard"] or "FFFFFFFF"
-    self:Print("|cffFFD700Current detected UI:|r |c" .. color .. ui .. "|r")
+        local ui = self.detectedUI or "None"
+        local colors = self.UI_DETECTED_COLORS or addon.UI_DETECTED_COLORS or {}
+        local color = colors[ui] or colors["Blizzard"] or "FFFFFFFF"
+        self:Print((Loc.MSG_CURRENT_DETECTED_UI or "|cffFFD700Current detected UI:|r ") .. "|c" .. color .. ui .. "|r")
+
     elseif cmd == "debugexport" then
         local path = rest and rest:match("^(%S+)")
         local tbl = addon.db and addon.db.profile
@@ -409,32 +425,34 @@ function AdvancedHotkeyOverlaySystem:SlashHandler(input)
             end
         end
         self:DebugExportTable(tbl)
+
     elseif cmd == "help" then
-        self:Print("|cffFFD700Advanced Hotkey Overlay System|r |cff4A9EFF- Commands:|r")
-        self:Print("|cffFFD700/ahos show|r - |cff888888Open options panel|r")
-        self:Print("|cffFFD700/ahos lock|r - |cff888888Lock overlay settings|r")
-        self:Print("|cffFFD700/ahos unlock|r - |cff888888Unlock overlay settings|r")
-        self:Print("|cffFFD700/ahos reset|r - |cff888888Reset all settings to default|r")
-        self:Print("|cffFFD700/ahos toggle|r - |cff888888Enable/disable overlays|r")
-        self:Print("|cffFFD700/ahos reload|r - |cff888888Reload and refresh overlays|r")
-        self:Print("|cffFFD700/ahos refresh|r - |cff888888Smart refresh of overlays (same as UI button)|r")
-        self:Print("|cffFFD700/ahos cleanup|r - |cff888888Temporarily clear all overlays (same as UI button)|r")
-        self:Print("|cffFFD700/ahos debug|r - |cff888888Toggle debug mode|r")
-        self:Print("|cffFFD700/ahos detectui|r - |cff888888Manually detect UI addon|r")
-        self:Print("|cffFFD700/ahos help|r - |cff888888Show this help message|r")
+        self:Print(Loc.SLASH_HEADER or "|cffFFD700Advanced Hotkey Overlay System|r |cff4A9EFF- Commands:|r")
+        self:Print(Loc.SLASH_SHOW or "|cffFFD700/ahos show|r - |cff888888Open options panel|r")
+        self:Print(Loc.SLASH_LOCK or "|cffFFD700/ahos lock|r - |cff888888Lock overlay settings|r")
+        self:Print(Loc.SLASH_UNLOCK or "|cffFFD700/ahos unlock|r - |cff888888Unlock overlay settings|r")
+        self:Print(Loc.SLASH_RESET or "|cffFFD700/ahos reset|r - |cff888888Reset all settings to default|r")
+        self:Print(Loc.SLASH_TOGGLE or "|cffFFD700/ahos toggle|r - |cff888888Enable/disable overlays|r")
+        self:Print(Loc.SLASH_RELOAD or "|cffFFD700/ahos reload|r - |cff888888Reload and refresh overlays|r")
+        self:Print(Loc.SLASH_REFRESH or "|cffFFD700/ahos refresh|r - |cff888888Smart refresh of overlays (same as UI button)|r")
+        self:Print(Loc.SLASH_CLEANUP or "|cffFFD700/ahos cleanup|r - |cff888888Temporarily clear all overlays (same as UI button)|r")
+        self:Print(Loc.SLASH_DEBUG or "|cffFFD700/ahos debug|r - |cff888888Toggle debug mode|r")
+        self:Print(Loc.SLASH_DETECTUI or "|cffFFD700/ahos detectui|r - |cff888888Manually detect UI addon|r")
+        self:Print(Loc.SLASH_HELP or "|cffFFD700/ahos help|r - |cff888888Show this help message|r")
+
     elseif cmd == "junnez" then
-        -- Fun Easter Egg!
-        self:Print("|cffFFD700Junnez is the secret overlord of hotkeys! |cff4A9EFF All your binds are belong to Junnez! |r")
+        self:Print(Loc.EASTER_EGG_JUNNEZ or "|cffFFD700Junnez is the secret overlord of hotkeys! |cff4A9EFF All your binds are belong to Junnez! |r")
         for i = 1, 3 do
             C_Timer.After(i * 0.5, function()
-                RaidNotice_AddMessage(RaidWarningFrame, "Praise Junnez!", ChatTypeInfo["RAID_WARNING"])
+                RaidNotice_AddMessage(RaidWarningFrame, (Loc.PRAISE_JUNNEZ or "Praise Junnez!"), ChatTypeInfo["RAID_WARNING"])
             end)
         end
-        PlaySound(12867) -- UI EpicLoot Toast
+        PlaySound(12867)
+
     elseif cmd == "inspect" then
         local buttonName = rest and rest:match("^(%S+)")
         if not buttonName or buttonName == "" then
-            self:Print("|cffFF6B6BUsage:|r |cffFFD700/ahos inspect <ButtonName>|r")
+            self:Print(Loc.USAGE_INSPECT or "|cffFF6B6BUsage:|r |cffFFD700/ahos inspect <ButtonName>|r")
         else
             local button = _G[buttonName]
             if button then
@@ -442,15 +460,16 @@ function AdvancedHotkeyOverlaySystem:SlashHandler(input)
                     local info = self.Keybinds:GetButtonDebugInfo(button)
                     self:Print(info)
                 else
-                    self:Print("|cffFF6B6BKeybinds module not available.|r")
+                    self:Print(Loc.KEYBINDS_NOT_AVAILABLE or "|cffFF6B6BKeybinds module not available.|r")
                 end
             else
-                self:Print("|cffFF6B6BButton not found:|r |cffFFD700" .. buttonName .. "|r")
+                self:Print((Loc.BUTTON_NOT_FOUND_PREFIX or "|cffFF6B6BButton not found:|r ") .. "|cffFFD700" .. buttonName .. "|r")
             end
         end
+
     else
-        self:Print("|cffFF6B6BUnknown command:|r |cffFFD700" .. cmd .. "|r")
-        self:Print("|cff888888Type|r |cffFFD700/ahos help|r |cff888888for available commands|r")
+        self:Print((Loc.UNKNOWN_COMMAND_PREFIX or "|cffFF6B6BUnknown command:|r ") .. "|cffFFD700" .. cmd .. "|r")
+        self:Print(Loc.TYPE_HELP_SUFFIX or "|cff888888Type|r |cffFFD700/ahos help|r |cff888888for available commands|r")
     end
 end
 
@@ -585,10 +604,11 @@ end
 function addon:ShowElvUIOverlayWarning()
     if not self.elvuiDetected or (self.db and self.db.profile and self.db.profile.forceOverlaysWithElvUI) then return end
     if not StaticPopupDialogs["AHOS_ELVUI_WARNING"] then
+        local L = addon and addon.L or {}
         StaticPopupDialogs["AHOS_ELVUI_WARNING"] = {
-            text = "ElvUI detected! Both ElvUI and Advanced Hotkey Overlay System provide keybind overlays.\n\nDo you want to disable AHO overlays (recommended)?",
-            button1 = "Yes (Disable AHO Overlays)",
-            button2 = "No (Keep Both)",
+            text = L.ELVUI_WARNING_TEXT or "ElvUI detected! Both ElvUI and Advanced Hotkey Overlay System provide keybind overlays.\n\nDo you want to disable AHO overlays (recommended)?",
+            button1 = L.ELVUI_WARNING_ACCEPT or "Yes (Disable AHO Overlays)",
+            button2 = L.ELVUI_WARNING_CANCEL or "No (Keep Both)",
             OnAccept = function()
                 local db = self.db and self.db.profile
                 if db then db.forceOverlaysWithElvUI = false; self.Core:FullUpdate() end
@@ -650,14 +670,15 @@ function addon:ShowDebugExportWindow(data)
         scroll:SetPoint("BOTTOMRIGHT", -30, 40)
         scroll:SetScrollChild(eb)
         local close = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-        close:SetText("Close")
+    local L = addon and addon.L or {}
+    close:SetText(L.CLOSE or "Close")
         close:SetWidth(80)
         close:SetPoint("BOTTOMRIGHT", -20, 10)
         close:SetScript("OnClick", function() f:Hide() end)
         f.CloseButton = close
         local label = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
         label:SetPoint("TOP", 0, -10)
-        label:SetText("AHOS Debug Export")
+    label:SetText((L.DEBUG_EXPORT_TITLE or "AHOS Debug Export"))
         f.Label = label
         addon.DebugExportFrame = f
     end
@@ -687,19 +708,20 @@ function addon.ImportProfileString(val)
     if type(val) == "table" then
         str = val.text or val.value or ""
     end
-    if not str or str == "" then addon:Print("No import string provided."); return end
+    local L = addon and addon.L or {}
+    if not str or str == "" then addon:Print(L.NO_IMPORT_STRING or "No import string provided."); return end
     local LibDeflate = LibStub and LibStub("LibDeflate")
     local LibSerialize = LibStub and LibStub("LibSerialize")
-    if not LibDeflate or not LibSerialize then addon:Print("LibDeflate/LibSerialize missing."); return end
+    if not LibDeflate or not LibSerialize then addon:Print(L.ERR_LIBS_MISSING or "LibDeflate/LibSerialize missing."); return end
     local decoded = LibDeflate:DecodeForPrint(str)
-    if not decoded then addon:Print("Failed to decode string."); return end
+    if not decoded then addon:Print(L.ERR_DECODE_FAILED or "Failed to decode string."); return end
     local decompressed = LibDeflate:DecompressDeflate(decoded)
-    if not decompressed then addon:Print("Failed to decompress string."); return end
+    if not decompressed then addon:Print(L.ERR_DECOMPRESS_FAILED or "Failed to decompress string."); return end
     local success, tbl = LibSerialize:Deserialize(decompressed)
-    if not success or type(tbl) ~= "table" then addon:Print("Failed to deserialize string."); return end
+    if not success or type(tbl) ~= "table" then addon:Print(L.ERR_DESERIALIZE_FAILED or "Failed to deserialize string."); return end
     if addon.db and addon.db.profile then
         for k, v in pairs(tbl) do addon.db.profile[k] = v end
-        addon:Print("Profile imported successfully. Reload UI to apply all changes.")
+    addon:Print(L.PROFILE_IMPORTED_OK or "Profile imported successfully. Reload UI to apply all changes.")
         addon.Core:FullUpdate()
     end
 end
@@ -709,16 +731,17 @@ function addon.DebugImportString(val)
     if type(val) == "table" then
         str = val.text or val.value or ""
     end
-    if not str or str == "" then addon:Print("No debug import string provided."); return end
+    local L = addon and addon.L or {}
+    if not str or str == "" then addon:Print(L.NO_DEBUG_IMPORT_STRING or "No debug import string provided."); return end
     local LibDeflate = LibStub and LibStub("LibDeflate")
     local LibSerialize = LibStub and LibStub("LibSerialize")
-    if not LibDeflate or not LibSerialize then addon:Print("LibDeflate/LibSerialize missing."); return end
+    if not LibDeflate or not LibSerialize then addon:Print(L.ERR_LIBS_MISSING or "LibDeflate/LibSerialize missing."); return end
     local decoded = LibDeflate:DecodeForPrint(str)
-    if not decoded then addon:Print("Failed to decode string."); return end
+    if not decoded then addon:Print(L.ERR_DECODE_FAILED or "Failed to decode string."); return end
     local decompressed = LibDeflate:DecompressDeflate(decoded)
-    if not decompressed then addon:Print("Failed to decompress string."); return end
+    if not decompressed then addon:Print(L.ERR_DECOMPRESS_FAILED or "Failed to decompress string."); return end
     local success, tbl = LibSerialize:Deserialize(decompressed)
-    if not success then addon:Print("Failed to deserialize string."); return end
+    if not success then addon:Print(L.ERR_DESERIALIZE_FAILED or "Failed to deserialize string."); return end
     addon:ShowDebugExportWindow(tbl and addon:TableToPrettyString(tbl) or "[No data]")
 end
 
@@ -806,20 +829,21 @@ function addon:ShowDebugLogWindow()
         scroll:SetPoint("BOTTOMRIGHT", -30, 50)
         scroll:SetScrollChild(eb)
         local close = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-        close:SetText("Close")
+    local L = addon and addon.L or {}
+    close:SetText(L.CLOSE or "Close")
         close:SetWidth(80)
         close:SetPoint("BOTTOMRIGHT", -20, 15)
         close:SetScript("OnClick", function() f:Hide() end)
         f.CloseButton = close
         local copy = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-        copy:SetText("Copy All")
+    copy:SetText((L.COPY_ALL or "Copy All"))
         copy:SetWidth(80)
         copy:SetPoint("BOTTOMLEFT", 20, 15)
         copy:SetScript("OnClick", function() eb:SetFocus(); eb:HighlightText() end)
         f.CopyButton = copy
         local label = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
         label:SetPoint("TOP", 0, -15)
-        label:SetText("AHOS Debug Log")
+    label:SetText((L.DEBUG_LOG_TITLE or "AHOS Debug Log"))
         f.Label = label
         self.DebugLogFrame = f
     end

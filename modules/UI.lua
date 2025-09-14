@@ -11,6 +11,7 @@ local UI = addon.UI
 
 local ldb = LibStub and LibStub("LibDataBroker-1.1", true)
 local libDBIcon = LibStub and LibStub("LibDBIcon-1.0", true)
+local L = addon and addon.L or {}
 
 function UI:OnEnable()
     addon:SafeCall("UI", "EnsureMinimapIcon")
@@ -24,7 +25,8 @@ function UI:OnEnable()
             -- Show colored version string using TOC metadata
             local version = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(addonName, "Version"))
                 or (GetAddOnMetadata and GetAddOnMetadata(addonName, "Version")) or "unknown"
-            local msg = "|cff00D4AAAdvanced |cffffd700Hotkey |cffffffffOverlay |cffffd700System|r v.|cff00ffff" .. tostring(version) .. "|r |cffffffffenabled.|r"
+            local displayName = (L.ADDON_NAME or "Advanced Hotkey Overlay System")
+            local msg = "|cff00D4AA" .. displayName .. "|r v.|cff00ffff" .. tostring(version) .. "|r |cffffffff" .. (L.ENABLED or "enabled.") .. "|r"
             if not (addon.db and addon.db.profile and addon.db.profile.debug) then
                 addon:Print(msg)
             end
@@ -37,9 +39,9 @@ function UI:EnsureMinimapIcon()
     if addon.db and addon.db.profile and addon.db.profile.debug then
         addon:Print("[AHOS DEBUG] EnsureMinimapIcon called.")
     end
-    if not ldb then addon:Print("[AHOS ERROR] LibDataBroker missing!"); return end
-    if not libDBIcon then addon:Print("[AHOS ERROR] LibDBIcon missing!"); return end
-    if not addon.db or not addon.db.profile then addon:Print("[AHOS ERROR] DB not ready!"); return end
+    if not ldb then addon:Print(L.ERR_LDB_MISSING or "[AHOS ERROR] LibDataBroker missing!"); return end
+    if not libDBIcon then addon:Print(L.ERR_LDBICON_MISSING or "[AHOS ERROR] LibDBIcon missing!"); return end
+    if not addon.db or not addon.db.profile then addon:Print(L.ERR_DB_NOT_READY or "[AHOS ERROR] DB not ready!"); return end
     if not addon.db.profile.minimap then
         addon.db.profile.minimap = { hide = false }
     end
@@ -52,7 +54,7 @@ function UI:EnsureMinimapIcon()
         if addon.db and addon.db.profile and addon.db.profile.debug then
             addon:Print("[AHOS DEBUG] Creating LDB object for minimap icon.")
         end
-        local displayName = "Advanced Hotkey Overlay System"
+    local displayName = (L.ADDON_NAME or "Advanced Hotkey Overlay System")
         ldb:NewDataObject(addonName, {
             type = "launcher",
             text = displayName,
@@ -66,7 +68,7 @@ function UI:EnsureMinimapIcon()
                 elseif button == "RightButton" then
                     local db = addon.db.profile
                     db.enabled = not db.enabled
-                    addon:Print(displayName .. (db.enabled and " enabled." or " disabled."))
+                    addon:Print(displayName .. " " .. (db.enabled and (L.ENABLED or "enabled.") or (L.DISABLED or "disabled.")))
                     if db.enabled then
                         addon.Core:OnEnable()
                     else
@@ -77,9 +79,9 @@ function UI:EnsureMinimapIcon()
             OnTooltipShow = function(tooltip)
                 if not tooltip or not tooltip.AddLine then return end
                 tooltip:AddLine(displayName)
-                tooltip:AddLine("|cffeda55fLeft-click|r to open settings.")
-                tooltip:AddLine("|cffeda55fShift+Left-click|r to open AHOS debug log.")
-                tooltip:AddLine("|cffeda55fRight-click|r to toggle addon.")
+                tooltip:AddLine(L.MINIMAP_LEFT_CLICK_OPEN_SETTINGS or "|cffeda55fLeft-click|r to open settings.")
+                tooltip:AddLine(L.MINIMAP_SHIFT_LEFT_CLICK_OPEN_LOG or "|cffeda55fShift+Left-click|r to open AHOS debug log.")
+                tooltip:AddLine(L.MINIMAP_RIGHT_CLICK_TOGGLE or "|cffeda55fRight-click|r to toggle addon.")
             end,
         })
     else

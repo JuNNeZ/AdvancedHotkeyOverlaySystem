@@ -1,5 +1,6 @@
 local addonName, scope = ...
 local addon = scope.addon
+local L = (addon and addon.L) or {}
 local ACD = LibStub and LibStub("AceConfigDialog-3.0", true)
 local AceGUI = LibStub and LibStub("AceGUI-3.0", true)
 
@@ -18,7 +19,7 @@ local function SafeUpdate()
 	end
 	local reg = LibStub and LibStub("AceConfigRegistry-3.0", true)
 	if reg then
-		reg:NotifyChange(_G.AHOS_OPTIONS_PANEL_NAME or addonName)
+	reg:NotifyChange(_G.AHOS_OPTIONS_PANEL_NAME or addonName)
 	end
 end
 
@@ -160,37 +161,37 @@ local function BuildSection_General(parent)
 	row:SetPoint("TOPLEFT", 8, -8)
 	row:SetSize(1, 28)
 
-	local enable = CreateCheck(parent, "Enable Addon", nil,
+	local enable = CreateCheck(parent, L.ENABLE_ADDON or "Enable Addon", nil,
 		function() return db.enabled end,
 		function(v) db.enabled = v if v then addon.Core:OnEnable() else addon.Core:OnDisable() end end)
 	enable:SetPoint("TOPLEFT", row, "BOTTOMLEFT", 0, y)
 	y = y - 28
 
-	local autodetect = CreateCheck(parent, "Auto-Detect UI", nil,
+	local autodetect = CreateCheck(parent, L.AUTO_DETECT_UI or "Auto-Detect UI", nil,
 		function() return db.autoDetectUI end,
 		function(v) db.autoDetectUI = v end)
 	autodetect:SetPoint("TOPLEFT", row, "BOTTOMLEFT", 0, y)
 	y = y - 28
 
-	local debug = CreateCheck(parent, "Debug Mode", nil,
+	local debug = CreateCheck(parent, L.DEBUG_MODE or "Debug Mode", nil,
 		function() return db.debug end,
 		function(v) db.debug = v end)
 	debug:SetPoint("TOPLEFT", row, "BOTTOMLEFT", 0, y)
 	y = y - 28
 
 	local lock = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-	lock:SetText((db.display and db.display.locked) and "Unlock Settings" or "Lock Settings")
+	lock:SetText((db.display and db.display.locked) and (L.UNLOCK_SETTINGS or "Unlock Settings") or (L.LOCK_SETTINGS or "Lock Settings"))
 	lock:SetSize(140, 24)
 	lock:SetPoint("TOPLEFT", row, "BOTTOMLEFT", 0, y)
 	lock:SetScript("OnClick", function()
 		db.display = db.display or {}
 		db.display.locked = not db.display.locked
-		lock:SetText(db.display.locked and "Unlock Settings" or "Lock Settings")
+	lock:SetText(db.display.locked and (L.UNLOCK_SETTINGS or "Unlock Settings") or (L.LOCK_SETTINGS or "Lock Settings"))
 		SafeUpdate()
 	end)
 	y = y - 36
 
-	local hideMM = CreateCheck(parent, "Hide Minimap Icon", nil,
+	local hideMM = CreateCheck(parent, L.HIDE_MINIMAP_ICON or "Hide Minimap Icon", nil,
 		function() return (db.minimap and db.minimap.hide) end,
 		function(v) db.minimap = db.minimap or {}; db.minimap.hide = v; if addon.SetupMinimapButton then addon:SetupMinimapButton() end end)
 	hideMM:SetPoint("TOPLEFT", row, "BOTTOMLEFT", 0, y)
@@ -204,49 +205,49 @@ local function BuildSection_Display(parent)
 	local d = db.display
 	local y = -8
 
-	local hideOrig = CreateCheck(parent, "Hide Original Hotkey Text", nil,
+	local hideOrig = CreateCheck(parent, L.HIDE_ORIGINAL or "Hide Original Hotkey Text", nil,
 		function() return d.hideOriginal end,
 		function(v) d.hideOriginal = v end)
 	hideOrig:SetPoint("TOPLEFT", 8, -8)
 	y = -36
 
-	local anchor = CreateCycle(parent, "Anchor Point", ANCHOR_VALUES,
+	local anchor = CreateCycle(parent, L.ANCHOR_POINT or "Anchor Point", ANCHOR_VALUES,
 		function() return d.anchor or "TOP" end,
 		function(v) d.anchor = v end)
 	anchor:SetPoint("TOPLEFT", 8, y)
 	y = y - 42
 
-	local xoff = CreateSlider(parent, "X Offset", -50, 50, 1,
+	local xoff = CreateSlider(parent, L.X_OFFSET or "X Offset", -50, 50, 1,
 		function() return d.xOffset or 0 end,
 		function(v) d.xOffset = math.floor(v + 0.5) end)
 	xoff:SetPoint("TOPLEFT", 8, y)
 	y = y - 56
 
-	local yoff = CreateSlider(parent, "Y Offset", -50, 50, 1,
+	local yoff = CreateSlider(parent, L.Y_OFFSET or "Y Offset", -50, 50, 1,
 		function() return d.yOffset or 0 end,
 		function(v) d.yOffset = math.floor(v + 0.5) end)
 	yoff:SetPoint("TOPLEFT", 8, y)
 	y = y - 56
 
-	local scale = CreateSlider(parent, "Scale", 0.1, 2.0, 0.05,
+	local scale = CreateSlider(parent, L.SCALE or "Scale", 0.1, 2.0, 0.05,
 		function() return d.scale or 1 end,
 		function(v) d.scale = tonumber(string.format("%.2f", v)) end)
 	scale:SetPoint("TOPLEFT", 8, y)
 	y = y - 56
 
-	local alpha = CreateSlider(parent, "Alpha", 0, 1, 0.05,
+	local alpha = CreateSlider(parent, L.ALPHA or "Alpha", 0, 1, 0.05,
 		function() return d.alpha or 1 end,
 		function(v) d.alpha = tonumber(string.format("%.2f", v)) end)
 	alpha:SetPoint("TOPLEFT", 8, y)
 	y = y - 56
 
-	local strata = CreateCycle(parent, "Overlay Frame Strata", STRATA_VALUES,
+	local strata = CreateCycle(parent, L.OVERLAY_STRATA or "Overlay Frame Strata", STRATA_VALUES,
 		function() return d.strata or "HIGH" end,
 		function(v) d.strata = v end)
 	strata:SetPoint("TOPLEFT", 8, y)
 	y = y - 42
 
-	local level = CreateSlider(parent, "Overlay Frame Level", 1, 128, 1,
+	local level = CreateSlider(parent, L.OVERLAY_LEVEL or "Overlay Frame Level", 1, 128, 1,
 		function() return d.frameLevel or 10 end,
 		function(v) d.frameLevel = math.floor(v + 0.5) end)
 	level:SetPoint("TOPLEFT", 8, y)
@@ -261,38 +262,38 @@ local function BuildSection_Keybinds(parent)
 	local t = db.text
 	local y = -8
 
-	local outline = CreateCheck(parent, "Font Outline", nil,
+	local outline = CreateCheck(parent, L.FONT_OUTLINE or "Font Outline", nil,
 		function() return t.outline end,
 		function(v) t.outline = v end)
 	outline:SetPoint("TOPLEFT", 8, y)
 	y = y - 28
 
-	local abbr = CreateCheck(parent, "Enable Abbreviations", nil,
+	local abbr = CreateCheck(parent, L.ABBREVIATIONS or "Enable Abbreviations", nil,
 		function() return t.abbreviations end,
 		function(v) t.abbreviations = v end)
 	abbr:SetPoint("TOPLEFT", 8, y)
 	y = y - 36
 
-	local maxLen = CreateSlider(parent, "Max Length", 1, 10, 1,
+	local maxLen = CreateSlider(parent, L.MAX_LENGTH or "Max Length", 1, 10, 1,
 		function() return t.maxLength or 4 end,
 		function(v) t.maxLength = math.floor(v + 0.5) end)
 	maxLen:SetPoint("TOPLEFT", 8, y)
 	y = y - 56
 
-	local fontSize = CreateSlider(parent, "Font Size", 6, 48, 1,
+	local fontSize = CreateSlider(parent, L.FONT_SIZE or "Font Size", 6, 48, 1,
 		function() return t.fontSize or 12 end,
 		function(v) t.fontSize = math.floor(v + 0.5) end)
 	fontSize:SetPoint("TOPLEFT", 8, y)
 	y = y - 56
 
-	local modSep = CreateEditBox(parent, "Modifier Separator", 160,
+	local modSep = CreateEditBox(parent, L.MOD_SEPARATOR or "Modifier Separator", 160,
 		function() return (t.modSeparator or "") end,
 		function(v) t.modSeparator = v end)
 	modSep:SetPoint("TOPLEFT", 8, y)
 	y = y - 48
 
 	local colorBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-	colorBtn:SetText("Pick Font Color")
+	colorBtn:SetText(L.PICK_FONT_COLOR or "Pick Font Color")
 	colorBtn:SetSize(160, 22)
 	colorBtn:SetPoint("TOPLEFT", 8, y+6)
 	local preview = parent:CreateTexture(nil, "ARTWORK")
@@ -331,7 +332,7 @@ local function BuildSection_Keybinds(parent)
 	if LSM and addon.Config and addon.Config.GetFontList then
 		local list = addon.Config:GetFontList()
 		if type(list) == "table" and #list > 0 then
-			local cycle = CreateCycle(parent, "Font", list,
+			local cycle = CreateCycle(parent, L.FONT or "Font", list,
 				function() return t.font or list[1] end,
 				function(v) t.font = v end)
 			cycle:SetPoint("TOPLEFT", 8, y)
@@ -348,20 +349,20 @@ local function BuildSection_Profiles(parent)
 
 	local current = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
 	current:SetPoint("TOPLEFT", 8, -8)
-	local curName = addon.db and addon.db.GetCurrentProfile and addon.db:GetCurrentProfile() or "Unknown"
-	current:SetText("Current Profile: |cffffd700" .. tostring(curName) .. "|r")
+	local curName = addon.db and addon.db.GetCurrentProfile and addon.db:GetCurrentProfile() or (L.UNKNOWN or "Unknown")
+	current:SetText((L.CURRENT_PROFILE or "Current Profile:") .. " |cffffd700" .. tostring(curName) .. "|r")
 	y = y - 28
 
 	local useGlobal = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-	useGlobal:SetText("Use Global Profile")
+	useGlobal:SetText(L.USE_GLOBAL_PROFILE or "Use Global Profile")
 	useGlobal:SetSize(180, 24)
 	useGlobal:SetPoint("TOPLEFT", 8, y)
 	useGlobal:SetScript("OnClick", function()
 		if not addon.db then return end
 		StaticPopupDialogs["AHOS_CONFIRM_PROFILE_SWITCH"] = {
-			text = "Switch to the global (Default) profile? This will overwrite your current settings.",
-			button1 = "Yes",
-			button2 = "No",
+			text = L.CONFIRM_SWITCH_GLOBAL or "Switch to the global (Default) profile? This will overwrite your current settings.",
+			button1 = L.YES or "Yes",
+			button2 = L.NO or "No",
 			OnAccept = function()
 				addon.db:SetProfile("Default")
 				SafeUpdate()
@@ -372,16 +373,16 @@ local function BuildSection_Profiles(parent)
 	end)
 
 	local useChar = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-	useChar:SetText("Use Character Profile")
+	useChar:SetText(L.USE_CHARACTER_PROFILE or "Use Character Profile")
 	useChar:SetSize(180, 24)
 	useChar:SetPoint("LEFT", useGlobal, "RIGHT", 10, 0)
 	useChar:SetScript("OnClick", function()
 		if not addon.db then return end
 		local charProfile = UnitName("player") .. " - " .. GetRealmName()
 		StaticPopupDialogs["AHOS_CONFIRM_PROFILE_SWITCH_CHAR"] = {
-			text = "Switch to the character-specific profile? This will overwrite your current settings.",
-			button1 = "Yes",
-			button2 = "No",
+			text = L.CONFIRM_SWITCH_CHARACTER or "Switch to the character-specific profile? This will overwrite your current settings.",
+			button1 = L.YES or "Yes",
+			button2 = L.NO or "No",
 			OnAccept = function()
 				addon.db:SetProfile(charProfile)
 				SafeUpdate()
@@ -397,13 +398,13 @@ local function BuildSection_Profiles(parent)
 	copyRow:SetSize(1, 1)
 	local copyLbl = parent:CreateFontString(nil, "ARTWORK", "GameFontNormal")
 	copyLbl:SetPoint("TOPLEFT", 8, -64)
-	copyLbl:SetText("Copy Current Profile To…")
+	copyLbl:SetText(L.COPY_PROFILE_TO or "Copy Current Profile To…")
 	local copyEB = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
 	copyEB:SetAutoFocus(false)
 	copyEB:SetSize(220, 24)
 	copyEB:SetPoint("TOPLEFT", copyLbl, "BOTTOMLEFT", 0, -6)
 	local copyBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-	copyBtn:SetText("Copy")
+	copyBtn:SetText(L.COPY or "Copy")
 	copyBtn:SetSize(80, 24)
 	copyBtn:SetPoint("LEFT", copyEB, "RIGHT", 8, 0)
 	copyBtn:SetScript("OnClick", function()
@@ -416,15 +417,15 @@ local function BuildSection_Profiles(parent)
 	y = y - 78
 
 	local resetAll = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-	resetAll:SetText("Reset All Profiles")
+	resetAll:SetText(L.RESET_ALL_PROFILES or "Reset All Profiles")
 	resetAll:SetSize(180, 24)
 	resetAll:SetPoint("TOPLEFT", 8, -150)
 	resetAll:SetScript("OnClick", function()
 		if not addon.db then return end
 		StaticPopupDialogs["AHOS_CONFIRM_RESET_ALL"] = {
-			text = "Reset ALL profiles to default? This cannot be undone!",
-			button1 = "Yes",
-			button2 = "No",
+			text = L.CONFIRM_RESET_ALL or "Reset ALL profiles to default? This cannot be undone!",
+			button1 = L.YES or "Yes",
+			button2 = L.NO or "No",
 			OnAccept = function()
 				addon.db:ResetDB("Default")
 				SafeUpdate()
@@ -434,7 +435,7 @@ local function BuildSection_Profiles(parent)
 		StaticPopup_Show("AHOS_CONFIRM_RESET_ALL")
 	end)
 
-	local autoSwitch = CreateCheck(parent, "Auto-Switch Profile by Spec", nil,
+	local autoSwitch = CreateCheck(parent, L.AUTO_SWITCH_PROFILE or "Auto-Switch Profile by Spec", nil,
 		function() return db.autoSwitchProfile end,
 		function(v) db.autoSwitchProfile = v end)
 	autoSwitch:SetPoint("LEFT", resetAll, "RIGHT", 16, 0)
@@ -442,7 +443,7 @@ local function BuildSection_Profiles(parent)
 	y = -190
 
 	local exportBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-	exportBtn:SetText("Export Current Profile")
+	exportBtn:SetText(L.EXPORT_PROFILE or "Export Current Profile")
 	exportBtn:SetSize(200, 24)
 	exportBtn:SetPoint("TOPLEFT", 8, y)
 	exportBtn:SetScript("OnClick", function()
@@ -453,13 +454,13 @@ local function BuildSection_Profiles(parent)
 
 	local importLbl = parent:CreateFontString(nil, "ARTWORK", "GameFontNormal")
 	importLbl:SetPoint("TOPLEFT", exportBtn, "BOTTOMLEFT", 0, -12)
-	importLbl:SetText("Import Profile String")
+	importLbl:SetText(L.IMPORT_PROFILE or "Import Profile String")
 	local importEB = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
 	importEB:SetAutoFocus(false)
 	importEB:SetSize(360, 24)
 	importEB:SetPoint("TOPLEFT", importLbl, "BOTTOMLEFT", 0, -6)
 	local importBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-	importBtn:SetText("Import")
+	importBtn:SetText(L.IMPORT or "Import")
 	importBtn:SetSize(80, 24)
 	importBtn:SetPoint("LEFT", importEB, "RIGHT", 8, 0)
 	importBtn:SetScript("OnClick", function()
@@ -475,12 +476,12 @@ end
 
 local function BuildSection_Help(parent)
 	local y = -8
-	local text = [[|cffFFD700How to Report Bugs|r
+	local text = [[|cffFFD700]] .. (L.HOW_TO_REPORT_BUGS or "How to Report Bugs") .. [[|r
 - Include WoW version, addon version, and description.
 - For overlay issues, include a screenshot if possible.
 - Export your profile/debug data with the buttons below or /ahos debugexport.
 
-|cffFFD700Slash Commands|r
+|cffFFD700]] .. (L.SLASH_COMMANDS or "Slash Commands") .. [[|r
 /ahos show — Open options
 /ahos lock|unlock — Lock/unlock settings
 /ahos reset — Reset settings
@@ -493,7 +494,7 @@ local function BuildSection_Help(parent)
 /ahos debugexport [tablepath] — Export profile/subtable
 /ahoslog — Open the debug log window
 
-|cffFFD700Debugging Tips|r
+|cffFFD700]] .. (L.DEBUGGING_TIPS or "Debugging Tips") .. [[|r
 - Enable debug mode with /ahos debug to see extra output.
 - Use /ahos debugexport to copy your profile or a subtable.
 - Use /ahoslog to view/copy all debug output.
@@ -508,12 +509,12 @@ local function BuildSection_Help(parent)
 end
 
 local function BuildSection_About(parent)
-	local text = [[|cffFFD700Advanced Hotkey Overlay System|r
+	local text = [[|cffFFD700]] .. (L.ADDON_NAME or "Advanced Hotkey Overlay System") .. [[|r
 
 A modular, robust hotkey overlay system for World of Warcraft action bars, supporting Blizzard, AzeriteUI, and ConsolePort-style keybind abbreviations.
 
-|cffFFD700Made by:|r JuNNeZ
-|cffFFD700Libraries:|r Ace3, LibDBIcon-1.0, LibSharedMedia-3.0, LibSerialize, LibDeflate.
+|cffFFD700]] .. (L.MADE_BY or "Made by:") .. [[|r JuNNeZ
+|cffFFD700]] .. (L.LIBRARIES or "Libraries:") .. [[|r Ace3, LibDBIcon-1.0, LibSharedMedia-3.0, LibSerialize, LibDeflate.
 
 Made with LOVE in Denmark.]]
 	local fs = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
@@ -529,7 +530,7 @@ local function BuildSection_Changelog(parent)
 	local ver = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(addonName, "Version")) or (GetAddOnMetadata and GetAddOnMetadata(addonName, "Version")) or "unknown"
 	local header = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlightLarge")
 	header:SetPoint("TOPLEFT", 8, -8)
-	header:SetText("Changelog (current: " .. ver .. ")")
+	header:SetText((L.CHANGELOG or "Changelog") .. " (" .. (L.CURRENT or "current") .. ": " .. ver .. ")")
 
 	local body = [[
 	|cffFFD700Latest|r
@@ -567,19 +568,19 @@ end
 local function BuildSection_Integration(parent)
 	local db = GetDB()
 	local y = -8
-	local elv = CreateCheck(parent, "Enable ElvUI Compatibility", nil,
+	local elv = CreateCheck(parent, L.ENABLE_ELVUI or "Enable ElvUI Compatibility", nil,
 		function() return db.forceOverlaysWithElvUI end,
 		function(v) db.forceOverlaysWithElvUI = v end)
 	elv:SetPoint("TOPLEFT", 8, y)
 	y = y - 28
 
-	local bt = CreateCheck(parent, "Enable Bartender Compatibility", nil,
+	local bt = CreateCheck(parent, L.ENABLE_BARTENDER or "Enable Bartender Compatibility", nil,
 		function() return db.bartenderCompat end,
 		function(v) db.bartenderCompat = v end)
 	bt:SetPoint("TOPLEFT", 8, y)
 	y = y - 28
 
-	local dom = CreateCheck(parent, "Enable Dominos Compatibility", nil,
+	local dom = CreateCheck(parent, L.ENABLE_DOMINOS or "Enable Dominos Compatibility", nil,
 		function() return db.dominosCompat end,
 		function(v) db.dominosCompat = v end)
 	dom:SetPoint("TOPLEFT", 8, y)
@@ -591,14 +592,14 @@ end
 local function BuildSection_Advanced(parent)
 	local db = GetDB()
 	local y = -8
-	local perf = CreateCheck(parent, "Show Performance Metrics", nil,
+	local perf = CreateCheck(parent, L.SHOW_PERF_METRICS or "Show Performance Metrics", nil,
 		function() return db.showPerfMetrics end,
 		function(v) db.showPerfMetrics = v end)
 	perf:SetPoint("TOPLEFT", 8, y)
 	y = y - 36
 
 	local openAce = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-	openAce:SetText("Open Classic Options (AceConfig)")
+	openAce:SetText(L.OPEN_ACE_OPTIONS or "Open Classic Options (AceConfig)")
 	openAce:SetSize(260, 24)
 	openAce:SetPoint("TOPLEFT", 8, y)
 	openAce:SetScript("OnClick", function()
@@ -683,11 +684,12 @@ function addon:OpenJUI(section)
 		frame.portrait:SetScript("OnEnter", function()
 			if not GameTooltip then return end
 			GameTooltip:SetOwner(frame.portrait, "ANCHOR_RIGHT")
-			GameTooltip:AddLine("AHOS Portrait", 1, 0.82, 0)
+			local L = addon and addon.L or {}
+			GameTooltip:AddLine(L.AHOS_PORTRAIT or "AHOS Portrait", 1, 0.82, 0)
 			local meta = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(addonName, "IconTexture")) or (GetAddOnMetadata and GetAddOnMetadata(addonName, "IconTexture"))
-			if meta and meta ~= "" then GameTooltip:AddLine("TOC IconTexture: "..tostring(meta), 0.9, 0.9, 0.9, true) end
-			GameTooltip:AddLine("Using: "..tostring(frame._portraitPath or "(none)"), 0.9, 0.9, 0.9, true)
-			GameTooltip:AddLine("Tip: Use 128x128 TGA (32-bit, uncompressed) or BLP.", 0.6, 0.6, 0.6, true)
+			if meta and meta ~= "" then GameTooltip:AddLine((L.TOC_ICON_TEXTURE or "TOC IconTexture:") .. " "..tostring(meta), 0.9, 0.9, 0.9, true) end
+			GameTooltip:AddLine((L.USING_TEXTURE or "Using:") .. " "..tostring(frame._portraitPath or (L.NONE or "(none)")), 0.9, 0.9, 0.9, true)
+			GameTooltip:AddLine(L.TIP_PORTRAIT_FORMAT or "Tip: Use 128x128 TGA (32-bit, uncompressed) or BLP.", 0.6, 0.6, 0.6, true)
 			GameTooltip:Show()
 		end)
 		frame.portrait:SetScript("OnLeave", function()
@@ -728,15 +730,15 @@ function addon:OpenJUI(section)
 	navBG:SetColorTexture(0, 0, 0, 0.35)
 
 	local sections = {
-		{ key = "general",  text = "General" },
-		{ key = "display",  text = "Display" },
-		{ key = "keybinds", text = "Keybinds" },
-		{ key = "profiles", text = "Profiles" },
-		{ key = "integration", text = "Integration" },
-		{ key = "advanced", text = "Advanced" },
-		{ key = "help", text = "Help" },
-		{ key = "about", text = "About" },
-		{ key = "changelog", text = "Changelog" },
+		{ key = "general",  text = L.GENERAL or "General" },
+		{ key = "display",  text = L.DISPLAY or "Display" },
+		{ key = "keybinds", text = L.KEYBINDS or "Keybinds" },
+		{ key = "profiles", text = L.PROFILES or "Profiles" },
+		{ key = "integration", text = L.INTEGRATION or "Integration" },
+		{ key = "advanced", text = L.ADVANCED or "Advanced" },
+		{ key = "help", text = L.HELP or "Help" },
+		{ key = "about", text = L.ABOUT or "About" },
+		{ key = "changelog", text = L.CHANGELOG or "Changelog" },
 	}
 
 	local right = CreateFrame("Frame", nil, inset, "BackdropTemplate")
@@ -780,7 +782,18 @@ function addon:OpenJUI(section)
 
 	local function showNativeSection(key)
 		for _, f in pairs(frames) do f:Hide() end
-		header:SetText(key:gsub("^%l", string.upper))
+		local titles = {
+			general = L.GENERAL or "General",
+			display = L.DISPLAY or "Display",
+			keybinds = L.KEYBINDS or "Keybinds",
+			profiles = L.PROFILES or "Profiles",
+			integration = L.INTEGRATION or "Integration",
+			advanced = L.ADVANCED or "Advanced",
+			help = L.HELP or "Help",
+			about = L.ABOUT or "About",
+			changelog = L.CHANGELOG or "Changelog",
+		}
+		header:SetText(titles[key] or (L.UNKNOWN or key:gsub("^%l", string.upper)))
 		-- Always rebuild section to ensure values reflect latest DB state
 		local old = frames[key]
 		if old then old:Hide(); old:SetParent(nil); frames[key] = nil end
@@ -808,7 +821,7 @@ function addon:OpenJUI(section)
 		else
 			local txt = f:CreateFontString(nil, "ARTWORK", "GameFontDisable")
 			txt:SetPoint("TOPLEFT", 8, -8)
-			txt:SetText("This section will be expanded in a future update.")
+			txt:SetText(L.FUTURE_SECTION or "This section will be expanded in a future update.")
 			f._height = 60
 		end
 		f:SetHeight(f._height or 400)
@@ -842,7 +855,18 @@ function addon:OpenJUI(section)
 		for _, f in pairs(frames) do f:Hide() end
 		scroll:Hide()
 		aceHost:Show()
-		header:SetText(key:gsub("^%l", string.upper))
+		local titles = {
+			general = L.GENERAL or "General",
+			display = L.DISPLAY or "Display",
+			keybinds = L.KEYBINDS or "Keybinds",
+			profiles = L.PROFILES or "Profiles",
+			integration = L.INTEGRATION or "Integration",
+			advanced = L.ADVANCED or "Advanced",
+			help = L.HELP or "Help",
+			about = L.ABOUT or "About",
+			changelog = L.CHANGELOG or "Changelog",
+		}
+		header:SetText(titles[key] or (L.UNKNOWN or key:gsub("^%l", string.upper)))
 		local appName = _G.AHOS_OPTIONS_PANEL_NAME or addonName
 		-- Create an AceGUI container on demand
 		if not aceContainer then
