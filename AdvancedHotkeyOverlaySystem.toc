@@ -1,4 +1,5 @@
-## Interface: 110107, 110200
+## Interface: 110107, 110200, 110205
+## Interface-Classic: 50500, 50501
 ## Title: |T626001:16:16:0:0|t |cff00D4AAAdvanced |cffffd700Hotkey |cffffffffOverlay |cffffd700System|r
 ## Notes: |cffffd700Advanced Hotkey Overlay System|r |cff00D4AA- Intelligent UI detection, live updates, and beautiful customization.|r
 ## Author: |cff00D4AAJuNNeZ|r
@@ -9,7 +10,7 @@
 ## X-Website: https://github.com/junnez/advancedhotkeyoverlaysystem
 ## X-Curse-Project-ID: 1289540
 ## X-WoWI-ID: advanced-hotkey-overlay-system
-## X-Compatible-With: 110200
+## X-Compatible-With: 110205
 ## X-Min-Interface: 110107
 ## X-Game-Version: Retail, Classic
 ## X-Flavor: Mainline, Classic
