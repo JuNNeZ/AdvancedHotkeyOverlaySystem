@@ -693,7 +693,10 @@ function Display:StyleOverlay(overlay, parent, text)
         elseif db.text.outline ~= nil then
             outline = db.text.outline and "OUTLINE" or "NONE"
         end
-        if outline == "NONE" then outline = "" end
+    if outline == "NONE" then outline = "" end
+    -- Normalize alias flags
+    if outline == "MONOCHROMEOUTLINE" then outline = "MONOCHROME,OUTLINE" end
+    if outline == "MONOCHROMETHICKOUTLINE" then outline = "MONOCHROME,THICKOUTLINE" end
         -- Check font existence if using LibSharedMedia
         local fontExists = true
         local LibSharedMedia = LibStub and LibStub("LibSharedMedia-3.0", true)

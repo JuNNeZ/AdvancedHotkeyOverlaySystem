@@ -308,6 +308,8 @@ function Options:GetOptions()
                             ["MONOCHROME"] = "Monochrome",
                             ["MONOCHROME,OUTLINE"] = "Monochrome + Outline",
                             ["MONOCHROME,THICKOUTLINE"] = "Monochrome + Thick Outline",
+                            ["MONOCHROMEOUTLINE"] = "MonochromeOutline (alias)",
+                            ["MONOCHROMETHICKOUTLINE"] = "MonochromeThickOutline (alias)",
                         },
                         get = function()
                             local db = getSafeProfile()
