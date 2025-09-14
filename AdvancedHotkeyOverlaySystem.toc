@@ -1,5 +1,6 @@
 ## Interface: 110107, 110200, 110205
-## Interface-Classic: 50500, 50501
+## Interface-Mists: 50500, 50501
+## Interface-Classic: 11507
 ## Title: |T626001:16:16:0:0|t |cff00D4AAAdvanced |cffffd700Hotkey |cffffffffOverlay |cffffd700System|r
 ## Notes: |cffffd700Advanced Hotkey Overlay System|r |cff00D4AA- Intelligent UI detection, live updates, and beautiful customization.|r
 ## Author: |cff00D4AAJuNNeZ|r
@@ -12,8 +13,8 @@
 ## X-WoWI-ID: advanced-hotkey-overlay-system
 ## X-Compatible-With: 110205
 ## X-Min-Interface: 110107
-## X-Game-Version: Retail, Classic
-## X-Flavor: Mainline, Classic
+## X-Game-Version: Retail, Mists, Vanilla
+## X-Flavor: Mainline, Mists, Vanilla
 ## X-PackageMeta-ID: ahos-unified
 ## OptionalDeps: Ace3
 
