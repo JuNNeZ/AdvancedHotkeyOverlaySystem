@@ -296,13 +296,41 @@ function Options:GetOptions()
                         get = function() local db = getSafeProfile() if db.text and db.text.color then return unpack(db.text.color) end end,
                         set = function(info, r, g, b) local db = getSafeProfile() if db.text then db.text.color = {r, g, b}; addon.Core:FullUpdate() end end,
                     },
-                    outline = {
-                        type = "toggle",
+                    outlineStyle = {
+                        type = "select",
                         name = "Font Outline",
-                        desc = "Adds a black outline to the font.",
+                        desc = "Choose font outline and monochrome options.",
                         order = 4,
-                        get = function() local db = getSafeProfile() return db.text and db.text.outline end,
-                        set = function(info, val) local db = getSafeProfile() if db.text then db.text.outline = val; addon.Core:FullUpdate() end end,
+                        values = {
+                            ["NONE"] = "None",
+                            ["OUTLINE"] = "Outline",
+                            ["THICKOUTLINE"] = "Thick Outline",
+                            ["MONOCHROME"] = "Monochrome",
+                            ["MONOCHROME,OUTLINE"] = "Monochrome + Outline",
+                            ["MONOCHROME,THICKOUTLINE"] = "Monochrome + Thick Outline",
+                        },
+                        get = function()
+                            local db = getSafeProfile()
+                            if db.text then
+                                if db.text.outlineStyle and db.text.outlineStyle ~= "" then
+                                    return db.text.outlineStyle
+                                end
+                                -- Legacy fallback: boolean outline => OUTLINE/NONE
+                                if db.text.outline ~= nil then
+                                    return db.text.outline and "OUTLINE" or "NONE"
+                                end
+                            end
+                            return "OUTLINE"
+                        end,
+                        set = function(_, val)
+                            local db = getSafeProfile()
+                            if db.text then
+                                db.text.outlineStyle = val
+                                -- keep legacy key for backward compat off by default
+                                db.text.outline = (val == "OUTLINE" or val == "THICKOUTLINE" or val:find("OUTLINE", 1, true) ~= nil)
+                                addon.Core:FullUpdate()
+                            end
+                        end,
                     },
                     abbreviations = {
                         type = "toggle",

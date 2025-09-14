@@ -686,7 +686,14 @@ function Display:StyleOverlay(overlay, parent, text)
         -- Text Styling (configured)
         local fontName = db.text.font or "Default"
         local fontPath = addon.Config and addon.Config.GetFontPath and addon.Config:GetFontPath(fontName) or "Fonts\\FRIZQT__.TTF"
-        local outline = db.text.outline and "OUTLINE" or ""
+        -- Outline/flags: prefer outlineStyle; fallback to legacy boolean
+        local outline = ""
+        if db.text.outlineStyle and db.text.outlineStyle ~= "" then
+            outline = db.text.outlineStyle
+        elseif db.text.outline ~= nil then
+            outline = db.text.outline and "OUTLINE" or "NONE"
+        end
+        if outline == "NONE" then outline = "" end
         -- Check font existence if using LibSharedMedia
         local fontExists = true
         local LibSharedMedia = LibStub and LibStub("LibSharedMedia-3.0", true)
@@ -703,7 +710,7 @@ function Display:StyleOverlay(overlay, parent, text)
             if addon.db and addon.db.profile and addon.db.profile.debug then
                 addon:Print("[AHOS DEBUG] StyleOverlay (configured): font=", fontName, " path=", fontPath, " size=", db.text.fontSize, " outline=", outline)
             end
-        setFontResult = overlay.text:SetFont(fontPath, db.text.fontSize, outline)
+    setFontResult = overlay.text:SetFont(fontPath, db.text.fontSize, outline)
         local r,g,b,a = 1,1,1,1
         if db.text.color and type(db.text.color) == "table" then
             r = db.text.color[1] or r

@@ -123,7 +123,8 @@ function Config:GetDefaultProfile()
             abbreviations = true,
             maxLength = 6,
             customAbbreviations = {},
-            outline = true,
+            outline = true,               -- legacy boolean
+            outlineStyle = "OUTLINE",    -- new style flags (NONE, OUTLINE, THICKOUTLINE, MONOCHROME, MONOCHROME,OUTLINE, MONOCHROME,THICKOUTLINE)
         },
         bars = {},
         performance = {},
