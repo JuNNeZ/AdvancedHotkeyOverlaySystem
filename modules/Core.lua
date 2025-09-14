@@ -4,8 +4,18 @@ local addonName, privateScope = ...
 local addon = privateScope.addon
 local Core = addon.Core
 
--- Add build-gating utility
-local isRetail = (select(4, GetBuildInfo()) or 0) >= 100000
+-- Build gating utility: prefer project ID for accurate flavor detection, fallback to build
+local function IsRetail()
+    local pid = rawget(_G, "WOW_PROJECT_ID")
+    local pm = rawget(_G, "WOW_PROJECT_MAINLINE")
+    if type(pid) == "number" and type(pm) == "number" then
+        return pid == pm
+    end
+    -- Fallback heuristic: Dragonflight+ builds >= 100000
+    local build = select(4, GetBuildInfo()) or 0
+    return build >= 100000
+end
+local isRetail = IsRetail()
 
 function Core:OnInitialize()
     -- Register with AceDB
