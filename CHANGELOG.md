@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.3] - 2025-09-14
+
+### Fixed (2.5.3)
+
+- Locales: Prevent "attempt to index local 'addon' (a nil value)" by decoupling locale files from addon scope and using a shared global table consumed by the addon at init.
+- Retail (AzeriteUI): Filter placeholder square/bullet glyphs on unbound buttons; strengthen native hotkey suppression safeguards.
+
+### Changed (2.5.3)
+
+- Tooling: Replaced failing `lua -p` VS Code task with a robust PowerShell-based sweep using `luac -p` or `assert(loadfile(...))` fallback. Set as default build lint task.
+- Documentation: README highlights updated for 2.5.3.
+
 ## [2.4.2] - 2025-09-03
 
 ## [2.5.0] - 2025-09-14
@@ -195,3 +207,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [2.5.0]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.0
 [2.5.1]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.1
 [2.5.2]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.2
+[2.5.3]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.3

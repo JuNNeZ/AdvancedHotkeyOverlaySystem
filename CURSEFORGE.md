@@ -87,11 +87,12 @@ Advanced Hotkey Overlay System replaces the default hotkey text on your action b
 - LibDBIcon-1.0 (included)
 
 ## Recent Updates (v2.5.3)
-- Retail (AzeriteUI): Removed placeholder square/bullet on unbound buttons; safer native label suppression with deep-scan.
+
+- Locales: Fixed nil error by decoupling locale files from addon scope; locales now populate a shared table consumed by the addon.
+- Tooling: New default VS Code lint task scans all Lua files via `luac -p` or `assert(loadfile(...))` fallback.
+- Retail (AzeriteUI): Removed placeholder square/bullet on unbound buttons; safer native label suppression with deep scan.
 - Options: Added font outline styles (NONE/OUTLINE/THICKOUTLINE/MONOCHROME combos) with legacy fallback.
-- Classic: Fixed invalid event registration by gating Retail-only events (PLAYER_BINDING_CHANGED is Retail-only).
-- Dominos: Overlays visible immediately without reload; native labels stay hidden after binding mode.
-- Overlay layering: Bumped frame level to sit above nested containers and skins (Masque/AzeriteUI).
+- Classic: Gated Retail-only events to avoid registration errors.
 
 ---
 

@@ -24,5 +24,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Verify version consistency
+        shell: pwsh
+        run: |
+          pwsh -NoLogo -NoProfile -Command \
+            "$ErrorActionPreference='Stop'; ./.vscode/scripts/verify-version.ps1"
+
       - name: Package and release
         uses: BigWigsMods/packager@v2
