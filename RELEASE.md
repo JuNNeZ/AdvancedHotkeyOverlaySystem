@@ -23,10 +23,14 @@ Use this checklist to ensure every release is consistent and complete.
 
 ## CI/CD
 
-- GitHub Actions (release.yml) will verify versions and run the BigWigs packager on v* tags.
-- Check the Actions tab to confirm all flavors were packaged successfully.
 
-## Post-release
+### Notes on packaging
+
+- We ship three flavors: Mainline (Retail), Mists, and Vanilla. Each has its own suffixed TOC.
+- The unsuffixed `AdvancedHotkeyOverlaySystem.toc` exists for local development convenience only.
+   It is excluded from packaging via `.pkgmeta` and lacks upload target IDs, preventing a duplicate
+   Retail upload. If you see multiple identical Retail uploads in a release, ensure both of these
+   safeguards are present.
 
 - Verify the release on CurseForge/WoWI/Wago.
 - If needed, update CURSEFORGE.md Recent Updates with highlights.

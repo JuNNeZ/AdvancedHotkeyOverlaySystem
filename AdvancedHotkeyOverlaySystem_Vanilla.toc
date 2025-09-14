@@ -7,8 +7,6 @@
 ## IconTexture: Interface\AddOns\AdvancedHotkeyOverlaySystem\media\logo.tga
 ## X-Category: Action Bars
 ## X-Website: https://github.com/junnez/advancedhotkeyoverlaysystem
-## X-Curse-Project-ID: 1289540
-## X-WoWI-ID: advanced-hotkey-overlay-system
 ## X-Game-Version: Vanilla
 ## X-Flavor: Vanilla
 ## X-PackageMeta-ID: ahos-unified

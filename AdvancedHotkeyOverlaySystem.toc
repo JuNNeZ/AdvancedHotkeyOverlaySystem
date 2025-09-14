@@ -7,13 +7,13 @@
 ## IconTexture: Interface\AddOns\AdvancedHotkeyOverlaySystem\media\logo.tga
 ## X-Category: Action Bars
 ## X-Website: https://github.com/junnez/advancedhotkeyoverlaysystem
-## X-Curse-Project-ID: 1289540
-## X-WoWI-ID: advanced-hotkey-overlay-system
+## NOTE: This unsuffixed TOC is for local development only.
+## It intentionally omits upload target IDs so the packager won't
+## create a duplicate release from it. Flavored TOCs handle publishing.
 ## X-Compatible-With: 110205
 ## X-Min-Interface: 110107
 ## X-Game-Version: Retail
 ## X-Flavor: Mainline
-## X-PackageMeta-ID: ahos-unified
 ## OptionalDeps: Ace3
 
 # IMPORTANT: File Load Order
