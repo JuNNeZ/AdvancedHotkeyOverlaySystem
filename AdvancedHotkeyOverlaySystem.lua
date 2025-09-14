@@ -67,16 +67,20 @@ end
 _G.OpenAHOSOptionsPanel = function()
     local AceConfigDialog = LibStub("AceConfigDialog-3.0", true)
     local appName = _G.AHOS_OPTIONS_PANEL_NAME
-    if AceConfigDialog then
-        if AceConfigDialog.OpenFrames[appName] then
-            AceConfigDialog:Close(appName)
-        else
-            AceConfigDialog:Open(appName)
-            -- SAFETY: Do not set custom title, let Ace3/Blizzard handle it
+        -- For now, open the classic Ace options directly (disable custom UIs)
+        if AceConfigDialog then
+            if AceConfigDialog.OpenFrames and AceConfigDialog.OpenFrames[appName] then
+                AceConfigDialog:Close(appName)
+            else
+                AceConfigDialog:Open(appName)
+            end
+            return
         end
-    elseif InterfaceOptionsFrame_OpenToCategory then
-        InterfaceOptionsFrame_OpenToCategory(appName)
-        InterfaceOptionsFrame_OpenToCategory(appName)
+        -- Fallbacks: try new Settings panel, then legacy Interface Options
+        if Settings and Settings.OpenToCategory then Settings.OpenToCategory(appName); return end
+        if InterfaceOptionsFrame_OpenToCategory then
+            InterfaceOptionsFrame_OpenToCategory(appName)
+            InterfaceOptionsFrame_OpenToCategory(appName)
     end
 end
 
@@ -350,7 +354,7 @@ local LocalizedStrings = L[locale] or L.enUS
 function AdvancedHotkeyOverlaySystem:SlashHandler(input)
     local cmd, rest = input:match("^(%S*)%s*(.-)$")
     cmd = cmd:lower() or ""
-    if cmd == "" or cmd == "show" or cmd == "options" then
+    if cmd == "" or cmd == "show" or cmd == "options" or cmd == "ui" or cmd == "config" or cmd == "settings" then
         if type(_G.OpenAHOSOptionsPanel) == "function" then
             _G.OpenAHOSOptionsPanel()
         else
@@ -392,9 +396,10 @@ function AdvancedHotkeyOverlaySystem:SlashHandler(input)
     elseif cmd == "detectui" then
         self:Print("|cff4A9EFFManually detecting UI...|r")
         self:DetectUI()
-        local ui = self.detectedUI or "None"
-        local color = UI_DETECTED_COLORS[ui] or UI_DETECTED_COLORS["Blizzard"]
-        self:Print("|cffFFD700Current detected UI:|r |c" .. color .. ui .. "|r")
+    local ui = self.detectedUI or "None"
+    local colors = self.UI_DETECTED_COLORS or addon.UI_DETECTED_COLORS or {}
+    local color = colors[ui] or colors["Blizzard"] or "FFFFFFFF"
+    self:Print("|cffFFD700Current detected UI:|r |c" .. color .. ui .. "|r")
     elseif cmd == "debugexport" then
         local path = rest and rest:match("^(%S+)")
         local tbl = addon.db and addon.db.profile
@@ -495,6 +500,10 @@ function AdvancedHotkeyOverlaySystem:DetectUI()
         detectedUI = "Tukui"
     elseif IsAddOnLoadedCompat("AzeriteUI") then
         detectedUI = "AzeriteUI"
+    elseif IsAddOnLoadedCompat("Bartender4") then
+        detectedUI = "Bartender4"
+    elseif IsAddOnLoadedCompat("Dominos") then
+        detectedUI = "Dominos"
     end
 
     self.detectedUI = detectedUI

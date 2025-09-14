@@ -4,6 +4,9 @@ local addonName, privateScope = ...
 local addon = privateScope.addon
 local Core = addon.Core
 
+-- Add build-gating utility
+local isRetail = (select(4, GetBuildInfo()) or 0) >= 100000
+
 function Core:OnInitialize()
     -- Register with AceDB
     if not LibStub("AceDB-3.0") then
@@ -67,18 +70,67 @@ function Core:RegisterEvents()
             end
             addon:SetReady()
         end
-        self:FullUpdate()
+        if addon.Keybinds and addon.Keybinds.ClearCache then
+            addon.Keybinds:ClearCache()
+        end
+    -- Run multiple delayed updates to override late hotkey text writes by Dominos/Blizzard
+    self:FullUpdate()
+    self:ScheduleTimer(function() self:FullUpdate() end, 0.2)
+    self:ScheduleTimer(function() self:FullUpdate() end, 0.5)
+    self:ScheduleTimer(function() self:FullUpdate() end, 1.0)
     end)
+    -- Some UIs fire PLAYER_BINDING_CHANGED frequently while editing
+    if isRetail then
+      self:RegisterEvent("PLAYER_BINDING_CHANGED", function()
+          if addon.Keybinds and addon.Keybinds.ClearCache then
+              addon.Keybinds:ClearCache()
+          end
+          self:FullUpdate()
+          self:ScheduleTimer(function() self:FullUpdate() end, 0.2)
+          self:ScheduleTimer(function() self:FullUpdate() end, 0.5)
+      end)
+    else
+      -- Classic: event not available, rely on UPDATE_BINDINGS
+      if addon.db and addon.db.profile and addon.db.profile.debug then
+        addon:Print("[AHOS DEBUG] Skipping PLAYER_BINDING_CHANGED on Classic.")
+      end
+    end
     self:RegisterEvent("ACTIONBAR_HIDEGRID", "FullUpdate")
     self:RegisterEvent("ACTIONBAR_PAGE_CHANGED", "FullUpdate")
     self:RegisterEvent("ACTIONBAR_SLOT_CHANGED", "UpdateSpecificButton")
     self:RegisterEvent("PET_BAR_UPDATE", "FullUpdate")
+    self:RegisterEvent("UPDATE_SHAPESHIFT_FORM", "FullUpdate")
+    self:RegisterEvent("UPDATE_POSSESS_BAR", "FullUpdate")
     -- self:RegisterEvent("VEHICLE_UI_SHOW", "FullUpdate") -- Event does not exist in modern WoW
     -- self:RegisterEvent("VEHICLE_UI_HIDE", "FullUpdate") -- Event does not exist in modern WoW
     self:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", "FullUpdate")
 
     if addon.db.profile.debug then
         addon:Print("Core enabled and events registered.")
+    end
+
+    -- Optional: listen for LibKeyBound callbacks if library is present (used by Dominos/Bartender keybind mode)
+    local ok, KeyBound = pcall(LibStub, "LibKeyBound-1.0")
+    if ok and KeyBound and KeyBound.RegisterCallback then
+        KeyBound:RegisterCallback(self, "LIBKEYBOUND_ENABLED", function()
+            if addon.db and addon.db.profile and addon.db.profile.debug then
+                addon:Print("[AHOS DEBUG] LibKeyBound: enabled; suppressing native hotkeys during binding.")
+            end
+            self:FullUpdate()
+        end)
+        KeyBound:RegisterCallback(self, "LIBKEYBOUND_DISABLED", function()
+            if addon.db and addon.db.profile and addon.db.profile.debug then
+                addon:Print("[AHOS DEBUG] LibKeyBound: disabled; re-applying overlay suppression.")
+            end
+            -- Run a few delayed passes just like UPDATE_BINDINGS
+            if addon.Keybinds and addon.Keybinds.ClearCache then
+                addon.Keybinds:ClearCache()
+            end
+            self:FullUpdate()
+            self:ScheduleTimer(function() self:FullUpdate() end, 0.2)
+            self:ScheduleTimer(function() self:FullUpdate() end, 0.5)
+            self:ScheduleTimer(function() self:FullUpdate() end, 1.0)
+        end)
     end
 end
 
@@ -148,6 +200,11 @@ function Core:FullUpdate(...)
         addon:Print("[AHOS DEBUG] Core:FullUpdate proceeding to Performance:QueueFullUpdate")
     end
     addon:SafeCall("Performance", "QueueFullUpdate")
+    -- Also notify AceConfig to refresh all open option UIs (JUI/Pretty/Ace windows)
+    local reg = LibStub and LibStub("AceConfigRegistry-3.0", true)
+    if reg then reg:NotifyChange(_G.AHOS_OPTIONS_PANEL_NAME or addonName) end
+    -- If the handcrafted JUI is open, refresh its current section to reflect latest DB changes
+    if addon.RefreshJUI then addon:RefreshJUI() end
 end
 
 -- Add a stub UpdateAllButtons to ensure overlays update and error is gone
@@ -192,7 +249,23 @@ function Core:ChatCommand(input)
         else
             addon:Print("Button '" .. tostring(args[2]) .. "' not found.")
         end
+    elseif args[1] == "dumphotkey" and args[2] then
+        local buttonName = string.upper(args[2])
+        local button = _G[buttonName]
+        if button and addon.Display and addon.Display.DumpHotkeyRegions then
+            addon.Display:DumpHotkeyRegions(button)
+        else
+            addon:Print("Button '" .. tostring(args[2]) .. "' not found or Display missing.")
+        end
+    elseif args[1] == "dumplayers" and args[2] then
+        local buttonName = string.upper(args[2])
+        local button = _G[buttonName]
+        if button and addon.Display and addon.Display.DumpButtonLayers then
+            addon.Display:DumpButtonLayers(button)
+        else
+            addon:Print("Button '" .. tostring(args[2]) .. "' not found or Display missing.")
+        end
     else
-        addon:Print("Usage: /ahos [refresh|debug|detect|inspect <ButtonName>]")
+        addon:Print("Usage: /ahos [refresh|debug|detect|inspect <ButtonName>|dumphotkey <ButtonName>|dumplayers <ButtonName>]")
     end
 end

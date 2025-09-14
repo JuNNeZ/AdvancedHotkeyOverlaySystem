@@ -58,7 +58,10 @@ function UI:EnsureMinimapIcon()
             text = displayName,
             icon = "Interface\\AddOns\\AdvancedHotkeyOverlaySystem\\media\\small-logo.tga",
             OnClick = function(_, button)
-                if type(_G.OpenAHOSOptionsPanel) == "function" and button == "LeftButton" then
+                local isShift = IsShiftKeyDown and IsShiftKeyDown()
+                if button == "LeftButton" and isShift and addon and addon.ShowDebugLogWindow then
+                    addon:ShowDebugLogWindow()
+                elseif type(_G.OpenAHOSOptionsPanel) == "function" and button == "LeftButton" then
                     _G.OpenAHOSOptionsPanel()
                 elseif button == "RightButton" then
                     local db = addon.db.profile
@@ -75,6 +78,7 @@ function UI:EnsureMinimapIcon()
                 if not tooltip or not tooltip.AddLine then return end
                 tooltip:AddLine(displayName)
                 tooltip:AddLine("|cffeda55fLeft-click|r to open settings.")
+                tooltip:AddLine("|cffeda55fShift+Left-click|r to open AHOS debug log.")
                 tooltip:AddLine("|cffeda55fRight-click|r to toggle addon.")
             end,
         })

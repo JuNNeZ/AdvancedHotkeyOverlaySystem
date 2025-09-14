@@ -1,16 +1,14 @@
 # Advanced Hotkey Overlay System (AHOS)
 
-![Version](https://img.shields.io/badge/version-2.4.2-cyan)
+![Version](https://img.shields.io/badge/version-2.5.1-cyan)
 
 A modular, robust hotkey overlay system for World of Warcraft action bars, supporting Blizzard, AzeriteUI, and ConsolePort-style keybind abbreviations.
 
-## Version 2.4.2 Highlights
-
-- Embedded AceGUI-3.0 and wired AceConfig-3.0 Dialog when embedded libs are present.
-- Robust options registration: prevents duplicate Blizzard categories and late-load crashes.
-- Minimap/Titan icon uses addon media (small-logo.tga); addon list icon uses media/logo.tga.
-- Options/About panels read Version from TOC metadata (no hardcoded strings).
-- New `/ahos version` command.
+2.5.1
+- Retail (AzeriteUI): Removed placeholder square/bullet on unbound buttons; safer native label suppression with deep-scan.
+- Classic: Fixed invalid event registration by gating Retail-only events.
+- Dominos: Overlays show immediately without reload; native labels remain hidden after binding mode.
+- Overlay layering: Frame level bump above nested overlay containers; better with Masque/AzeriteUI.
 
 ## Features
 
@@ -32,6 +30,7 @@ A modular, robust hotkey overlay system for World of Warcraft action bars, suppo
 - Customize keybind abbreviation style and modifier separator in the options panel.
 - Use `/ahoslog` to open the debug log window and view/copy all debug output.
 - Use `/ahos inspect <ButtonName>` to print debug info for any action button.
+- No reload needed after binding changes in Dominos (Classic).
 
 ## Configuration
 

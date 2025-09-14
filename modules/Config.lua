@@ -41,15 +41,22 @@ local string = string
 -- Module state
 Config.ready = false
 Config.uiDetected = false
+Config._finalized = false
 
 -- Known UI addons to check
 local uiAddons = {
+    -- Keys must be exact folder names (case-sensitive)
     ["ElvUI"] = "ElvUI",
     ["AzeriteUI"] = "AzeriteUI",
-    ["GW2_UI"] = "GW2 UI",
+    ["GW2_UI"] = "GW2_UI",
     ["KkthnxUI"] = "KkthnxUI",
     ["SpartanUI"] = "SpartanUI",
-    ["TukUI"] = "TukUI"
+    ["Tukui"] = "Tukui",
+    ["LUI"] = "LUI",
+    ["SyncUI"] = "SyncUI",
+    ["SuperVillainUI"] = "SuperVillainUI",
+    ["Bartender4"] = "Bartender4",
+    ["Dominos"] = "Dominos",
 }
 
 -- Font path fix
@@ -100,6 +107,12 @@ function Config:GetDefaultProfile()
             borderColor = {0,0,0,1},
             borderSize = 1,
             locked = false,
+            -- Overlay vs native text behavior
+            nativeRewrite = false,         -- Global: rewrite native hotkey FS instead of overlay
+            dominosRewrite = false,        -- Dominos-only override for rewrite (overlay is default)
+            autoNativeFallback = true,     -- If overlay seems hidden, auto-fallback to native per-button
+            followNativeHotkeyStyle = false, -- Let overlay mirror native hotkey font/positioning
+            frameLevel = 10,               -- Base overlay frame level (fine-tune in Options)
         },
         text = {
             fontSize = 16,
@@ -141,9 +154,9 @@ function Config:Initialize()
     
     -- Register events
     self:RegisterMessage("AHOS_REFRESH_CONFIG", "OnConfigRefresh")
-    
-    -- Detect UI addons
-    self:DetectUserInterface()
+    -- Detect incrementally as addons load; finalize once when player logs in
+    self:RegisterEvent("ADDON_LOADED", "OnAddonLoaded")
+    self:RegisterEvent("PLAYER_LOGIN", "OnPlayerLogin")
     
     -- Initialize settings
     self:InitializeSettings()
@@ -153,14 +166,13 @@ function Config:Initialize()
 end
 
 function Config:DetectUserInterface()
-    if self.uiDetected then return end
+    if self._finalized then return end
     
     -- Check for known UI addons
-    for addonName, uiName in pairs(uiAddons) do
-        if IsAddOnLoaded(addonName) then
+    for folder, uiName in pairs(uiAddons) do
+        if IsAddOnLoaded(folder) then
             self.detectedUI = uiName
             addon.detectedUI = uiName
-            addon:Print(string.format("Detected UI: %s", uiName))
             break
         end
     end
@@ -196,80 +208,63 @@ function Config:DetectUserInterface()
     end
     
     -- Check for AzeriteUI with multiple possible names and detection methods
-    if IsAddOnLoaded("AzeriteUI") or IsAddOnLoaded("Azerite") or IsAddOnLoaded("AzUI") or 
-       rawget(_G, "AzeriteUI") or rawget(_G, "Azerite") or rawget(_G, "AzUI") or
-       IsAddOnLoaded("AzUI_Color_Picker") then  -- Detect via related addons
+    if rawget(_G, "AzeriteUI") then
         self.detectedUI = "AzeriteUI"
         addon.detectedUI = "AzeriteUI"
-        if self.db and self.db.profile and self.db.profile.debug then
-            addon:Print("UI Detected: AzeriteUI")
-        end
-    elseif IsAddOnLoaded("ElvUI") or rawget(_G, "ElvUI") then
+    elseif rawget(_G, "ElvUI") then
         self.detectedUI = "ElvUI"
         addon.detectedUI = "ElvUI"
-        if self.db and self.db.profile and self.db.profile.debug then
-            addon:Print("UI Detected: ElvUI")
-        end
-    elseif IsAddOnLoaded("Tukui") or rawget(_G, "Tukui") then
+    elseif rawget(_G, "Tukui") then
         self.detectedUI = "Tukui"
         addon.detectedUI = "Tukui"
-        if self.db and self.db.profile and self.db.profile.debug then
-            addon:Print("UI Detected: Tukui")
-        end
-    elseif IsAddOnLoaded("LUI") or rawget(_G, "LUI") then
+    elseif rawget(_G, "LUI") then
         self.detectedUI = "LUI"
         addon.detectedUI = "LUI"
-        if self.db and self.db.profile and self.db.profile.debug then
-            addon:Print("UI Detected: LUI")
-        end
-    elseif IsAddOnLoaded("SpartanUI") or rawget(_G, "SpartanUI") then
+    elseif rawget(_G, "SpartanUI") then
         self.detectedUI = "SpartanUI"
         addon.detectedUI = "SpartanUI"
-        if self.db and self.db.profile and self.db.profile.debug then
-            addon:Print("UI Detected: SpartanUI")
-        end
-    elseif IsAddOnLoaded("SyncUI") or rawget(_G, "SyncUI") then
+    elseif rawget(_G, "SyncUI") then
         self.detectedUI = "SyncUI"
         addon.detectedUI = "SyncUI"
-        if self.db and self.db.profile and self.db.profile.debug then
-            addon:Print("UI Detected: SyncUI")
-        end
-    elseif IsAddOnLoaded("SuperVillainUI") or rawget(_G, "SuperVillainUI") then
+    elseif rawget(_G, "SuperVillainUI") then
         self.detectedUI = "SuperVillainUI"
         addon.detectedUI = "SuperVillainUI"
-        if self.db and self.db.profile and self.db.profile.debug then
-            addon:Print("UI Detected: SuperVillainUI")
-        end
-    elseif IsAddOnLoaded("GW2_UI") or rawget(_G, "GW2_UI") then
+    elseif rawget(_G, "GW2_UI") then
         self.detectedUI = "GW2_UI"
         addon.detectedUI = "GW2_UI"
-        if self.db and self.db.profile and self.db.profile.debug then
-            addon:Print("UI Detected: GW2_UI")
-        end  
-    elseif IsAddOnLoaded("Bartender4") or rawget(_G, "Bartender4") then
+    elseif rawget(_G, "Bartender4") then
         self.detectedUI = "Bartender4"
         addon.detectedUI = "Bartender4"
-        if self.db and self.db.profile and self.db.profile.debug then
-            addon:Print("UI Detected: Bartender4")
-        end
-    elseif IsAddOnLoaded("Dominos") or rawget(_G, "Dominos") then
+    elseif rawget(_G, "Dominos") then
         self.detectedUI = "Dominos"
         addon.detectedUI = "Dominos"
-        if self.db and self.db.profile and self.db.profile.debug then
-            addon:Print("UI Detected: Dominos")
-        end
     else
         self.detectedUI = "Blizzard"
         addon.detectedUI = "Blizzard"
-        if self.db and self.db.profile and self.db.profile.debug then
-            addon:Print("UI Detected: Blizzard (default)")
-        end
     end
     
     if self.db and self.db.profile and self.db.profile.debug then
         addon:Print("Final detected UI: " .. (addon.detectedUI or "None"))
         addon:Print("=== End UI Detection Debug ===")
     end
+end
+
+function Config:OnAddonLoaded(_, name)
+    if self._finalized then return end
+    -- Use exact folder names only
+    if uiAddons[name] then
+        self.detectedUI = uiAddons[name]
+        addon.detectedUI = uiAddons[name]
+    end
+end
+
+function Config:OnPlayerLogin()
+    if self._finalized then return end
+    -- Final pass in case ADDON_LOADED didn't pick a UI
+    self:DetectUserInterface()
+    self._finalized = true
+    self:UnregisterEvent("ADDON_LOADED")
+    self:UnregisterEvent("PLAYER_LOGIN")
 end
 
 function Config:InitializeSettings()

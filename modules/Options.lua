@@ -129,6 +129,33 @@ function Options:GetOptions()
                 name = "Display",
                 order = 1,
                 args = {
+                    nativeRewrite = {
+                        type = "toggle",
+                        name = "Use Native Text (Rewrite)",
+                        desc = "Rewrite the button's native hotkey text instead of drawing an overlay.",
+                        order = 0.5,
+                        width = "full",
+                        get = function() local db = getSafeProfile() return db.display and db.display.nativeRewrite end,
+                        set = function(_, val) local db = getSafeProfile() if db.display then db.display.nativeRewrite = val; addon.Core:FullUpdate() end end,
+                    },
+                    dominosRewrite = {
+                        type = "toggle",
+                        name = "Dominos: Use Native Text",
+                        desc = "For Dominos buttons, rewrite the native hotkey text (overlay is default).",
+                        order = 0.6,
+                        width = "full",
+                        get = function() local db = getSafeProfile() return db.display and db.display.dominosRewrite end,
+                        set = function(_, val) local db = getSafeProfile() if db.display then db.display.dominosRewrite = val; addon.Core:FullUpdate() end end,
+                    },
+                    autoNativeFallback = {
+                        type = "toggle",
+                        name = "Auto Fallback to Native",
+                        desc = "If an overlay appears hidden by a skin, automatically rewrite the native hotkey for that button.",
+                        order = 0.7,
+                        width = "full",
+                        get = function() local db = getSafeProfile() return db.display and db.display.autoNativeFallback end,
+                        set = function(_, val) local db = getSafeProfile() if db.display then db.display.autoNativeFallback = val; addon.Core:FullUpdate() end end,
+                    },
                     hideOriginal = {
                         type = "toggle",
                         name = "Hide Original Hotkey Text",
@@ -215,6 +242,15 @@ function Options:GetOptions()
                         min = 1, max = 128, step = 1,
                         get = function() local db = getSafeProfile() return db.display and db.display.frameLevel or 10 end,
                         set = function(info, val) local db = getSafeProfile() if db.display then db.display.frameLevel = val; addon.Core:FullUpdate() end end,
+                    },
+                    followNativeHotkeyStyle = {
+                        type = "toggle",
+                        name = "Mirror Native Hotkey Style",
+                        desc = "Overlay text will mirror the native hotkey font, color, and position when available.",
+                        order = 10,
+                        width = "full",
+                        get = function() local db = getSafeProfile() return db.display and db.display.followNativeHotkeyStyle end,
+                        set = function(_, val) local db = getSafeProfile() if db.display then db.display.followNativeHotkeyStyle = val; addon.Core:FullUpdate() end end,
                     },
                 },
             },
@@ -605,10 +641,27 @@ Thank you for using AHOS!
                         fontSize = "medium",
                     },
                     -- Latest changes
+                    version251 = {
+                        type = "group",
+                        name = function()
+                            local v = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(addonName, "Version"))
+                                or (GetAddOnMetadata and GetAddOnMetadata(addonName, "Version"))
+                                or "unknown"
+                            return "Version " .. tostring(v)
+                        end,
+                        order = 2,
+                        args = {
+                            details = {
+                                type = "description",
+                                name = "- Retail (AzeriteUI): Removed placeholder square/bullet on unbound buttons; safer native label suppression with deep-scan.\n- Classic: Fixed invalid event registration by gating Retail-only events.\n- Dominos: Overlays visible immediately without reload; native labels stay hidden after binding mode.\n- Overlay layering: Bumped frame level to sit above nested containers and skins (Masque/AzeriteUI).",
+                                order = 1,
+                            },
+                        },
+                    },
                     version242 = {
                         type = "group",
                         name = "Version 2.4.2",
-                        order = 2,
+                        order = 3,
                         args = {
                             details = {
                                 type = "description",
@@ -620,7 +673,7 @@ Thank you for using AHOS!
                     version240 = {
                         type = "group",
                         name = "Version 2.4.0 (2025-06-24)",
-                        order = 3,
+                        order = 4,
                         args = {
                             details = {
                                 type = "description",

@@ -6,6 +6,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [2.4.2] - 2025-09-03
 
+## [2.5.0] - 2025-09-14
+
+## [2.5.1] - 2025-09-14
+
+### Added (2.5.1)
+
+- Deep scan for nested hotkey FontStrings (e.g., AzeriteUI TextOverlayContainer) to ensure reliable detection and suppression.
+- New debug commands: `/ahos dumphotkey` and `/ahos dumplayers` for targeted troubleshooting.
+
+### Changed (2.5.1)
+
+- Overlay frame level bump to render above nested overlay containers and Masque/AzeriteUI skins.
+- Refined native hotkey suppression hooks with safer Show/SetText guards.
+
+### Fixed (2.5.1)
+
+- Classic: Register `PLAYER_BINDING_CHANGED` on Retail only to prevent errors on Classic.
+- Retail (AzeriteUI): Removed placeholder square/bullet glyphs on unbound buttons by disabling visual fallback on Retail and filtering fallback glyphs in the visual reader.
+- Dominos: Improved overlay visibility without requiring reload; ensured native labels stay hidden when Dominos keybinding mode ends.
+
+### Added
+
+- Retail + Classic compatibility in one build; Classic-safe keybinding resolution for ActionButton, BonusActionButton, MultiBars, Stance, Pet, and Possess.
+- Hooks to ActionButton_UpdateHotkeys and MultiActionBar_Update to keep native labels hidden while overlays are active.
+
+### Changed
+
+- Multiple delayed overlay refreshes after binding changes (Dominos/LibKeyBound) to avoid reload requirements.
+- Simplified in-game settings UI by removing unused modules; retained single JUI module.
+
+### Fixed
+
+- Dominos keybinding mode no longer causes native hotkey text to reappear until reload on Classic.
+
 ### Fixed (2.4.2)
 
 - Prevent duplicate Blizzard options category registration by stabilizing app name and checking existing entries.
@@ -148,3 +182,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [2.2.0]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.2.0
 [2.1.0]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.1.0
 [2.4.2]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.4.2
+[2.5.0]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.0
+[2.5.1]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.1

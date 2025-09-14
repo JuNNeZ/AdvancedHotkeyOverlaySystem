@@ -16,6 +16,93 @@ function Keybinds:OnInitialize()
 end
 
 local keybindCache = {}
+-- Utility: return the first non-empty keybinding from GetBindingKey (which may return up to two values)
+local function FirstBindingKey(command)
+    if not command then return nil end
+    local k1, k2 = GetBindingKey(command)
+    if k1 and k1 ~= "" and k1 ~= "\0" then return k1 end
+    if k2 and k2 ~= "" and k2 ~= "\0" then return k2 end
+    return nil
+end
+
+
+-- Simple build gate: Retail Dragonflight+ has build numbers >= 100000
+local isRetail = (select(4, GetBuildInfo()) or 0) >= 100000
+
+-- Get the on-screen hotkey text from a button's FontString before we hide it
+local function IsFallbackHotkeyGlyph(text)
+    if not text or text == "" then return false end
+    return text == "●" or text == "\226\151\136" or text == "\u{25CF}" -- bullet
+        or text == "■" or text == "\u{25A0}" -- black square
+        or text == "□" or text == "\u{25A1}" -- white square
+        or text == "◼" or text == "\u{25FC}" -- black medium square
+        or text == "◻" or text == "\u{25FB}" -- white medium square
+        or text == "�"
+end
+
+local function GetVisualHotkeyText(button)
+    if not button or not button.GetName then return nil end
+    local name = button:GetName()
+    local fs = button.HotKey or _G[name .. "HotKey"]
+    if not fs and button.GetRegions then
+        for _, region in ipairs({ button:GetRegions() }) do
+            if region and region.GetObjectType and region:GetObjectType() == "FontString" then
+                local rname = region.GetName and region:GetName() or ""
+                if (rname ~= "" and (rname:find("HotKey") or rname:find("Keybind") or rname:find("Hotkey"))) then
+                    fs = region; break
+                end
+                local p1, _, p2 = region:GetPoint(1)
+                if (p1 == "TOPRIGHT" or p2 == "TOPRIGHT") then
+                    fs = region; break
+                end
+            end
+        end
+    end
+    local t = fs and fs.GetText and fs:GetText()
+    if t and t ~= "" and t ~= "\0" and not IsFallbackHotkeyGlyph(t) then return t end
+    return nil
+end
+
+-- Helper: resolve binding command directly from button name (Classic-safe)
+local function GetBindingCommandFromButtonName(buttonName)
+    if not buttonName or type(buttonName) ~= "string" then return nil end
+    -- Blizzard default bars
+    local n
+    n = buttonName:match("^ActionButton(%d+)$")
+    if n then return "ACTIONBUTTON" .. n end
+    n = buttonName:match("^BonusActionButton(%d+)$")
+    if n then return "ACTIONBUTTON" .. n end
+    n = buttonName:match("^MultiBarBottomLeftButton(%d+)$")
+    if n then return "MULTIACTIONBAR1BUTTON" .. n end
+    n = buttonName:match("^MultiBarBottomRightButton(%d+)$")
+    if n then return "MULTIACTIONBAR2BUTTON" .. n end
+    n = buttonName:match("^MultiBarRightButton(%d+)$")
+    if n then return "MULTIACTIONBAR3BUTTON" .. n end
+    n = buttonName:match("^MultiBarLeftButton(%d+)$")
+    if n then return "MULTIACTIONBAR4BUTTON" .. n end
+    -- Stance/Shapeshift & Pet & Possess bars
+    n = buttonName:match("^StanceButton(%d+)$")
+    if n then return "SHAPESHIFTBUTTON" .. n end
+    n = buttonName:match("^PetActionButton(%d+)$")
+    if n then return "PETACTIONBUTTON" .. n end
+    n = buttonName:match("^PossessButton(%d+)$")
+    if n then return "POSSESSBUTTON" .. n end
+    -- Extra Action Button (Retail; harmless if absent)
+    if buttonName == "ExtraActionButton1" then return "EXTRAACTIONBUTTON1" end
+    -- AzeriteUI custom bars
+    local azBar, azBtn = buttonName:match("^AzeriteActionBar(%d+)Button(%d+)$")
+    if azBar and azBtn then
+        azBar = tonumber(azBar); azBtn = tonumber(azBtn)
+        if azBar == 1 then return "ACTIONBUTTON" .. azBtn
+        elseif azBar == 2 then return "MULTIACTIONBAR1BUTTON" .. azBtn
+        elseif azBar == 3 then return "MULTIACTIONBAR2BUTTON" .. azBtn
+        elseif azBar == 4 then return "MULTIACTIONBAR3BUTTON" .. azBtn
+        elseif azBar == 5 then return "MULTIACTIONBAR4BUTTON" .. azBtn end
+    end
+    local stanceBtn = buttonName:match("^AzeriteStanceBarButton(%d+)$")
+    if stanceBtn then return "SHAPESHIFTBUTTON" .. stanceBtn end
+    return nil
+end
 
 -- Helper function to get the correct binding command string from a Blizzard action ID.
 function Keybinds:GetBindingCommandFromAction(actionID)
@@ -182,7 +269,7 @@ function Keybinds:GetBinding(button)
         keybindCache[buttonName] = ""
         return ""
     end
-
+    -- Always abbreviate (yields Dominos-like labels such as ACS1, B4)
     local abbreviatedKey = self:Abbreviate(fullKey)
     keybindCache[buttonName] = abbreviatedKey
     return abbreviatedKey
@@ -215,13 +302,49 @@ function Keybinds:GetFullBindingText(button)
     local buttonName = button:GetName()
     local key
 
-    -- First, try to get the binding via the button's action ID, as this is the most reliable method.
-    if button.action and tonumber(button.action) and button.action > 0 then
-        local command = self:GetBindingCommandFromAction(button.action)
-        if command then
-            key = GetBindingKey(command)
+    -- Prefer mapping by button name to avoid bar paging mismatches (Classic only)
+    if not isRetail then
+        local nameCommand = GetBindingCommandFromButtonName(buttonName)
+        if nameCommand then
+            local k1, k2 = GetBindingKey(nameCommand)
+            key = k1 or k2 -- support APIs that may return two keys
             if addon.db and addon.db.profile and addon.db.profile.debug then
-                addon:Print(string.format("[AHOS DEBUG] Keybinds:GetFullBindingText found key '%s' for %s via button.action %d (command: %s)", tostring(key), buttonName, button.action, command))
+                addon:Print(string.format("[AHOS DEBUG] Name-based binding for %s => %s (%s)", tostring(buttonName), tostring(key), nameCommand))
+            end
+        end
+    end
+
+    -- Dominos: Prefer explicit CLICK bindings set per-button by Dominos binding mode (highest priority)
+    if (not key or key == "") and buttonName and buttonName:match("^DominosActionButton%d+$") then
+        -- Dominos registers bindings using the special ':HOTKEY' suffix in its Bindings.xml
+        key = FirstBindingKey("CLICK " .. buttonName .. ":HOTKEY")
+        if not key or key == "" then
+            -- Fallbacks for generic CLICK bindings (less common for Dominos)
+            local suffixes = { ":LeftButton", ":Button1", ":AnyUp", ":AnyDown", ":RightButton", ":Button2", ":MiddleButton", ":Button3" }
+            for _, sfx in ipairs(suffixes) do
+                key = FirstBindingKey("CLICK " .. buttonName .. sfx)
+                if key and key ~= "" then break end
+            end
+        end
+        if addon.db and addon.db.profile and addon.db.profile.debug then
+            addon:Print(string.format("[AHOS DEBUG] Dominos CLICK binding for %s => %s", tostring(buttonName), tostring(key)))
+        end
+    end
+
+    -- Then try to get the binding via the button's action ID (reliable for Blizzard bars)
+    -- For Dominos, allow this as a fallback only IF no CLICK binding was found.
+    if (not key or key == "") then
+        local isDominosButton = buttonName and buttonName:match("^DominosActionButton%d+$") and true or false
+        -- If Dominos and no CLICK binding, we can still map by Blizzard action ID (avoids misleading modulo fallback)
+        local actionId = (button.action and tonumber(button.action)) or (button.GetAttribute and tonumber(button:GetAttribute("action")))
+        if actionId and actionId > 0 then
+            local command = self:GetBindingCommandFromAction(actionId)
+            if command then
+                local k1, k2 = GetBindingKey(command)
+                key = k1 or k2
+                if addon.db and addon.db.profile and addon.db.profile.debug then
+                    addon:Print(string.format("[AHOS DEBUG] ActionID-based binding for %s => %s via actionId %d (command: %s)", tostring(buttonName), tostring(key), actionId, command))
+                end
             end
         end
     end
@@ -253,6 +376,36 @@ function Keybinds:GetFullBindingText(button)
     -- Final fallback: try the button's global name. This works for some buttons like StanceButton1.
     if not key or key == "" then
         key = GetBindingKey(buttonName)
+    end
+
+    -- Removed actionId modulo fallback to avoid misleading labels (e.g., showing '1' when not bound).
+
+    -- Generic CLICK fallback (Bartender/Dominos/others) when name/action mapping didn't resolve
+    if (not key or key == "") and buttonName then
+        local suffixes = {
+            ":LeftButton", ":Button1", ":AnyUp", ":AnyDown",
+            ":RightButton", ":Button2", ":MiddleButton", ":Button3",
+        }
+        for _, sfx in ipairs(suffixes) do
+            key = FirstBindingKey("CLICK " .. buttonName .. sfx)
+            if key and key ~= "" then break end
+        end
+        if addon.db and addon.db.profile and addon.db.profile.debug then
+            addon:Print(string.format("[AHOS DEBUG] CLICK binding fallback for %s => %s", tostring(buttonName), tostring(key)))
+        end
+    end
+
+    -- As a last resort for other addons, use the current on-screen hotkey label (not for Dominos)
+    if (not key or key == "") and not (buttonName and buttonName:match("^DominosActionButton%d+$")) then
+        -- On Retail, avoid using visual fallback entirely (skins may show placeholder glyphs)
+        local allowVisual = not isRetail
+        local visual = allowVisual and GetVisualHotkeyText(button) or nil
+        if visual and visual ~= "" then
+            if addon.db and addon.db.profile and addon.db.profile.debug then
+                addon:Print(string.format("[AHOS DEBUG] Visual label fallback for %s => %s", tostring(buttonName), tostring(visual)))
+            end
+            key = visual
+        end
     end
 
     -- WoW's GetBindingKey can return nil, an empty string, or even a null character for unbound keys.

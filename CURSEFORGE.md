@@ -81,18 +81,16 @@ Advanced Hotkey Overlay System replaces the default hotkey text on your action b
 
 ## Requirements
 
-- World of Warcraft Retail (current patch)
+- World of Warcraft Retail or Classic (current patches)
 - Ace3 libraries (included)
 - LibSharedMedia-3.0 (included)
 - LibDBIcon-1.0 (included)
 
-## Recent Updates (v2.4.2)
-
-- Embedded AceGUI-3.0 and wired AceConfig-3.0 Dialog (self-contained options UI).
-- Robust options registration: prevents duplicate Blizzard categories and late-load crashes.
-- Minimap/Titan icon uses addon media (media/small-logo.tga); addon list icon uses media/logo.tga.
-- Options/About panels read Version from TOC metadata (no hardcoded strings).
-- New `/ahos version` command.
+## Recent Updates (v2.5.1)
+- Retail (AzeriteUI): Removed placeholder square/bullet on unbound buttons; safer native label suppression with deep-scan.
+- Classic: Fixed invalid event registration by gating Retail-only events.
+- Dominos: Overlays visible immediately without reload; native labels stay hidden after binding mode.
+- Overlay layering: Bumped frame level to sit above nested containers and skins (Masque/AzeriteUI).
 
 ---
 
