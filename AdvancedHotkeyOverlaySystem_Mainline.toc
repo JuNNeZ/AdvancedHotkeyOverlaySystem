@@ -16,20 +16,6 @@
 ## X-PackageMeta-ID: ahos-unified
 ## OptionalDeps: Ace3
 
-# IMPORTANT: File Load Order
-# ----------------------------
-# This file controls the load order of the addon components.
-# DO NOT change the order of files without understanding the dependencies.
-# Breaking the load order will result in nil errors and broken functionality.
-#
-# Required order:
-# 1. Libraries (Ace3, etc.)
-# 2. Main addon file
-# 3. Modules in dependency order
-#
-# If you need to add new files, place them in the appropriate section
-# and maintain the dependency chain.
-
 # Libraries
 Libs\LibStub\LibStub.lua
 Libs\AceAddon-3.0\AceAddon-3.0.xml
@@ -44,10 +30,10 @@ Libs\LibDBIcon-1.0\embeds.xml
 Libs\LibSerialize-1.2.1\lib.xml
 Libs\LibDeflate\lib.xml
 
-# Addon Core - Main AddOn Code (must be first)
+# Addon Core
 AdvancedHotkeyOverlaySystem.lua
 
-# Module Files - Load Order is Critical!
+# Modules
 modules\Config.lua
 modules\Options.lua
 modules\Core.lua

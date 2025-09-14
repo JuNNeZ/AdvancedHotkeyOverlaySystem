@@ -1,4 +1,4 @@
-## Interface: 110107, 110200, 110205
+## Interface: 11507
 ## Title: |T626001:16:16:0:0|t |cff00D4AAAdvanced |cffffd700Hotkey |cffffffffOverlay |cffffd700System|r
 ## Notes: |cffffd700Advanced Hotkey Overlay System|r |cff00D4AA- Intelligent UI detection, live updates, and beautiful customization.|r
 ## Author: |cff00D4AAJuNNeZ|r
@@ -9,26 +9,10 @@
 ## X-Website: https://github.com/junnez/advancedhotkeyoverlaysystem
 ## X-Curse-Project-ID: 1289540
 ## X-WoWI-ID: advanced-hotkey-overlay-system
-## X-Compatible-With: 110205
-## X-Min-Interface: 110107
-## X-Game-Version: Retail
-## X-Flavor: Mainline
+## X-Game-Version: Vanilla
+## X-Flavor: Vanilla
 ## X-PackageMeta-ID: ahos-unified
 ## OptionalDeps: Ace3
-
-# IMPORTANT: File Load Order
-# ----------------------------
-# This file controls the load order of the addon components.
-# DO NOT change the order of files without understanding the dependencies.
-# Breaking the load order will result in nil errors and broken functionality.
-#
-# Required order:
-# 1. Libraries (Ace3, etc.)
-# 2. Main addon file
-# 3. Modules in dependency order
-#
-# If you need to add new files, place them in the appropriate section
-# and maintain the dependency chain.
 
 # Libraries
 Libs\LibStub\LibStub.lua
@@ -44,10 +28,10 @@ Libs\LibDBIcon-1.0\embeds.xml
 Libs\LibSerialize-1.2.1\lib.xml
 Libs\LibDeflate\lib.xml
 
-# Addon Core - Main AddOn Code (must be first)
+# Addon Core
 AdvancedHotkeyOverlaySystem.lua
 
-# Module Files - Load Order is Critical!
+# Modules
 modules\Config.lua
 modules\Options.lua
 modules\Core.lua
