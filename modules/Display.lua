@@ -11,6 +11,7 @@ local squelchedByButton = {}    -- Track buttons currently squelched
 local hookedHotkeyRegions = {}   -- Track fontstrings we have hooksecurefunc'ed
 local guardSetText = setmetatable({}, { __mode = "k" }) -- Re-entrancy guard per FontString
 local nativeRewriteButtons = {}  -- Per-button flag when we actively rewrite native FS
+local easterEggTickers = {}  -- Track active easter egg tickers
 -- Simple build gate: Retail Dragonflight+ has build numbers >= 100000
 local isRetail = (select(4, GetBuildInfo()) or 0) >= 100000
 
@@ -134,6 +135,14 @@ local function ReleaseOverlayToPool(overlay)
 end
 
 function Display:ClearAllOverlays()
+    -- Never clear overlays during combat to prevent keybind disappearance
+    if InCombatLockdown() then
+        if addon:IsReady() and addon.db and addon.db.profile and addon.db.profile.debug then
+            addon:Print("[AHOS DEBUG] ClearAllOverlays blocked during combat.")
+        end
+        return
+    end
+    
     for buttonName, overlay in pairs(activeOverlays) do
         ReleaseOverlayToPool(overlay)
     end
@@ -196,20 +205,44 @@ end
 function Display:UpdateAllOverlays()
     if not addon:IsReady() then
         if addon.db and addon.db.profile and addon.db.profile.debug then
-            addon:Print("[AHOS DEBUG] Display:UpdateAllOverlays: Not ready")
+            addon:DebugPrint("[AHOS DEBUG] Display:UpdateAllOverlays: Not ready")
         end
         return
     end
-    self:ClearAllOverlays()
+    
+    local inCombat = InCombatLockdown()
+    
+    -- During combat, only update text on existing overlays - don't create/destroy frames
+    if inCombat then
+        if addon.db and addon.db.profile and addon.db.profile.debug then
+            addon:DebugPrint("[AHOS DEBUG] Display:UpdateAllOverlays: In combat, updating text only")
+        end
+        -- Update text on existing overlays without frame manipulation
+        for buttonName, overlay in pairs(activeOverlays) do
+            local button = _G[buttonName]
+            if button and overlay and overlay.text then
+                local text = addon.Keybinds and addon.Keybinds.GetBinding and addon.Keybinds:GetBinding(button)
+                if text and text ~= "" then
+                    overlay.text:SetText(text)
+                end
+            end
+        end
+        return
+    end
+    
+    -- Don't clear all overlays - preserve existing ones during bar transitions
+    -- This prevents overlays from disappearing when dragonriding/vehicle bars activate
+    -- and MultiBar frames temporarily become invisible
+    -- self:ClearAllOverlays()
     local buttons = addon.Bars:GetAllButtons()
     if not buttons or #buttons == 0 then
         if addon.db and addon.db.profile and addon.db.profile.debug then
-            addon:Print("[AHOS DEBUG] Display:UpdateAllOverlays: No buttons found, skipping overlay logic.")
+            addon:DebugPrint("[AHOS DEBUG] Display:UpdateAllOverlays: No buttons found, skipping overlay logic.")
         end
         return
     end
     if addon.db and addon.db.profile and addon.db.profile.debug then
-        addon:Print("[AHOS DEBUG] Display:UpdateAllOverlays processing " .. tostring(#buttons) .. " buttons.")
+        addon:DebugPrint("[AHOS DEBUG] Display:UpdateAllOverlays processing " .. tostring(#buttons) .. " buttons.")
     end
     -- When overlays are toggled off or 'hide original' is toggled off, force Blizzard to repopulate and capture the original hotkey text for ALL buttons
     if addon.db and addon.db.profile and addon.db.profile.display and not addon.db.profile.display.hideOriginal then
@@ -233,18 +266,46 @@ function Display:UpdateAllOverlays()
     for _, button in ipairs(buttons) do
         self:UpdateOverlayForButton(button)
     end
+    
+    -- Clean up overlays for buttons that no longer exist or are permanently hidden
+    local validButtonNames = {}
+    for _, button in ipairs(buttons) do
+        if button and button.GetName then
+            validButtonNames[button:GetName()] = true
+        end
+    end
+    for buttonName, overlay in pairs(activeOverlays) do
+        if not validButtonNames[buttonName] then
+            if addon.db and addon.db.profile and addon.db.profile.debug then
+                addon:DebugPrint("[AHOS DEBUG] Cleaning up overlay for removed button: " .. buttonName)
+            end
+            ReleaseOverlayToPool(overlay)
+            activeOverlays[buttonName] = nil
+        end
+    end
+    
     if addon.db and addon.db.profile and addon.db.profile.debug then
         addon:Print("Updated all overlays for " .. #buttons .. " buttons.")
     end
 end
 
 function Display:UpdateOverlayForButton(button)
-    if not button or not button:IsVisible() or not button.GetName or not button:GetName() or not addon:IsReady() then
+    if not button or not button.GetName or not button:GetName() or not addon:IsReady() then
+        return
+    end
+    
+    local buttonName = button:GetName()
+    local hasExistingOverlay = activeOverlays[buttonName] ~= nil
+    
+    -- Check visibility: allow updates to existing overlays even if temporarily invisible
+    -- Only skip creating NEW overlays for invisible buttons (prevents overlays on hidden bars)
+    if not button:IsVisible() and not hasExistingOverlay then
         if addon.db and addon.db.profile and addon.db.profile.debug then
-            addon:Print("[AHOS DEBUG] Skipping button: " .. tostring(button and button.GetName and button:GetName() or "nil"))
+            addon:DebugPrint("[AHOS DEBUG] Skipping invisible button (no existing overlay): " .. buttonName)
         end
         return
     end
+    
     -- Avoid drawing overlays on empty action slots. Works for Blizzard and many bar addons.
     local actionId = (button.action and tonumber(button.action)) or (button.GetAttribute and tonumber(button:GetAttribute("action")))
     if actionId and actionId > 0 and type(HasAction) == "function" then
@@ -934,4 +995,243 @@ function Display:OnEnable()
             end, 0.05)
         end)
     end
+    
+    -- Register combat state monitoring for easter eggs
+    self:RegisterEvent("PLAYER_REGEN_DISABLED", "CancelAllEasterEggEffects")
+end
+
+-- Cancel all active easter egg effects (called when entering combat)
+function Display:CancelAllEasterEggEffects()
+    for _, ticker in ipairs(easterEggTickers) do
+        if ticker and ticker.Cancel then
+            ticker:Cancel()
+        end
+    end
+    wipe(easterEggTickers)
+end
+
+-- Easter Egg Effects: Apply fun visual effects to overlays
+function Display:ApplyEasterEggEffect(effectType, duration)
+    if not effectType or not duration then return end
+    
+    -- Don't start easter eggs during combat
+    if InCombatLockdown() then
+        if addon.db and addon.db.profile and addon.db.profile.debug then
+            addon:DebugPrint("[AHOS] Easter egg blocked during combat")
+        end
+        return
+    end
+    
+    local overlays = activeOverlays or {}
+    local overlayList = {}
+    for _, overlay in pairs(overlays) do
+        if overlay and overlay.text then
+            table.insert(overlayList, overlay)
+        end
+    end
+    
+    if #overlayList == 0 then return end
+    
+    -- Cancel any existing easter egg timers
+    if self.easterEggTimer then
+        addon:CancelTimer(self.easterEggTimer)
+        self.easterEggTimer = nil
+    end
+    
+    local startTime = GetTime()
+    local originalTexts = {}
+    local originalColors = {}
+    local originalScales = {}
+    local originalRotations = {}
+    
+    -- Store originals
+    for i, overlay in ipairs(overlayList) do
+        originalTexts[i] = overlay.text:GetText()
+        local r,g,b,a = overlay.text:GetTextColor()
+        originalColors[i] = {r,g,b,a}
+        originalScales[i] = overlay.frame:GetScale()
+        originalRotations[i] = (overlay.text.SetRotation and 0) or 0
+    end
+    
+    if effectType == "junnez" then
+        -- Spell out "JUNNEZ IS GREAT" across overlays
+        local message = "JUNNEZISGREAT"
+        for i, overlay in ipairs(overlayList) do
+            local char = message:sub((i - 1) % #message + 1, (i - 1) % #message + 1)
+            overlay.text:SetText(char)
+            overlay.text:SetTextColor(1, 0.84, 0, 1) -- Gold
+        end
+        
+    elseif effectType == "konami" then
+        -- Rainbow flash effect (rapid cycling)
+        local ticker = C_Timer.NewTicker(0.1, function()
+            if GetTime() - startTime > duration then
+                ticker:Cancel()
+                Display:RestoreOverlaysFromEasterEgg(overlayList, originalTexts, originalColors, originalScales, originalRotations)
+                return
+            end
+            local hue = (GetTime() * 3) % 1
+            local r,g,b = Display:HSVtoRGB(hue, 1, 1)
+            for _, overlay in ipairs(overlayList) do
+                overlay.text:SetTextColor(r, g, b, 1)
+            end
+        end)
+        table.insert(easterEggTickers, ticker)
+        return -- Don't restore immediately
+        
+    elseif effectType == "rainbow" then
+        -- Smooth rainbow cycle (slower than konami)
+        local ticker = C_Timer.NewTicker(0.05, function()
+            if GetTime() - startTime > duration then
+                ticker:Cancel()
+                Display:RestoreOverlaysFromEasterEgg(overlayList, originalTexts, originalColors, originalScales, originalRotations)
+                return
+            end
+            for i, overlay in ipairs(overlayList) do
+                local hue = ((GetTime() + i * 0.1) * 0.5) % 1
+                local r,g,b = Display:HSVtoRGB(hue, 0.8, 1)
+                overlay.text:SetTextColor(r, g, b, 1)
+            end
+        end)
+        table.insert(easterEggTickers, ticker)
+        return
+        
+    elseif effectType == "coffee" then
+        -- Jittery effect (rapid small movements)
+        local ticker = C_Timer.NewTicker(0.05, function()
+            if GetTime() - startTime > duration then
+                ticker:Cancel()
+                Display:RestoreOverlaysFromEasterEgg(overlayList, originalTexts, originalColors, originalScales, originalRotations)
+                return
+            end
+            for _, overlay in ipairs(overlayList) do
+                local jitterX = (math.random() - 0.5) * 2
+                local jitterY = (math.random() - 0.5) * 2
+                overlay.text:SetPoint("CENTER", overlay.frame, "CENTER", jitterX, jitterY)
+            end
+        end)
+        table.insert(easterEggTickers, ticker)
+        return
+        
+    elseif effectType == "dance" then
+        -- Bounce and pulse effect
+        local ticker = C_Timer.NewTicker(0.05, function()
+            if GetTime() - startTime > duration then
+                ticker:Cancel()
+                Display:RestoreOverlaysFromEasterEgg(overlayList, originalTexts, originalColors, originalScales, originalRotations)
+                return
+            end
+            local t = (GetTime() - startTime) * 4
+            for _, overlay in ipairs(overlayList) do
+                local bounce = math.abs(math.sin(t)) * 0.3 + 1.0
+                overlay.frame:SetScale(originalScales[_] * bounce)
+            end
+        end)
+        table.insert(easterEggTickers, ticker)
+        return
+        
+    elseif effectType == "pizza" then
+        -- Rotation effect
+        local ticker = C_Timer.NewTicker(0.05, function()
+            if GetTime() - startTime > duration then
+                ticker:Cancel()
+                Display:RestoreOverlaysFromEasterEgg(overlayList, originalTexts, originalColors, originalScales, originalRotations)
+                return
+            end
+            local rotation = ((GetTime() - startTime) * 180) % 360
+            for _, overlay in ipairs(overlayList) do
+                if overlay.text.SetRotation then
+                    overlay.text:SetRotation(math.rad(rotation))
+                end
+            end
+        end)
+        table.insert(easterEggTickers, ticker)
+        return
+        
+    elseif effectType == "tea" then
+        -- Slight tilt (British tea time)
+        for _, overlay in ipairs(overlayList) do
+            if overlay.text.SetRotation then
+                overlay.text:SetRotation(math.rad(5))
+            end
+        end
+        
+    elseif effectType == "42" then
+        -- Show "42" on all overlays
+        for _, overlay in ipairs(overlayList) do
+            overlay.text:SetText("42")
+            overlay.text:SetTextColor(0, 0.81, 0.82, 1) -- Cyan
+        end
+        
+    elseif effectType == "potato" then
+        -- "Pixelate" by making huge then shrinking back
+        local ticker = C_Timer.NewTicker(0.1, function()
+            if GetTime() - startTime > duration then
+                ticker:Cancel()
+                Display:RestoreOverlaysFromEasterEgg(overlayList, originalTexts, originalColors, originalScales, originalRotations)
+                return
+            end
+            local progress = (GetTime() - startTime) / duration
+            local scale = 2.0 - progress -- Start big, shrink to normal
+            for i, overlay in ipairs(overlayList) do
+                overlay.frame:SetScale(originalScales[i] * scale)
+            end
+        end)
+        table.insert(easterEggTickers, ticker)
+        return
+    end
+    
+    -- Restore after duration for effects that don't have tickers
+    if effectType == "junnez" or effectType == "tea" or effectType == "42" then
+        C_Timer.After(duration, function()
+            Display:RestoreOverlaysFromEasterEgg(overlayList, originalTexts, originalColors, originalScales, originalRotations)
+        end)
+    end
+end
+
+-- Restore overlays from easter egg effects
+function Display:RestoreOverlaysFromEasterEgg(overlayList, originalTexts, originalColors, originalScales, originalRotations)
+    -- Don't restore during combat - defer until after
+    if InCombatLockdown() then
+        C_Timer.After(0.5, function()
+            Display:RestoreOverlaysFromEasterEgg(overlayList, originalTexts, originalColors, originalScales, originalRotations)
+        end)
+        return
+    end
+    
+    for i, overlay in ipairs(overlayList) do
+        if overlay and overlay.text then
+            overlay.text:SetText(originalTexts[i] or "")
+            if originalColors[i] then
+                overlay.text:SetTextColor(unpack(originalColors[i]))
+            end
+            if originalScales[i] then
+                overlay.frame:SetScale(originalScales[i])
+            end
+            if overlay.text.SetRotation and originalRotations[i] then
+                overlay.text:SetRotation(originalRotations[i])
+            end
+            overlay.text:ClearAllPoints()
+            overlay.text:SetPoint("CENTER", overlay.frame, "CENTER", 0, 0)
+        end
+    end
+end
+
+-- HSV to RGB color conversion for rainbow effects
+function Display:HSVtoRGB(h, s, v)
+    local r, g, b
+    local i = math.floor(h * 6)
+    local f = h * 6 - i
+    local p = v * (1 - s)
+    local q = v * (1 - f * s)
+    local t = v * (1 - (1 - f) * s)
+    i = i % 6
+    if i == 0 then r, g, b = v, t, p
+    elseif i == 1 then r, g, b = q, v, p
+    elseif i == 2 then r, g, b = p, v, t
+    elseif i == 3 then r, g, b = p, q, v
+    elseif i == 4 then r, g, b = t, p, v
+    elseif i == 5 then r, g, b = v, p, q
+    end
+    return r, g, b
 end

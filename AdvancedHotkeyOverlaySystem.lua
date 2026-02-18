@@ -3,6 +3,11 @@
 local addonName, addonScope = ...
 local addon = LibStub("AceAddon-3.0"):NewAddon(addonName, "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0")
 addonScope.addon = addon
+-- Localization table (loaded from locales/*.lua); ensure a table exists
+addon.L = _G.AHOS_L or addon.L or {}
+_G.AHOS_L = addon.L
+-- Back-compat global for options panel title
+_G.AHOS_OPTIONS_PANEL_NAME = _G.AHOS_OPTIONS_PANEL_NAME or addon.L.OPTIONS_PANEL_NAME or "AHOS Options"
 
 -- Remove any global AdvancedHotkeyOverlaySystem table creation (orphaned/legacy)
 _G["AdvancedHotkeyOverlaySystem"] = nil
@@ -32,9 +37,14 @@ end
 
 -- Wrapper to call the correct module's UpdateAllButtons
 function addon:UpdateAllButtons(...)
+    -- During combat, allow text updates but block frame creation/destruction
+    -- The Display module will handle combat-safe updates
     if not self:ShouldShowOverlays() or not (self.db and self.db.profile and self.db.profile.enabled) then
         if self.Display and self.Display.ClearAllOverlays then
-            self.Display:ClearAllOverlays()
+            -- Only clear if not in combat
+            if not InCombatLockdown() then
+                self.Display:ClearAllOverlays()
+            end
         end
         return
     end
@@ -98,7 +108,7 @@ end
 function addon:ProcessCallQueue()
     if not self:IsReady() then return end
     if self.db.profile.debug then
-        self:Print(string.format("Processing %d queued calls.", #self.callQueue))
+        self:DebugPrint(string.format("Processing %d queued calls.", #self.callQueue))
     end
     for _, call in ipairs(self.callQueue) do
         -- Reworked to handle function references directly
@@ -139,32 +149,46 @@ function addon:SetReady()
     if self.ready then return end
     self.ready = true
     if self.db and self.db.profile.debug then
-        self:Print("Addon is now ready. Processing call queue.")
+        self:DebugPrint("Addon is now ready. Processing call queue.")
     end
     self:ProcessCallQueue()
     -- After the queue is processed, do a final full update to ensure UI is correct.
     self:SafeCall("Core", "FullUpdate")
     -- Register overlay update events only after ready
     self:RegisterEvent("UPDATE_BINDINGS", function()
-        if self.db.profile.debug then self:Print("UPDATE_BINDINGS: Updating overlays.") end
+        if InCombatLockdown() then
+            if self.db.profile.debug then self:DebugPrint("UPDATE_BINDINGS: Deferred during combat.") end
+            return
+        end
+        if self.db.profile.debug then self:DebugPrint("UPDATE_BINDINGS: Updating overlays.") end
         self:UpdateAllButtons()
     end)
     self:RegisterEvent("ACTIONBAR_SLOT_CHANGED", function()
-        if not InCombatLockdown() then
-            if self.db.profile.debug then self:Print("ACTIONBAR_SLOT_CHANGED: Updating overlays.") end
-            self:UpdateAllButtons()
+        if InCombatLockdown() then
+            if self.db.profile.debug then self:DebugPrint("ACTIONBAR_SLOT_CHANGED: Deferred during combat.") end
+            return
         end
+        if self.db.profile.debug then self:DebugPrint("ACTIONBAR_SLOT_CHANGED: Updating overlays.") end
+        self:UpdateAllButtons()
     end)
     self:RegisterEvent("PLAYER_REGEN_ENABLED", function()
-        if self.db.profile.debug then self:Print("PLAYER_REGEN_ENABLED: Updating overlays after combat.") end
-        self:ScheduleTimer(function() self:UpdateAllButtons() end, 1)
+        if self.db.profile.debug then self:DebugPrint("PLAYER_REGEN_ENABLED: Updating overlays after combat.") end
+        self:ScheduleTimer(function() self:UpdateAllButtons() end, 0.5)
     end)
     self:RegisterEvent("PLAYER_ENTERING_WORLD", function()
-        if self.db.profile.debug then self:Print("PLAYER_ENTERING_WORLD: Updating overlays.") end
+        if InCombatLockdown() then
+            if self.db.profile.debug then self:DebugPrint("PLAYER_ENTERING_WORLD: Deferred during combat.") end
+            return
+        end
+        if self.db.profile.debug then self:DebugPrint("PLAYER_ENTERING_WORLD: Updating overlays.") end
         self:UpdateAllButtons()
     end)
     self:RegisterEvent("ZONE_CHANGED_NEW_AREA", function()
-        if self.db.profile.debug then self:Print("ZONE_CHANGED_NEW_AREA: Updating overlays.") end
+        if InCombatLockdown() then
+            if self.db.profile.debug then self:DebugPrint("ZONE_CHANGED_NEW_AREA: Deferred during combat.") end
+            return
+        end
+        if self.db.profile.debug then self:DebugPrint("ZONE_CHANGED_NEW_AREA: Updating overlays.") end
         self:UpdateAllButtons()
     end)
 end
@@ -237,7 +261,7 @@ function addon:OnInitialize()
     -- Register only PLAYER_LOGIN here
     self:RegisterEvent("PLAYER_LOGIN", function()
         if self.db.profile.debug then
-            self:Print("PLAYER_LOGIN detected. Running immediate and delayed overlay updates.")
+            self:DebugPrint("PLAYER_LOGIN detected. Running immediate and delayed overlay updates.")
         end
         self:DetectUI()
         self:SetReady() -- Mark as ready BEFORE any overlay updates
@@ -252,7 +276,7 @@ function addon:OnInitialize()
     self:SetupMinimapButton()
     -- Remove overlay update event registrations from here
     if self.db.profile.debug then
-        self:Print("Addon initialized and all overlay update events registered.")
+        self:DebugPrint("Addon initialized and all overlay update events registered.")
     end
     -- Show a popup if ElvUI is detected and overlays are not forced
     C_Timer.After(2, function() self:MaybeShowElvUIWarningOnLoad() end)
@@ -261,7 +285,7 @@ end
 function addon:OnPlayerLogin()
     self:UnregisterEvent("PLAYER_LOGIN")
     if self.db.profile.debug then
-        self:Print("PLAYER_LOGIN detected. Finalizing setup.")
+        self:DebugPrint("PLAYER_LOGIN detected. Finalizing setup.")
     end
     -- Now that the player is in the world, we can safely initialize all modules.
     -- Core will call SetReady() when it's done.
@@ -273,7 +297,7 @@ function addon:OnEnable()
     if self.db and self.db.profile.enabled then
         self:SafeCall("Core", "OnEnable")
         if self.db.profile.debug then
-            self:Print("Addon enabled.")
+            self:DebugPrint("Addon enabled.")
         end
     end
 end
@@ -283,7 +307,7 @@ function addon:OnDisable()
     if self.db and not self.db.profile.enabled then
         self:SafeCall("Core", "OnDisable")
         if self.db.profile.debug then
-            self:Print("Addon disabled.")
+            self:DebugPrint("Addon disabled.")
         end
     end
 end
@@ -291,7 +315,7 @@ end
 -- Handle profile changes
 function addon:OnProfileChanged(event, db, newProfileKey)
     if self.db.profile.debug then
-        self:Print("Profile changed to", newProfileKey)
+        self:DebugPrint("Profile changed to", newProfileKey)
     end
     -- Notify all modules of the profile change
     for name, module in self:IterateModules() do
@@ -353,53 +377,64 @@ local LocalizedStrings = L[locale] or L.enUS
 -- Slash Command Handler
 function AdvancedHotkeyOverlaySystem:SlashHandler(input)
     local cmd, rest = input:match("^(%S*)%s*(.-)$")
-    cmd = cmd:lower() or ""
+    cmd = (cmd and cmd:lower()) or ""
+    local Loc = self and self.L or {}
+
     if cmd == "" or cmd == "show" or cmd == "options" or cmd == "ui" or cmd == "config" or cmd == "settings" then
         if type(_G.OpenAHOSOptionsPanel) == "function" then
             _G.OpenAHOSOptionsPanel()
         else
-            print("[AHOS] Options panel function not available.")
+            print(Loc.OPTIONS_PANEL_NOT_AVAILABLE or "[AHOS] Options panel function not available.")
         end
+
     elseif cmd == "lock" then
         self.db.profile.display.locked = true
         self.Core:FullUpdate()
-        self:Print("|cffFFD700Settings locked|r - |cff888888protected from changes|r")
+        self:Print(Loc.MSG_SETTINGS_LOCKED or "|cffFFD700Settings locked|r - |cff888888protected from changes|r")
+
     elseif cmd == "unlock" then
         self.db.profile.display.locked = false
         self.Core:FullUpdate()
-        self:Print("|cff4A9EFF Settings unlocked|r - |cff888888you can now modify settings|r")
+        self:Print(Loc.MSG_SETTINGS_UNLOCKED or "|cff4A9EFF Settings unlocked|r - |cff888888you can now modify settings|r")
+
     elseif cmd == "reset" then
         self.db:ResetProfile()
-    self:Print("|cffFFD700/ahos version|r - |cff888888Show addon version|r")
         self.Core:FullUpdate()
-        self:Print("|cffFFD700Settings reset|r |cff888888to default values|r")
+        self:Print(Loc.MSG_SETTINGS_RESET or "|cffFFD700Settings reset|r |cff888888to default values|r")
+
     elseif cmd == "toggle" then
         self.db.profile.enabled = not self.db.profile.enabled
         self.Core:FullUpdate()
         self:Print("Overlay " .. (self.db.profile.enabled and "|cff4A9EFFenabled|r" or "|cffFF6B6Bdisabled|r"))
+
     elseif cmd == "reload" or cmd == "refresh" then
         self.Core:FullUpdate()
-        self:Print("|cff4A9EFFOverlays reloaded|r |cff888888and refreshed|r")
+        self:Print(Loc.MSG_OVERLAYS_RELOADED or "|cff4A9EFFOverlays reloaded|r |cff888888and refreshed|r")
+
     elseif cmd == "update" then
         if not self:IsReady() and UnitAffectingCombat("player") == false and IsLoggedIn() then
-            self:Print("[AHOS] Forcing addon ready state for update (player is in world).")
+            self:Print(Loc.MSG_FORCE_READY or "[AHOS] Forcing addon ready state for update (player is in world).")
             self:SetReady()
         end
         self.Core:FullUpdate()
-        self:Print("|cff4A9EFFOverlays updated|r |cff888888(full update triggered)|r")
+        self:Print(Loc.MSG_OVERLAYS_UPDATED or "|cff4A9EFFOverlays updated|r |cff888888(full update triggered)|r")
+
     elseif cmd == "cleanup" then
         self.Display:ClearAllOverlays()
-        self:Print("|cffFFD700Overlays temporarily cleared|r - |cff888888use Smart Refresh or change settings to restore|r")
+        self:Print(Loc.MSG_OVERLAYS_TEMP_CLEARED or "|cffFFD700Overlays temporarily cleared|r - |cff888888use Smart Refresh or change settings to restore|r")
+
     elseif cmd == "debug" then
         self.db.profile.debug = not self.db.profile.debug
-        self:Print("|cffFFD700Debug mode|r " .. (self.db.profile.debug and "|cff4A9EFFenabled|r" or "|cffFF6B6Bdisabled|r"))
+        self:Print((Loc.DEBUG_MODE_LABEL or "|cffFFD700Debug mode|r ") .. (self.db.profile.debug and (Loc.DEBUG_ENABLED or "|cff4A9EFFenabled|r") or (Loc.DEBUG_DISABLED or "|cffFF6B6Bdisabled|r")))
+
     elseif cmd == "detectui" then
-        self:Print("|cff4A9EFFManually detecting UI...|r")
+        self:Print(Loc.MSG_MANUAL_DETECT_UI or "|cff4A9EFFManually detecting UI...|r")
         self:DetectUI()
-    local ui = self.detectedUI or "None"
-    local colors = self.UI_DETECTED_COLORS or addon.UI_DETECTED_COLORS or {}
-    local color = colors[ui] or colors["Blizzard"] or "FFFFFFFF"
-    self:Print("|cffFFD700Current detected UI:|r |c" .. color .. ui .. "|r")
+        local ui = self.detectedUI or "None"
+        local colors = self.UI_DETECTED_COLORS or addon.UI_DETECTED_COLORS or {}
+        local color = colors[ui] or colors["Blizzard"] or "FFFFFFFF"
+        self:Print((Loc.MSG_CURRENT_DETECTED_UI or "|cffFFD700Current detected UI:|r ") .. "|c" .. color .. ui .. "|r")
+
     elseif cmd == "debugexport" then
         local path = rest and rest:match("^(%S+)")
         local tbl = addon.db and addon.db.profile
@@ -409,32 +444,124 @@ function AdvancedHotkeyOverlaySystem:SlashHandler(input)
             end
         end
         self:DebugExportTable(tbl)
+
     elseif cmd == "help" then
-        self:Print("|cffFFD700Advanced Hotkey Overlay System|r |cff4A9EFF- Commands:|r")
-        self:Print("|cffFFD700/ahos show|r - |cff888888Open options panel|r")
-        self:Print("|cffFFD700/ahos lock|r - |cff888888Lock overlay settings|r")
-        self:Print("|cffFFD700/ahos unlock|r - |cff888888Unlock overlay settings|r")
-        self:Print("|cffFFD700/ahos reset|r - |cff888888Reset all settings to default|r")
-        self:Print("|cffFFD700/ahos toggle|r - |cff888888Enable/disable overlays|r")
-        self:Print("|cffFFD700/ahos reload|r - |cff888888Reload and refresh overlays|r")
-        self:Print("|cffFFD700/ahos refresh|r - |cff888888Smart refresh of overlays (same as UI button)|r")
-        self:Print("|cffFFD700/ahos cleanup|r - |cff888888Temporarily clear all overlays (same as UI button)|r")
-        self:Print("|cffFFD700/ahos debug|r - |cff888888Toggle debug mode|r")
-        self:Print("|cffFFD700/ahos detectui|r - |cff888888Manually detect UI addon|r")
-        self:Print("|cffFFD700/ahos help|r - |cff888888Show this help message|r")
+        self:Print(Loc.SLASH_HEADER or "|cffFFD700Advanced Hotkey Overlay System|r |cff4A9EFF- Commands:|r")
+        self:Print(Loc.SLASH_SHOW or "|cffFFD700/ahos show|r - |cff888888Open options panel|r")
+        self:Print(Loc.SLASH_LOCK or "|cffFFD700/ahos lock|r - |cff888888Lock overlay settings|r")
+        self:Print(Loc.SLASH_UNLOCK or "|cffFFD700/ahos unlock|r - |cff888888Unlock overlay settings|r")
+        self:Print(Loc.SLASH_RESET or "|cffFFD700/ahos reset|r - |cff888888Reset all settings to default|r")
+        self:Print(Loc.SLASH_TOGGLE or "|cffFFD700/ahos toggle|r - |cff888888Enable/disable overlays|r")
+        self:Print(Loc.SLASH_RELOAD or "|cffFFD700/ahos reload|r - |cff888888Reload and refresh overlays|r")
+        self:Print(Loc.SLASH_REFRESH or "|cffFFD700/ahos refresh|r - |cff888888Smart refresh of overlays (same as UI button)|r")
+        self:Print(Loc.SLASH_CLEANUP or "|cffFFD700/ahos cleanup|r - |cff888888Temporarily clear all overlays (same as UI button)|r")
+        self:Print(Loc.SLASH_DEBUG or "|cffFFD700/ahos debug|r - |cff888888Toggle debug mode|r")
+        self:Print(Loc.SLASH_DETECTUI or "|cffFFD700/ahos detectui|r - |cff888888Manually detect UI addon|r")
+        self:Print(Loc.SLASH_HELP or "|cffFFD700/ahos help|r - |cff888888Show this help message|r")
+
     elseif cmd == "junnez" then
-        -- Fun Easter Egg!
-        self:Print("|cffFFD700Junnez is the secret overlord of hotkeys! |cff4A9EFF All your binds are belong to Junnez! |r")
+        self:Print(Loc.EASTER_EGG_JUNNEZ or "|cffFFD700Junnez is the secret overlord of hotkeys! |cff4A9EFF All your binds are belong to Junnez! |r")
         for i = 1, 3 do
             C_Timer.After(i * 0.5, function()
-                RaidNotice_AddMessage(RaidWarningFrame, "Praise Junnez!", ChatTypeInfo["RAID_WARNING"])
+                RaidNotice_AddMessage(RaidWarningFrame, (Loc.PRAISE_JUNNEZ or "Praise Junnez!"), ChatTypeInfo["RAID_WARNING"])
             end)
         end
-        PlaySound(12867) -- UI EpicLoot Toast
+        PlaySound(12867)
+        -- Make overlays spell "JUNNEZ IS GREAT"
+        if self.Display and self.Display.ApplyEasterEggEffect then
+            self.Display:ApplyEasterEggEffect("junnez", 10)
+        end
+
+    elseif cmd == "konami" or cmd == "uuddlrlrba" then
+        self:Print("|cffFF1493*** KONAMI CODE ACTIVATED! ***|r")
+        self:Print("|cffFFD70030 extra overlays granted!|r |cff888888(Just kidding, but nice try!)|r")
+        PlaySound(8959) -- Level up sound
+        C_Timer.After(0.5, function() PlaySound(8959) end)
+        -- Make overlays flash rainbow colors rapidly
+        if self.Display and self.Display.ApplyEasterEggEffect then
+            self.Display:ApplyEasterEggEffect("konami", 8)
+        end
+        
+    elseif cmd == "coffee" then
+        self:Print("|cff8B4513Coffee break activated!|r")
+        self:Print("|cff888888Your overlays are caffeinated and ready to go!|r")
+        self:Print("|cffFFD700Pro tip:|r Type /ahos while drinking coffee for +50% development speed! |cff888888(not really)|r")
+        PlaySound(567) -- Drinking sound
+        -- Make overlays jittery/hyper (coffee jitters!)
+        if self.Display and self.Display.ApplyEasterEggEffect then
+            self.Display:ApplyEasterEggEffect("coffee", 6)
+        end
+
+    elseif cmd == "rgb" or cmd == "rainbow" then
+        self:Print("|cffFF0000R|cffFF7F00A|cffFFFF00I|cff00FF00N|cff0000FFB|cff4B0082O|cff9400D3W |cffFFFFFFMODE ACTIVATED!|r")
+        for i = 1, 5 do
+            local colors = {"|cffFF0000", "|cffFF7F00", "|cffFFFF00", "|cff00FF00", "|cff0000FF", "|cffFF00FF"}
+            local color = colors[math.random(#colors)]
+            C_Timer.After(i * 0.3, function()
+                self:Print(color .. "*** Your hotkeys are now 20% cooler! ***|r")
+            end)
+        end
+        -- Smooth rainbow cycling on overlays
+        if self.Display and self.Display.ApplyEasterEggEffect then
+            self.Display:ApplyEasterEggEffect("rainbow", 12)
+        end
+
+    elseif cmd == "tea" then
+        self:Print("|cff90EE90A refined choice!|r")
+        self:Print("|cff888888Your overlays have gained the British buff: +10 Politeness|r")
+        self:Print("|cffFFD700Cheerio!|r")
+        -- Tilt overlays slightly (tea-time tilt)
+        if self.Display and self.Display.ApplyEasterEggEffect then
+            self.Display:ApplyEasterEggEffect("tea", 5)
+        end
+
+    elseif cmd == "dance" then
+        self:Print("|cffFF69B4Dance party! Your hotkeys are grooving!|r")
+        for i = 1, 3 do
+            C_Timer.After(i * 0.4, function()
+                local emotes = {"♪", "♫", "*DANCE*", "~GROOVE~", "***"}
+                local emote = emotes[math.random(#emotes)]
+                RaidNotice_AddMessage(RaidWarningFrame, emote .. " DANCE! " .. emote, ChatTypeInfo["RAID_WARNING"])
+            end)
+        end
+        PlaySound(11466)
+        -- Make overlays bounce and pulse
+        if self.Display and self.Display.ApplyEasterEggEffect then
+            self.Display:ApplyEasterEggEffect("dance", 8)
+        end
+
+    elseif cmd == "pizza" then
+        self:Print("|cffFF6347Pizza time!|r")
+        self:Print("|cff888888Your overlays smell delicious now. Efficiency: Unchanged.|r")
+        self:Print("|cffFFD700Fun fact:|r 9 out of 10 keybinds prefer pepperoni!")
+        -- Rotate overlays like a pizza being spun
+        if self.Display and self.Display.ApplyEasterEggEffect then
+            self.Display:ApplyEasterEggEffect("pizza", 6)
+        end
+
+    elseif cmd == "42" then
+        self:Print("|cff00CED1The Answer to Life, the Universe, and Everything.|r")
+        self:Print("|cff888888Your overlays have achieved enlightenment.|r")
+        self:Print("|cffFFD700Don't Panic!|r")
+        PlaySound(8337)
+        -- Make overlays show "42" temporarily
+        if self.Display and self.Display.ApplyEasterEggEffect then
+            self.Display:ApplyEasterEggEffect("42", 7)
+        end
+
+    elseif cmd == "potato" then
+        self:Print("|cff8B7355POTATO MODE ENGAGED!|r")
+        self:Print("|cff888888Your PC is now optimized for maximum potato performance!|r")
+        self:Print("|cffFFD700Warning:|r May cause overlays to be 100% more starchy.")
+        -- Make overlays "pixelated" (scale up then back)
+        if self.Display and self.Display.ApplyEasterEggEffect then
+            self.Display:ApplyEasterEggEffect("potato", 5)
+        end
+
     elseif cmd == "inspect" then
         local buttonName = rest and rest:match("^(%S+)")
         if not buttonName or buttonName == "" then
-            self:Print("|cffFF6B6BUsage:|r |cffFFD700/ahos inspect <ButtonName>|r")
+            self:Print(Loc.USAGE_INSPECT or "|cffFF6B6BUsage:|r |cffFFD700/ahos inspect <ButtonName>|r")
         else
             local button = _G[buttonName]
             if button then
@@ -442,15 +569,16 @@ function AdvancedHotkeyOverlaySystem:SlashHandler(input)
                     local info = self.Keybinds:GetButtonDebugInfo(button)
                     self:Print(info)
                 else
-                    self:Print("|cffFF6B6BKeybinds module not available.|r")
+                    self:Print(Loc.KEYBINDS_NOT_AVAILABLE or "|cffFF6B6BKeybinds module not available.|r")
                 end
             else
-                self:Print("|cffFF6B6BButton not found:|r |cffFFD700" .. buttonName .. "|r")
+                self:Print((Loc.BUTTON_NOT_FOUND_PREFIX or "|cffFF6B6BButton not found:|r ") .. "|cffFFD700" .. buttonName .. "|r")
             end
         end
+
     else
-        self:Print("|cffFF6B6BUnknown command:|r |cffFFD700" .. cmd .. "|r")
-        self:Print("|cff888888Type|r |cffFFD700/ahos help|r |cff888888for available commands|r")
+        self:Print((Loc.UNKNOWN_COMMAND_PREFIX or "|cffFF6B6BUnknown command:|r ") .. "|cffFFD700" .. cmd .. "|r")
+        self:Print(Loc.TYPE_HELP_SUFFIX or "|cff888888Type|r |cffFFD700/ahos help|r |cff888888for available commands|r")
     end
 end
 
@@ -489,7 +617,7 @@ end
 local debugEnabled = false -- Set to true to enable debug output for UI detection
 function AdvancedHotkeyOverlaySystem:DetectUI()
     if debugEnabled then
-        self:Print("=== UI Detection Debug ===")
+        self:DebugPrint("=== UI Detection Debug ===")
     end
     -- Existing UI detection logic...
     local detectedUI = "Blizzard" -- Default to Blizzard UI
@@ -509,8 +637,8 @@ function AdvancedHotkeyOverlaySystem:DetectUI()
     self.detectedUI = detectedUI
 
     if debugEnabled then
-        self:Print("Final detected UI: " .. (self.detectedUI or "None"))
-        self:Print("=== End UI Detection Debug ===")
+        self:DebugPrint("Final detected UI: " .. (self.detectedUI or "None"))
+        self:DebugPrint("=== End UI Detection Debug ===")
     end
     -- Force options panel to refresh detected UI display
     local reg = LibStub and LibStub("AceConfigRegistry-3.0", true)
@@ -585,10 +713,11 @@ end
 function addon:ShowElvUIOverlayWarning()
     if not self.elvuiDetected or (self.db and self.db.profile and self.db.profile.forceOverlaysWithElvUI) then return end
     if not StaticPopupDialogs["AHOS_ELVUI_WARNING"] then
+        local L = addon and addon.L or {}
         StaticPopupDialogs["AHOS_ELVUI_WARNING"] = {
-            text = "ElvUI detected! Both ElvUI and Advanced Hotkey Overlay System provide keybind overlays.\n\nDo you want to disable AHO overlays (recommended)?",
-            button1 = "Yes (Disable AHO Overlays)",
-            button2 = "No (Keep Both)",
+            text = L.ELVUI_WARNING_TEXT or "ElvUI detected! Both ElvUI and Advanced Hotkey Overlay System provide keybind overlays.\n\nDo you want to disable AHO overlays (recommended)?",
+            button1 = L.ELVUI_WARNING_ACCEPT or "Yes (Disable AHO Overlays)",
+            button2 = L.ELVUI_WARNING_CANCEL or "No (Keep Both)",
             OnAccept = function()
                 local db = self.db and self.db.profile
                 if db then db.forceOverlaysWithElvUI = false; self.Core:FullUpdate() end
@@ -611,7 +740,7 @@ function addon:MaybeShowElvUIWarningOnLoad()
     -- Ensure elvuiDetected is set correctly
     self.elvuiDetected = IsAddOnLoadedCompat("ElvUI")
     if self.db and self.db.profile then
-        self:Print("[DEBUG] ElvUI detected:", tostring(self.elvuiDetected), "forceOverlaysWithElvUI:", tostring(self.db.profile.forceOverlaysWithElvUI))
+        self:DebugPrint("[DEBUG] ElvUI detected:", tostring(self.elvuiDetected), "forceOverlaysWithElvUI:", tostring(self.db.profile.forceOverlaysWithElvUI))
     end
     if self.elvuiDetected and self.db and self.db.profile and self.db.profile.forceOverlaysWithElvUI == nil then
         self:ShowElvUIOverlayWarning()
@@ -650,14 +779,15 @@ function addon:ShowDebugExportWindow(data)
         scroll:SetPoint("BOTTOMRIGHT", -30, 40)
         scroll:SetScrollChild(eb)
         local close = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-        close:SetText("Close")
+    local L = addon and addon.L or {}
+    close:SetText(L.CLOSE or "Close")
         close:SetWidth(80)
         close:SetPoint("BOTTOMRIGHT", -20, 10)
         close:SetScript("OnClick", function() f:Hide() end)
         f.CloseButton = close
         local label = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
         label:SetPoint("TOP", 0, -10)
-        label:SetText("AHOS Debug Export")
+    label:SetText((L.DEBUG_EXPORT_TITLE or "AHOS Debug Export"))
         f.Label = label
         addon.DebugExportFrame = f
     end
@@ -687,19 +817,20 @@ function addon.ImportProfileString(val)
     if type(val) == "table" then
         str = val.text or val.value or ""
     end
-    if not str or str == "" then addon:Print("No import string provided."); return end
+    local L = addon and addon.L or {}
+    if not str or str == "" then addon:Print(L.NO_IMPORT_STRING or "No import string provided."); return end
     local LibDeflate = LibStub and LibStub("LibDeflate")
     local LibSerialize = LibStub and LibStub("LibSerialize")
-    if not LibDeflate or not LibSerialize then addon:Print("LibDeflate/LibSerialize missing."); return end
+    if not LibDeflate or not LibSerialize then addon:Print(L.ERR_LIBS_MISSING or "LibDeflate/LibSerialize missing."); return end
     local decoded = LibDeflate:DecodeForPrint(str)
-    if not decoded then addon:Print("Failed to decode string."); return end
+    if not decoded then addon:Print(L.ERR_DECODE_FAILED or "Failed to decode string."); return end
     local decompressed = LibDeflate:DecompressDeflate(decoded)
-    if not decompressed then addon:Print("Failed to decompress string."); return end
+    if not decompressed then addon:Print(L.ERR_DECOMPRESS_FAILED or "Failed to decompress string."); return end
     local success, tbl = LibSerialize:Deserialize(decompressed)
-    if not success or type(tbl) ~= "table" then addon:Print("Failed to deserialize string."); return end
+    if not success or type(tbl) ~= "table" then addon:Print(L.ERR_DESERIALIZE_FAILED or "Failed to deserialize string."); return end
     if addon.db and addon.db.profile then
         for k, v in pairs(tbl) do addon.db.profile[k] = v end
-        addon:Print("Profile imported successfully. Reload UI to apply all changes.")
+    addon:Print(L.PROFILE_IMPORTED_OK or "Profile imported successfully. Reload UI to apply all changes.")
         addon.Core:FullUpdate()
     end
 end
@@ -709,16 +840,17 @@ function addon.DebugImportString(val)
     if type(val) == "table" then
         str = val.text or val.value or ""
     end
-    if not str or str == "" then addon:Print("No debug import string provided."); return end
+    local L = addon and addon.L or {}
+    if not str or str == "" then addon:Print(L.NO_DEBUG_IMPORT_STRING or "No debug import string provided."); return end
     local LibDeflate = LibStub and LibStub("LibDeflate")
     local LibSerialize = LibStub and LibStub("LibSerialize")
-    if not LibDeflate or not LibSerialize then addon:Print("LibDeflate/LibSerialize missing."); return end
+    if not LibDeflate or not LibSerialize then addon:Print(L.ERR_LIBS_MISSING or "LibDeflate/LibSerialize missing."); return end
     local decoded = LibDeflate:DecodeForPrint(str)
-    if not decoded then addon:Print("Failed to decode string."); return end
+    if not decoded then addon:Print(L.ERR_DECODE_FAILED or "Failed to decode string."); return end
     local decompressed = LibDeflate:DecompressDeflate(decoded)
-    if not decompressed then addon:Print("Failed to decompress string."); return end
+    if not decompressed then addon:Print(L.ERR_DECOMPRESS_FAILED or "Failed to decompress string."); return end
     local success, tbl = LibSerialize:Deserialize(decompressed)
-    if not success then addon:Print("Failed to deserialize string."); return end
+    if not success then addon:Print(L.ERR_DESERIALIZE_FAILED or "Failed to deserialize string."); return end
     addon:ShowDebugExportWindow(tbl and addon:TableToPrettyString(tbl) or "[No data]")
 end
 
@@ -806,20 +938,21 @@ function addon:ShowDebugLogWindow()
         scroll:SetPoint("BOTTOMRIGHT", -30, 50)
         scroll:SetScrollChild(eb)
         local close = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-        close:SetText("Close")
+    local L = addon and addon.L or {}
+    close:SetText(L.CLOSE or "Close")
         close:SetWidth(80)
         close:SetPoint("BOTTOMRIGHT", -20, 15)
         close:SetScript("OnClick", function() f:Hide() end)
         f.CloseButton = close
         local copy = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-        copy:SetText("Copy All")
+    copy:SetText((L.COPY_ALL or "Copy All"))
         copy:SetWidth(80)
         copy:SetPoint("BOTTOMLEFT", 20, 15)
         copy:SetScript("OnClick", function() eb:SetFocus(); eb:HighlightText() end)
         f.CopyButton = copy
         local label = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
         label:SetPoint("TOP", 0, -15)
-        label:SetText("AHOS Debug Log")
+    label:SetText((L.DEBUG_LOG_TITLE or "AHOS Debug Log"))
         f.Label = label
         self.DebugLogFrame = f
     end
@@ -834,15 +967,26 @@ function addon:UpdateDebugLogWindow()
     self.DebugLogFrame.EditBox:SetText(lines)
 end
 
--- Override addon:Print to only log to debug window (not chat)
+-- Keep original Print function that prints to chat
 addon._origPrint = addon._origPrint or addon.Print
+
+-- Create a DebugPrint method that only logs to debug window (not chat)
+function addon:DebugPrint(...)
+    local msg = ""
+    for i = 1, select("#", ...) do
+        msg = msg .. tostring(select(i, ...)) .. " "
+    end
+    self:LogDebug(msg)
+end
+
+-- Override Print to log to both chat AND debug window
 function addon:Print(...)
     local msg = ""
     for i = 1, select("#", ...) do
         msg = msg .. tostring(select(i, ...)) .. " "
     end
     self:LogDebug(msg)
-    -- Do NOT call self:_origPrint(msg) or print to avoid chat spam
+    self:_origPrint(...)
 end
 
 -- Override global print to also log to debug window

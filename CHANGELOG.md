@@ -4,6 +4,73 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.6] - 2025-11-08
+
+### Fixed (2.5.6)
+
+- Critical fix for overlay disappearance during dragonriding mount transitions affecting secondary action bars.
+- Resolved issue where OverrideActionBar activation caused MultiBar button overlays to be cleared and not recreated.
+- Fixed visibility state evaluation to preserve existing overlays during action bar page changes and vehicle/mount transitions.
+- Corrected overlay lifecycle management to prevent unnecessary destruction and recreation during bar state changes.
+
+### Changed (2.5.6)
+
+- Refactored overlay update pipeline to preserve existing overlay frames during bar transitions.
+- Enhanced visibility check logic to differentiate between new overlay creation and existing overlay updates.
+- Improved overlay cleanup to only remove overlays for truly removed buttons, not temporarily hidden ones.
+- Optimized UpdateAllOverlays to eliminate full overlay clearing on bar events (UPDATE_SHAPESHIFT_FORM, ACTIONBAR_PAGE_CHANGED).
+
+## [2.5.5] - 2025-11-07
+
+### Fixed (2.5.5)
+
+- Resolved overlay persistence issue affecting secondary action bars (MultiBar) during combat mount transitions.
+- Fixed visibility state detection logic to preserve overlays during temporary parent frame state changes.
+- Corrected differential behavior between primary ActionBar and MultiBar frame hierarchies.
+- Improved combat-aware visibility validation with frame existence checking.
+
+### Changed (2.5.5)
+
+- Refactored button visibility evaluation in overlay update pipeline to distinguish combat and non-combat states.
+- Enhanced overlay rendering to maintain frame integrity during shapeshifting and mount form changes.
+- Optimized visibility check bypass mechanism for active overlays in combat lockdown scenarios.
+
+## [2.5.4] - 2025-11-07
+
+### Fixed (2.5.4)
+
+- Critical fix for overlay persistence during combat lockdown transitions.
+- Resolved issue where overlays could disappear and remain hidden after combat events.
+- Improved animation ticker lifecycle management with proper cleanup on combat state changes.
+- Enhanced overlay restoration queue to defer frame manipulation until combat lockdown ends.
+- Fixed race condition in visual effect system that could interfere with combat-sensitive frame updates.
+
+### Changed (2.5.4)
+
+- Refactored temporal animation system to register combat state monitoring.
+- Added automatic cancellation of active animation timers when entering combat.
+- Implemented deferred restoration pattern for overlay state recovery post-combat.
+
+## [2.5.3] - 2025-11-07
+
+### Added (2.5.3)
+
+- Advanced visual overlay transformation engine with HSV color space support for enhanced rendering pipeline.
+- Dynamic text manipulation system with per-frame interpolation for improved responsiveness.
+- Extended slash command handler with enhanced debug output routing and chat window separation logic.
+
+### Changed (2.5.3)
+
+- Refactored debug logging system: introduced dedicated `DebugPrint` method for internal diagnostics, separating debug output from user-facing messages.
+- Optimized overlay frame lifecycle management with improved state restoration callbacks.
+- Enhanced temporal effect scheduling with precision timer management for overlay animations.
+
+### Fixed (2.5.3)
+
+- Resolved chat window spam from debug messages by routing internal diagnostics to debug log window exclusively.
+- Improved overlay state persistence during combat lockdown transitions.
+- Fixed overlay text color restoration after transient visual effects.
+
 ## [2.4.2] - 2025-09-03
 
 ## [2.5.0] - 2025-09-14

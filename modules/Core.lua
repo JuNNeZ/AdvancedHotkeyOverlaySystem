@@ -196,18 +196,24 @@ end
 
 function Core:FullUpdate(...)
     if addon.db and addon.db.profile and addon.db.profile.debug then
-        addon:Print("[AHOS DEBUG] Core:FullUpdate called. IsReady:", addon:IsReady())
+        addon:DebugPrint("[AHOS DEBUG] Core:FullUpdate called. IsReady:", addon:IsReady())
     end
+    
+    -- During combat, allow updates to proceed but Display will handle combat-safe operations
+    -- Don't block entirely as this prevents mounting/dismounting updates
     if not addon:IsReady() then
         addon:SafeCall("Core", "FullUpdate")
         return
     end
     if not addon.db.profile.enabled then
-        addon:SafeCall("Display", "ClearAllOverlays")
+        -- Only clear overlays if not in combat
+        if not InCombatLockdown() then
+            addon:SafeCall("Display", "ClearAllOverlays")
+        end
         return
     end
     if addon.db and addon.db.profile and addon.db.profile.debug then
-        addon:Print("[AHOS DEBUG] Core:FullUpdate proceeding to Performance:QueueFullUpdate")
+        addon:DebugPrint("[AHOS DEBUG] Core:FullUpdate proceeding to Performance:QueueFullUpdate")
     end
     addon:SafeCall("Performance", "QueueFullUpdate")
     -- Also notify AceConfig to refresh all open option UIs (JUI/Pretty/Ace windows)
@@ -242,13 +248,15 @@ function Core:ChatCommand(input)
         LibStub("AceConfigDialog-3.0"):Open(addonName)
     elseif args[1] == "refresh" then
         self:FullUpdate()
-        addon:Print("Overlays refreshed.")
+        addon:Print((addon.L and addon.L.MSG_OVERLAYS_RELOADED) or "Overlays refreshed.")
     elseif args[1] == "debug" then
         addon.db.profile.debug = not addon.db.profile.debug
-        addon:Print("Debug mode " .. (addon.db.profile.debug and "enabled" or "disabled") .. ".")
+        local L = addon.L or {}
+        addon:Print((L.DEBUG_MODE_LABEL or "Debug mode ") .. (addon.db.profile.debug and (L.DEBUG_ENABLED or "enabled") or (L.DEBUG_DISABLED or "disabled")) .. ".")
     elseif args[1] == "detect" then
         addon.Config:DetectUI()
-        addon:Print("UI re-detected as: " .. (addon.detectedUI or "Unknown"))
+        local L = addon.L or {}
+        addon:Print((L.MSG_CURRENT_DETECTED_UI or "Current detected UI: ") .. (addon.detectedUI or (L.UNKNOWN or "Unknown")))
         self:FullUpdate()
     elseif args[1] == "inspect" and args[2] then
         local buttonName = string.upper(args[2])
@@ -257,7 +265,8 @@ function Core:ChatCommand(input)
             local info = addon.Keybinds:GetButtonDebugInfo(button)
             addon:Print(info)
         else
-            addon:Print("Button '" .. tostring(args[2]) .. "' not found.")
+            local L = addon.L or {}
+            addon:Print((L.BUTTON_NOT_FOUND_PREFIX or "Button not found: ") .. tostring(args[2]))
         end
     elseif args[1] == "dumphotkey" and args[2] then
         local buttonName = string.upper(args[2])
@@ -265,7 +274,8 @@ function Core:ChatCommand(input)
         if button and addon.Display and addon.Display.DumpHotkeyRegions then
             addon.Display:DumpHotkeyRegions(button)
         else
-            addon:Print("Button '" .. tostring(args[2]) .. "' not found or Display missing.")
+            local L = addon.L or {}
+            addon:Print((L.BUTTON_NOT_FOUND_PREFIX or "Button not found: ") .. tostring(args[2]) .. (L.DISPLAY_MISSING_SUFFIX or " or Display missing."))
         end
     elseif args[1] == "dumplayers" and args[2] then
         local buttonName = string.upper(args[2])
@@ -273,9 +283,11 @@ function Core:ChatCommand(input)
         if button and addon.Display and addon.Display.DumpButtonLayers then
             addon.Display:DumpButtonLayers(button)
         else
-            addon:Print("Button '" .. tostring(args[2]) .. "' not found or Display missing.")
+            local L = addon.L or {}
+            addon:Print((L.BUTTON_NOT_FOUND_PREFIX or "Button not found: ") .. tostring(args[2]) .. (L.DISPLAY_MISSING_SUFFIX or " or Display missing."))
         end
     else
-        addon:Print("Usage: /ahos [refresh|debug|detect|inspect <ButtonName>|dumphotkey <ButtonName>|dumplayers <ButtonName>]")
+        local L = addon.L or {}
+        addon:Print(L.USAGE_AHOS or "Usage: /ahos [refresh|debug|detect|inspect <ButtonName>|dumphotkey <ButtonName>|dumplayers <ButtonName>]")
     end
 end
