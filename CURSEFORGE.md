@@ -86,10 +86,10 @@ Advanced Hotkey Overlay System replaces the default hotkey text on your action b
 - LibSharedMedia-3.0 (included)
 - LibDBIcon-1.0 (included)
 
-## Recent Updates (v2.5.9)
-- Updated Retail TOCs to advertise WoW 12 compatibility with interface `120000`.
-- Preserved the earlier embedded library load-order fix so Ace3, LibSharedMedia, and minimap dependencies initialize in the correct order.
-- Refreshed release metadata for the new package.
+## Recent Updates (v2.5.10)
+- Fixed the GitHub release workflow PowerShell steps so packaging can run on tag push.
+- Added repository-local version and changelog verifier scripts used by the release workflow.
+- Kept the WoW 12 TOC compatibility and embedded library load-order fixes in the shipped package.
 
 ---
 

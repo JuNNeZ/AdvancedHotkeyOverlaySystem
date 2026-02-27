@@ -27,14 +27,14 @@ jobs:
       - name: Verify version consistency
         shell: pwsh
         run: |
-          pwsh -NoLogo -NoProfile -Command \
-            "$ErrorActionPreference='Stop'; ./.vscode/scripts/verify-version.ps1"
+          $ErrorActionPreference = 'Stop'
+          ./.vscode/scripts/verify-version.ps1
 
       - name: Verify changelog order
         shell: pwsh
         run: |
-          pwsh -NoLogo -NoProfile -Command \
-            "$ErrorActionPreference='Stop'; ./.vscode/scripts/verify-changelog.ps1"
+          $ErrorActionPreference = 'Stop'
+          ./.vscode/scripts/verify-changelog.ps1
 
       - name: Package and release
         uses: BigWigsMods/packager@v2
