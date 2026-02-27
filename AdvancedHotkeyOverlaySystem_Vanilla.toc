@@ -2,7 +2,7 @@
 ## Title: |T626001:16:16:0:0|t |cff00D4AAAdvanced |cffffd700Hotkey |cffffffffOverlay |cffffd700System|r
 ## Notes: |cffffd700Advanced Hotkey Overlay System|r |cff00D4AA- Intelligent UI detection, live updates, and beautiful customization.|r
 ## Author: |cff00D4AAJuNNeZ|r
-## Version: 2.5.3
+## Version: 2.5.8
 ## SavedVariables: AdvancedHotkeyOverlaySystemDB
 ## IconTexture: Interface\AddOns\AdvancedHotkeyOverlaySystem\media\logo.tga
 ## X-Category: Action Bars
@@ -14,6 +14,9 @@
 
 # Libraries
 Libs\LibStub\LibStub.lua
+Libs\LibDBIcon-1.0\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\LibDBIcon-1.0\LibDataBroker-1.1\LibDataBroker-1.1.lua
+Libs\LibDBIcon-1.0\LibDBIcon-1.0\lib.xml
 Libs\AceAddon-3.0\AceAddon-3.0.xml
 Libs\AceGUI-3.0\AceGUI-3.0.xml
 Libs\AceConfig-3.0\AceConfig-3.0.xml
@@ -22,7 +25,6 @@ Libs\AceDB-3.0\AceDB-3.0.xml
 Libs\AceEvent-3.0\AceEvent-3.0.xml
 Libs\AceTimer-3.0\AceTimer-3.0.xml
 Libs\LibSharedMedia-3.0\lib.xml
-Libs\LibDBIcon-1.0\embeds.xml
 Libs\LibSerialize-1.2.1\lib.xml
 Libs\LibDeflate\lib.xml
 

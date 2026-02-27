@@ -1,16 +1,14 @@
 # Advanced Hotkey Overlay System (AHOS)
 
-![Version](https://img.shields.io/badge/version-2.5.3-cyan)
+![Version](https://img.shields.io/badge/version-2.5.8-cyan)
 
 A modular, robust hotkey overlay system for World of Warcraft action bars, supporting Blizzard, AzeriteUI, and ConsolePort-style keybind abbreviations.
 
-## Version 2.5.3 Highlights
+## Version 2.5.8 Highlights
 
-- Locales: Fixed load-order issue causing "attempt to index local 'addon' (a nil value)" by decoupling locale files from addon scope. Locales now populate a shared table safely used by the addon.
-- Tooling: Replaced the failing `lua -p` syntax check with a robust PowerShell scanner that uses `luac -p` when available or `assert(loadfile(...))` fallback. Added as the default "AHOS: Lint Lua" task.
-- Retail (AzeriteUI): Removed placeholder square/bullet glyphs on unbound buttons; safer native label suppression with deep-scan.
-- Options: Added font outline styles (NONE/OUTLINE/THICKOUTLINE/MONOCHROME combos) with legacy fallback.
-- Classic: Gated Retail-only events (e.g., PLAYER_BINDING_CHANGED) to avoid errors.
+- Fixed embedded library load order so `CallbackHandler-1.0`, `LibDataBroker-1.1`, and `LibDBIcon-1.0` initialize before AceConfig, AceEvent, and LibSharedMedia.
+- Resolved startup failures that prevented config modules from loading when the Ace dependency chain stopped at login.
+- Unified release metadata with the current shipped version across Retail, Mists, and Vanilla TOCs.
 
 ## Features
 

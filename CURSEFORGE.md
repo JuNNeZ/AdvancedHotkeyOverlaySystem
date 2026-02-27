@@ -86,13 +86,10 @@ Advanced Hotkey Overlay System replaces the default hotkey text on your action b
 - LibSharedMedia-3.0 (included)
 - LibDBIcon-1.0 (included)
 
-## Recent Updates (v2.5.3)
-
-- Locales: Fixed nil error by decoupling locale files from addon scope; locales now populate a shared table consumed by the addon.
-- Tooling: New default VS Code lint task scans all Lua files via `luac -p` or `assert(loadfile(...))` fallback.
-- Retail (AzeriteUI): Removed placeholder square/bullet on unbound buttons; safer native label suppression with deep scan.
-- Options: Added font outline styles (NONE/OUTLINE/THICKOUTLINE/MONOCHROME combos) with legacy fallback.
-- Classic: Gated Retail-only events to avoid registration errors.
+## Recent Updates (v2.5.8)
+- Fixed embedded library load order so `CallbackHandler-1.0`, `LibDataBroker-1.1`, and `LibDBIcon-1.0` load before Ace3 components that require them.
+- Resolved login-time AceConfig, AceEvent, and LibSharedMedia initialization failures caused by relying on the later `LibDBIcon-1.0` embed entrypoint.
+- Restored normal module startup so configuration, options, and core systems initialize cleanly again.
 
 ---
 

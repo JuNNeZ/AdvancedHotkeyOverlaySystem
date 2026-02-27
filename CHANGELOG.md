@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.8] - 2026-02-27
+
+### Fixed (2.5.8)
+
+- Loaded `CallbackHandler-1.0` before AceConfig, AceEvent, and LibSharedMedia to stop startup failures in packaged builds.
+- Loaded `LibDataBroker-1.1` and the real `LibDBIcon-1.0` implementation explicitly instead of relying on a later embed entrypoint.
+- Restored addon initialization so Config, Options, and Core no longer fault after Ace library startup errors.
+
+### Changed (2.5.8)
+
+- Bumped all Retail, Mists, and Vanilla TOC versions to `2.5.8`.
+- Refreshed release notes in README and CurseForge docs to match the current release contents.
+
 ## [2.5.3] - 2025-09-14
 
 ### Fixed (2.5.3)
@@ -205,3 +218,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [2.5.1]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.1
 [2.5.2]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.2
 [2.5.3]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.3
+[2.5.8]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.8
