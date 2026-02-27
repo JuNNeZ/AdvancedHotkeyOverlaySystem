@@ -1,14 +1,14 @@
 # Advanced Hotkey Overlay System (AHOS)
 
-![Version](https://img.shields.io/badge/version-2.5.8-cyan)
+![Version](https://img.shields.io/badge/version-2.5.9-cyan)
 
 A modular, robust hotkey overlay system for World of Warcraft action bars, supporting Blizzard, AzeriteUI, and ConsolePort-style keybind abbreviations.
 
-## Version 2.5.8 Highlights
+## Version 2.5.9 Highlights
 
-- Fixed embedded library load order so `CallbackHandler-1.0`, `LibDataBroker-1.1`, and `LibDBIcon-1.0` initialize before AceConfig, AceEvent, and LibSharedMedia.
-- Resolved startup failures that prevented config modules from loading when the Ace dependency chain stopped at login.
-- Unified release metadata with the current shipped version across Retail, Mists, and Vanilla TOCs.
+- Updated Retail TOCs to advertise WoW 12 compatibility with interface `120000`.
+- Kept the earlier embedded library load-order fix in place so Ace3, LibSharedMedia, and minimap dependencies initialize reliably.
+- Refreshed release metadata for the new CurseForge package.
 
 ## Features
 

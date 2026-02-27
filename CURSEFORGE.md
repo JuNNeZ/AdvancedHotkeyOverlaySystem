@@ -86,10 +86,10 @@ Advanced Hotkey Overlay System replaces the default hotkey text on your action b
 - LibSharedMedia-3.0 (included)
 - LibDBIcon-1.0 (included)
 
-## Recent Updates (v2.5.8)
-- Fixed embedded library load order so `CallbackHandler-1.0`, `LibDataBroker-1.1`, and `LibDBIcon-1.0` load before Ace3 components that require them.
-- Resolved login-time AceConfig, AceEvent, and LibSharedMedia initialization failures caused by relying on the later `LibDBIcon-1.0` embed entrypoint.
-- Restored normal module startup so configuration, options, and core systems initialize cleanly again.
+## Recent Updates (v2.5.9)
+- Updated Retail TOCs to advertise WoW 12 compatibility with interface `120000`.
+- Preserved the earlier embedded library load-order fix so Ace3, LibSharedMedia, and minimap dependencies initialize in the correct order.
+- Refreshed release metadata for the new package.
 
 ---
 

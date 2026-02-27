@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.9] - 2026-02-27
+
+### Fixed (2.5.9)
+
+- Restored the Retail and Mainline TOCs to WoW 12 compatibility by setting their interface target to `120000`.
+- Preserved the explicit `CallbackHandler-1.0`, `LibDataBroker-1.1`, and real `LibDBIcon-1.0` load order required for packaged builds.
+
+### Changed (2.5.9)
+
+- Bumped all TOC version metadata to `2.5.9`.
+- Refreshed README and CurseForge release notes for the WoW 12 compatibility package.
+
 ## [2.5.8] - 2026-02-27
 
 ### Fixed (2.5.8)
@@ -219,3 +231,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [2.5.2]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.2
 [2.5.3]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.3
 [2.5.8]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.8
+[2.5.9]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.9

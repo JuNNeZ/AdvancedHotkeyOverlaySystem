@@ -1,8 +1,8 @@
-## Interface: 110107, 110200, 110205
+## Interface: 110107, 110200, 120000
 ## Title: |T626001:16:16:0:0|t |cff00D4AAAdvanced |cffffd700Hotkey |cffffffffOverlay |cffffd700System|r
 ## Notes: |cffffd700Advanced Hotkey Overlay System|r |cff00D4AA- Intelligent UI detection, live updates, and beautiful customization.|r
 ## Author: |cff00D4AAJuNNeZ|r
-## Version: 2.5.8
+## Version: 2.5.9
 ## SavedVariables: AdvancedHotkeyOverlaySystemDB
 ## IconTexture: Interface\AddOns\AdvancedHotkeyOverlaySystem\media\logo.tga
 ## X-Category: Action Bars
@@ -10,7 +10,7 @@
 ## NOTE: This unsuffixed TOC is for local development only.
 ## It intentionally omits upload target IDs so the packager won't
 ## create a duplicate release from it. Flavored TOCs handle publishing.
-## X-Compatible-With: 110205
+## X-Compatible-With: 120000
 ## X-Min-Interface: 110107
 ## X-Game-Version: Retail
 ## X-Flavor: Mainline
