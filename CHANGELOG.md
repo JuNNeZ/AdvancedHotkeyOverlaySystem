@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.11] - 2026-03-01
+
+### Fixed (2.5.11)
+
+- Added a taint-safe anchor helper in `modules/Display.lua` hotkey region heuristics.
+- Replaced direct `GetPoint(1)` anchor string comparisons with protected-safe checks to prevent taint compare errors on secure buttons (e.g., `ExtraActionButton1`).
+
+### Changed (2.5.11)
+
+- Bumped all TOC version metadata to `2.5.11`.
+- Refreshed README and CurseForge release notes for the taint-fix release.
+
 ## [2.5.10] - 2026-02-27
 
 ### Fixed (2.5.10)
@@ -245,3 +257,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [2.5.8]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.8
 [2.5.9]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.9
 [2.5.10]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.10
+[2.5.11]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.11

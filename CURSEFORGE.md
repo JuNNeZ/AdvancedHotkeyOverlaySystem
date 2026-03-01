@@ -86,10 +86,10 @@ Advanced Hotkey Overlay System replaces the default hotkey text on your action b
 - LibSharedMedia-3.0 (included)
 - LibDBIcon-1.0 (included)
 
-## Recent Updates (v2.5.10)
-- Fixed the GitHub release workflow PowerShell steps so packaging can run on tag push.
-- Added repository-local version and changelog verifier scripts used by the release workflow.
-- Kept the WoW 12 TOC compatibility and embedded library load-order fixes in the shipped package.
+## Recent Updates (v2.5.11)
+- Fixed a taint-safe anchor check in hotkey region discovery to avoid comparing protected point values.
+- Prevented `attempt to compare local 'p1' (a secret string value tainted by 'AdvancedHotkeyOverlaySystem')` from Display hotkey scans.
+- Kept release workflow and WoW 12 compatibility updates from previous releases.
 
 ---
 

@@ -157,6 +157,15 @@ local function IsFallbackHotkeyGlyph(text)
         or text == "�" -- replacement character
 end
 
+-- Taint-safe anchor check used by hotkey region heuristics.
+-- Some protected regions can return secure/secret strings for points.
+local function IsTopRightAnchor(region)
+    if not region or not region.GetPoint then return false end
+    local ok, p1, _, p2 = pcall(region.GetPoint, region, 1)
+    if not ok then return false end
+    return tostring(p1) == "TOPRIGHT" or tostring(p2) == "TOPRIGHT"
+end
+
 -- Recursively scan a frame and its children for FontStrings that likely represent hotkey labels.
 -- This helps when UIs (e.g., AzeriteUI) wrap the hotkey text in a nested container such as
 -- ButtonName.TextOverlayContainer.
@@ -171,8 +180,7 @@ local function DeepCollectHotkeyFontStrings(frame, button, out, depth, maxDepth)
                 local match = (rname ~= "" and (rname:find("HotKey") or rname:find("Keybind") or rname:find("Hotkey")))
                 if not match then
                     -- Heuristics: top-right anchored, small-ish font size, short text
-                    local p1, _, p2 = region:GetPoint(1)
-                    if (p1 == "TOPRIGHT" or p2 == "TOPRIGHT") then
+                    if IsTopRightAnchor(region) then
                         match = true
                     end
                 end
@@ -285,8 +293,7 @@ function Display:UpdateOverlayForButton(button)
                     table.insert(candidates, region)
                 else
                     -- Heuristic: top-right anchored small fontstrings commonly used for keybinds
-                    local p1, rel, p2, x, y = region:GetPoint(1)
-                    if p1 == "TOPRIGHT" or p2 == "TOPRIGHT" then
+                    if IsTopRightAnchor(region) then
                         local fs = region
                         local text = fs:GetText()
                         if text and text ~= "" and not tonumber(text) then
@@ -527,8 +534,7 @@ function Display:GetHotkeyRegions(button)
                 local rname = region.GetName and region:GetName() or ""
                 local match = (rname ~= "" and (rname:find("HotKey") or rname:find("Keybind") or rname:find("Hotkey")))
                 if not match then
-                    local p1, _, p2 = region:GetPoint(1)
-                    if p1 == "TOPRIGHT" or p2 == "TOPRIGHT" then
+                    if IsTopRightAnchor(region) then
                         match = true
                     end
                 end
