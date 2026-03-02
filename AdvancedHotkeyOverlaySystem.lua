@@ -515,12 +515,8 @@ function AdvancedHotkeyOverlaySystem:DetectUI()
     -- Check for other known UI addons and set detectedUI accordingly
     if IsAddOnLoadedCompat("ElvUI") then
         detectedUI = "ElvUI"
-    elseif IsAddOnLoadedCompat("Tukui") then
-        detectedUI = "Tukui"
     elseif IsAddOnLoadedCompat("AzeriteUI") then
         detectedUI = "AzeriteUI"
-    elseif IsAddOnLoadedCompat("Bartender4") then
-        detectedUI = "Bartender4"
     elseif IsAddOnLoadedCompat("Dominos") then
         detectedUI = "Dominos"
     end
@@ -543,13 +539,7 @@ local UI_DETECTED_COLORS = {
     Blizzard = "ffb4e0ff", -- Blizzard blue
     AzeriteUI = "ffe6c200", -- AzeriteUI gold
     ElvUI = "ff1784d1", -- ElvUI blue
-    Bartender4 = "ff00ffba", -- Bartender4 teal
     Dominos = "ffb6ff00", -- Dominos green
-    ConsolePort = "ffff7f50", -- ConsolePort coral
-    RealUI = "ffb3b3b3", -- RealUI gray
-    Tukui = "ffc41f3b", -- Tukui red
-    KkthnxUI = "ff6699ff", -- KkthnxUI blue
-    NDui = "ff00c0fa", -- NDui cyan
     None = "ffffffff", -- fallback white
 }
 
@@ -559,13 +549,7 @@ AdvancedHotkeyOverlaySystem.UIColors = {
     Blizzard = {0.71, 0.88, 1.0},
     AzeriteUI = {0.90, 0.76, 0.00},
     ElvUI = {0.09, 0.52, 0.82},
-    Bartender4 = {0.0, 1.0, 0.73},
     Dominos = {0.71, 1.0, 0.0},
-    ConsolePort = {1.0, 0.50, 0.31},
-    RealUI = {0.70, 0.70, 0.70},
-    Tukui = {0.77, 0.12, 0.23},
-    KkthnxUI = {0.40, 0.60, 1.0},
-    NDui = {0.0, 0.75, 0.98},
     None = {1, 1, 1},
 }
 

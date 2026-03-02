@@ -4,14 +4,14 @@ Enhanced hotkey overlays for all action bar addons with intelligent UI detection
 
 ## What does this addon do?
 
-Advanced Hotkey Overlay System replaces the default hotkey text on your action buttons with fully customizable overlays that work seamlessly with any UI addon. Whether you use ElvUI, Bartender4, Dominos, AzeriteUI, or the default Blizzard interface, this addon automatically detects your setup and provides clear, attractive hotkey displays.
+Advanced Hotkey Overlay System replaces the default hotkey text on your action buttons with fully customizable overlays. It currently has dedicated support for the default Blizzard interface, AzeriteUI, and Dominos, with conflict-aware handling for ElvUI.
 
 ## Key Features
 
 ### Universal Compatibility
 
-- Automatically detects and adapts to ElvUI, Bartender4, Dominos, AzeriteUI, and Blizzard UI
-- Works with any action bar addon—no manual setup required
+- Automatically detects Blizzard UI, AzeriteUI, Dominos, and ElvUI conflict state
+- Focused support for the action bar addons the codebase explicitly targets
 - Intelligent button detection for new and custom action bars
 
 ### Real-Time Customization
@@ -86,10 +86,10 @@ Advanced Hotkey Overlay System replaces the default hotkey text on your action b
 - LibSharedMedia-3.0 (included)
 - LibDBIcon-1.0 (included)
 
-## Recent Updates (v2.5.11)
-- Fixed a taint-safe anchor check in hotkey region discovery to avoid comparing protected point values.
-- Prevented `attempt to compare local 'p1' (a secret string value tainted by 'AdvancedHotkeyOverlaySystem')` from Display hotkey scans.
-- Kept release workflow and WoW 12 compatibility updates from previous releases.
+## Recent Updates (v2.5.12)
+- Fixed Dominos binding resolution by preferring addon-provided command names and hotkey refresh hooks.
+- Modernized the in-game options layout around status, compatibility, support, and debugging.
+- Updated Retail, Mists, and Vanilla TOC targets for current client builds while keeping Retail `120000` compatibility.
 
 ---
 

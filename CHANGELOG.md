@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.12] - 2026-03-02
+
+### Fixed (2.5.12)
+
+- Fixed Dominos keybind resolution by preferring the button `commandName` and explicit Dominos hotkey bindings before generic Blizzard action remaps.
+- Hooked Dominos button `UpdateHotkeys` refreshes so overlays reapply when Dominos rewrites native labels.
+- Replaced another taint-prone top-right anchor heuristic in keybind label discovery with a protected-safe point check.
+
+### Changed (2.5.12)
+
+- Modernized the in-game options panel with new Status, Compatibility, Support, and Debugging sections and removed stale compatibility claims.
+- Narrowed direct support messaging to Blizzard, AzeriteUI, and Dominos, with ElvUI kept as conflict-aware handling only.
+- Updated package ignores to exclude development-only templates, tests, and library docs from release archives.
+- Updated Retail TOCs to `110107, 110200, 120000, 120001`, Mists TOC to `50500, 50501, 50503`, and Vanilla TOC to `11508`.
+- Bumped all TOC version metadata to `2.5.12`.
+- Refreshed README and CurseForge release notes for the Dominos/options/TOC-target release.
+
 ## [2.5.11] - 2026-03-01
 
 ### Fixed (2.5.11)

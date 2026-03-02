@@ -48,14 +48,6 @@ local uiAddons = {
     -- Keys must be exact folder names (case-sensitive)
     ["ElvUI"] = "ElvUI",
     ["AzeriteUI"] = "AzeriteUI",
-    ["GW2_UI"] = "GW2_UI",
-    ["KkthnxUI"] = "KkthnxUI",
-    ["SpartanUI"] = "SpartanUI",
-    ["Tukui"] = "Tukui",
-    ["LUI"] = "LUI",
-    ["SyncUI"] = "SyncUI",
-    ["SuperVillainUI"] = "SuperVillainUI",
-    ["Bartender4"] = "Bartender4",
     ["Dominos"] = "Dominos",
 }
 
@@ -215,27 +207,6 @@ function Config:DetectUserInterface()
     elseif rawget(_G, "ElvUI") then
         self.detectedUI = "ElvUI"
         addon.detectedUI = "ElvUI"
-    elseif rawget(_G, "Tukui") then
-        self.detectedUI = "Tukui"
-        addon.detectedUI = "Tukui"
-    elseif rawget(_G, "LUI") then
-        self.detectedUI = "LUI"
-        addon.detectedUI = "LUI"
-    elseif rawget(_G, "SpartanUI") then
-        self.detectedUI = "SpartanUI"
-        addon.detectedUI = "SpartanUI"
-    elseif rawget(_G, "SyncUI") then
-        self.detectedUI = "SyncUI"
-        addon.detectedUI = "SyncUI"
-    elseif rawget(_G, "SuperVillainUI") then
-        self.detectedUI = "SuperVillainUI"
-        addon.detectedUI = "SuperVillainUI"
-    elseif rawget(_G, "GW2_UI") then
-        self.detectedUI = "GW2_UI"
-        addon.detectedUI = "GW2_UI"
-    elseif rawget(_G, "Bartender4") then
-        self.detectedUI = "Bartender4"
-        addon.detectedUI = "Bartender4"
     elseif rawget(_G, "Dominos") then
         self.detectedUI = "Dominos"
         addon.detectedUI = "Dominos"
@@ -323,13 +294,6 @@ end
 addon.UIColors = {
     AzeriteUI = {0.25, 0.78, 0.92},      -- Cyan
     ElvUI = {0.51, 0.85, 0.98},         -- Light blue
-    Tukui = {1.00, 0.60, 0.00},         -- Orange
-    LUI = {0.60, 0.20, 0.80},           -- Purple
-    SpartanUI = {0.20, 0.80, 0.20},     -- Green
-    SyncUI = {0.90, 0.90, 0.90},        -- Light gray
-    SuperVillainUI = {1.00, 0.85, 0.00},-- Yellow
-    GW2_UI = {0.80, 0.10, 0.10},        -- Red
-    Bartender4 = {0.00, 0.60, 1.00},    -- Blue
     Dominos = {0.00, 0.80, 0.60},       -- Teal
     Blizzard = {1.00, 1.00, 1.00},      -- White
 }

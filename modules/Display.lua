@@ -11,6 +11,7 @@ local squelchedByButton = {}    -- Track buttons currently squelched
 local hookedHotkeyRegions = {}   -- Track fontstrings we have hooksecurefunc'ed
 local guardSetText = setmetatable({}, { __mode = "k" }) -- Re-entrancy guard per FontString
 local nativeRewriteButtons = {}  -- Per-button flag when we actively rewrite native FS
+local dominosHotkeyHooks = setmetatable({}, { __mode = "k" })
 -- Simple build gate: Retail Dragonflight+ has build numbers >= 100000
 local isRetail = (select(4, GetBuildInfo()) or 0) >= 100000
 
@@ -928,6 +929,26 @@ function Display:OnEnable()
                 display:SquelchHotkeyRegions(btn, true)
             end
         end)
+    end
+    local function hookDominosButton(btn)
+        if not btn or dominosHotkeyHooks[btn] then return end
+        if not btn.GetName or not btn.UpdateHotkeys then return end
+        local name = btn:GetName()
+        if not name or not name:match("^DominosActionButton%d+$") then return end
+        dominosHotkeyHooks[btn] = true
+        hooksecurefunc(btn, "UpdateHotkeys", function(self)
+            if not addon or not addon.Core or not addon.Core.ScheduleTimer then return end
+            addon.Core:ScheduleTimer(function()
+                if addon.Display and addon.Display.UpdateOverlayForButton then
+                    addon.Display:UpdateOverlayForButton(self)
+                end
+            end, 0)
+        end)
+    end
+    if addon and addon.Bars and addon.Bars.GetAllButtons then
+        for _, btn in ipairs(addon.Bars:GetAllButtons()) do
+            hookDominosButton(btn)
+        end
     end
     -- As a safety net, after multi-bar updates, run an overlay refresh shortly after
     if type(hooksecurefunc) == "function" and type(MultiActionBar_Update) == "function" then

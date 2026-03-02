@@ -1,14 +1,14 @@
 # Advanced Hotkey Overlay System (AHOS)
 
-![Version](https://img.shields.io/badge/version-2.5.11-cyan)
+![Version](https://img.shields.io/badge/version-2.5.12-cyan)
 
-A modular, robust hotkey overlay system for World of Warcraft action bars, supporting Blizzard, AzeriteUI, and ConsolePort-style keybind abbreviations.
+A modular, robust hotkey overlay system for World of Warcraft action bars, with dedicated support for Blizzard bars, AzeriteUI, and Dominos.
 
-## Version 2.5.11 Highlights
+## Version 2.5.12 Highlights
 
-- Fixed a taint-safe anchor check in hotkey region discovery to avoid comparing protected point values.
-- Prevented `attempt to compare local 'p1' (a secret string value tainted by 'AdvancedHotkeyOverlaySystem')` from Display hotkey scans.
-- Kept release workflow and WoW 12 compatibility updates from previous releases.
+- Fixed Dominos binding resolution by preferring addon-provided command names and refresh hooks.
+- Modernized the in-game options layout with clearer status, compatibility, support, and debugging sections.
+- Updated Retail, Mists, and Vanilla TOC targets for current client builds while keeping Retail `120000` compatibility.
 
 ## Features
 

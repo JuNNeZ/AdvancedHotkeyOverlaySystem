@@ -574,18 +574,6 @@ local function BuildSection_Integration(parent)
 	elv:SetPoint("TOPLEFT", 8, y)
 	y = y - 28
 
-	local bt = CreateCheck(parent, L.ENABLE_BARTENDER or "Enable Bartender Compatibility", nil,
-		function() return db.bartenderCompat end,
-		function(v) db.bartenderCompat = v end)
-	bt:SetPoint("TOPLEFT", 8, y)
-	y = y - 28
-
-	local dom = CreateCheck(parent, L.ENABLE_DOMINOS or "Enable Dominos Compatibility", nil,
-		function() return db.dominosCompat end,
-		function(v) db.dominosCompat = v end)
-	dom:SetPoint("TOPLEFT", 8, y)
-	y = y - 28
-
 	parent._height = math.abs(y)
 end
 

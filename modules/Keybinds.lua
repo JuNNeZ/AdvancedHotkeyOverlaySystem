@@ -29,6 +29,24 @@ end
 -- Simple build gate: Retail Dragonflight+ has build numbers >= 100000
 local isRetail = (select(4, GetBuildInfo()) or 0) >= 100000
 
+local function GetButtonCommandName(button)
+    if not button then return nil end
+    local cmd = button.commandName
+    if cmd and cmd ~= "" then return cmd end
+    if button.GetAttribute then
+        cmd = button:GetAttribute("commandName")
+        if cmd and cmd ~= "" then return cmd end
+    end
+    return nil
+end
+
+local function IsTopRightAnchor(region)
+    if not region or not region.GetPoint then return false end
+    local ok, p1, _, p2 = pcall(region.GetPoint, region, 1)
+    if not ok then return false end
+    return tostring(p1) == "TOPRIGHT" or tostring(p2) == "TOPRIGHT"
+end
+
 -- Get the on-screen hotkey text from a button's FontString before we hide it
 local function IsFallbackHotkeyGlyph(text)
     if not text or text == "" then return false end
@@ -51,8 +69,7 @@ local function GetVisualHotkeyText(button)
                 if (rname ~= "" and (rname:find("HotKey") or rname:find("Keybind") or rname:find("Hotkey"))) then
                     fs = region; break
                 end
-                local p1, _, p2 = region:GetPoint(1)
-                if (p1 == "TOPRIGHT" or p2 == "TOPRIGHT") then
+                if IsTopRightAnchor(region) then
                     fs = region; break
                 end
             end
@@ -316,6 +333,16 @@ function Keybinds:GetFullBindingText(button)
 
     -- Dominos: Prefer explicit CLICK bindings set per-button by Dominos binding mode (highest priority)
     if (not key or key == "") and buttonName and buttonName:match("^DominosActionButton%d+$") then
+        local commandName = GetButtonCommandName(button)
+        if commandName then
+            key = FirstBindingKey(commandName)
+            if addon.db and addon.db.profile and addon.db.profile.debug then
+                addon:Print(string.format("[AHOS DEBUG] Dominos commandName binding for %s => %s (%s)", tostring(buttonName), tostring(key), tostring(commandName)))
+            end
+        end
+    end
+
+    if (not key or key == "") and buttonName and buttonName:match("^DominosActionButton%d+$") then
         -- Dominos registers bindings using the special ':HOTKEY' suffix in its Bindings.xml
         key = FirstBindingKey("CLICK " .. buttonName .. ":HOTKEY")
         if not key or key == "" then
@@ -335,9 +362,18 @@ function Keybinds:GetFullBindingText(button)
     -- For Dominos, allow this as a fallback only IF no CLICK binding was found.
     if (not key or key == "") then
         local isDominosButton = buttonName and buttonName:match("^DominosActionButton%d+$") and true or false
+        if isDominosButton then
+            local commandName = GetButtonCommandName(button)
+            if commandName then
+                key = FirstBindingKey(commandName)
+                if addon.db and addon.db.profile and addon.db.profile.debug then
+                    addon:Print(string.format("[AHOS DEBUG] Dominos command fallback for %s => %s (%s)", tostring(buttonName), tostring(key), tostring(commandName)))
+                end
+            end
+        end
         -- If Dominos and no CLICK binding, we can still map by Blizzard action ID (avoids misleading modulo fallback)
         local actionId = (button.action and tonumber(button.action)) or (button.GetAttribute and tonumber(button:GetAttribute("action")))
-        if actionId and actionId > 0 then
+        if (not key or key == "") and actionId and actionId > 0 then
             local command = self:GetBindingCommandFromAction(actionId)
             if command then
                 local k1, k2 = GetBindingKey(command)

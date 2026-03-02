@@ -1,5 +1,3 @@
-ignore:
-  - AdvancedHotkeyOverlaySystem.toc
 package-as: AdvancedHotkeyOverlaySystem
 
 externals:
@@ -14,14 +12,25 @@ externals:
     Libs/LibSharedMedia-3.0: https://repos.wowace.com/wow/libsharedmedia-3-0/trunk/LibSharedMedia-3.0
 
 ignore:
+    - AdvancedHotkeyOverlaySystem.toc
     - README.md
     - LICENSE
     - CHANGELOG.md
+    - RELEASE.md
     - .github
     - .git
     - .gitignore
     - .vscode
     - AdvancedHotkeyOverlaySystem.code-workspace
+    - modules/ModuleTemplate.lua
+    - Libs/LibSerialize-1.2.1/tests.lua
+    - Libs/LibSerialize-1.2.1/buildreadme.lua
+    - Libs/LibSerialize-1.2.1/archive
+    - Libs/LibDeflate/changelog.md
+    - Libs/LibDeflate/libdeflate-1.0.2-1.rockspec
+    - Libs/LibDeflate/README.md
+    - Libs/LibDeflate/LibStub/tests
+    - Libs/LibDBIcon-1.0/CHANGES.txt
 
 manual-changelog:
     filename: CHANGELOG.md

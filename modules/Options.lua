@@ -7,6 +7,35 @@ local Options = addon.Options
 
 Options.selectedProfile = nil
 
+local function getVersionString()
+    return ((C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(addonName, "Version"))
+        or (GetAddOnMetadata and GetAddOnMetadata(addonName, "Version"))
+        or "unknown")
+end
+
+local function getDetectedUIName()
+    return (addon.Config and addon.Config.GetDetectedUI and addon.Config:GetDetectedUI())
+        or addon.detectedUI
+        or "Blizzard"
+end
+
+local function getSupportBlurb()
+    local detected = getDetectedUIName()
+    return table.concat({
+        "AHOS should only add direct integrations for bar addons that expose stable button names, binding commands, and hotkey refresh hooks.",
+        "",
+        "Dedicated support:",
+        "- Blizzard action bars",
+        "- AzeriteUI",
+        "- Dominos",
+        "",
+        "Conflict-aware handling:",
+        "- ElvUI",
+        "",
+        "Current detected UI: " .. tostring(detected),
+    }, "\n")
+end
+
 local function getSafeProfile()
     if addon and addon.db and addon.db.profile then
         return addon.db.profile
@@ -128,15 +157,70 @@ function Options:GetOptions()
                     },
                 },
             },
+            status = {
+                type = "group",
+                name = L.STATUS or "Status",
+                order = 0.5,
+                args = {
+                    summary = {
+                        type = "description",
+                        order = 1,
+                        name = function()
+                            local db = getSafeProfile()
+                            local enabled = db.enabled and "Enabled" or "Disabled"
+                            local detected = getDetectedUIName()
+                            local mode = (db.display and db.display.nativeRewrite) and "Native text rewrite" or "Overlay"
+                            return table.concat({
+                                "Version: " .. getVersionString(),
+                                "Detected UI: " .. tostring(detected),
+                                "Render mode: " .. mode,
+                                "Addon state: " .. enabled,
+                            }, "\n")
+                        end,
+                    },
+                    refresh = {
+                        type = "execute",
+                        name = L.REFRESH_OVERLAYS or "Refresh Overlays",
+                        desc = L.REFRESH_OVERLAYS_DESC or "Run a full overlay refresh now.",
+                        order = 2,
+                        width = "half",
+                        func = function()
+                            if addon and addon.Core and addon.Core.FullUpdate then
+                                addon.Core:FullUpdate()
+                            end
+                        end,
+                    },
+                    detect = {
+                        type = "execute",
+                        name = L.DETECT_UI_NOW or "Re-Detect UI",
+                        desc = L.DETECT_UI_NOW_DESC or "Run UI detection again and refresh overlays.",
+                        order = 3,
+                        width = "half",
+                        func = function()
+                            if addon and addon.DetectUI then
+                                addon:DetectUI()
+                            end
+                            if addon and addon.Core and addon.Core.FullUpdate then
+                                addon.Core:FullUpdate()
+                            end
+                        end,
+                    },
+                },
+            },
             display = {
                 type = "group",
                 name = L.DISPLAY or "Display",
                 order = 1,
                 args = {
+                    modeHeader = {
+                        type = "description",
+                        name = L.RENDER_MODE_INFO or "Choose whether AHOS draws its own overlay text or rewrites the button's native hotkey text.",
+                        order = 0.4,
+                    },
                     nativeRewrite = {
                         type = "toggle",
-                        name = L.USE_NATIVE_REWRITE or "Use Native Text (Rewrite)",
-                        desc = L.USE_NATIVE_REWRITE_DESC or "Rewrite the button's native hotkey text instead of drawing an overlay.",
+                        name = L.USE_NATIVE_REWRITE or "Use Native Text",
+                        desc = L.USE_NATIVE_REWRITE_DESC or "Rewrite the button's native hotkey text instead of drawing a separate overlay.",
                         order = 0.5,
                         width = "full",
                         get = function() local db = getSafeProfile() return db.display and db.display.nativeRewrite end,
@@ -546,9 +630,16 @@ function Options:GetOptions()
             },
             integration = {
                 type = "group",
-        name = L.INTEGRATION_COMPAT or "Integration/Compatibility",
+        name = L.INTEGRATION_COMPAT or "Compatibility",
                 order = 5,
                 args = {
+                    summary = {
+                        type = "description",
+                        order = 0,
+                        name = function()
+                            return getSupportBlurb()
+                        end,
+                    },
                     elvui = {
                         type = "toggle",
             name = L.ENABLE_ELVUI_COMPAT or "Enable ElvUI Compatibility",
@@ -557,29 +648,23 @@ function Options:GetOptions()
                         get = function() local db = getSafeProfile() return db.forceOverlaysWithElvUI end,
                         set = function(_, val) local db = getSafeProfile() db.forceOverlaysWithElvUI = val; addon.Core:FullUpdate() end,
                     },
-                    bartender = {
-                        type = "toggle",
-            name = L.ENABLE_BARTENDER_COMPAT or "Enable Bartender Compatibility",
-            desc = L.ENABLE_BARTENDER_COMPAT_DESC or "Enable overlays for Bartender action bars.",
+                    dominosHint = {
+                        type = "description",
                         order = 2,
-                        get = function() local db = getSafeProfile() return db.bartenderCompat end,
-                        set = function(_, val) local db = getSafeProfile() db.bartenderCompat = val; addon.Core:FullUpdate() end,
-                    },
-                    dominos = {
-                        type = "toggle",
-            name = L.ENABLE_DOMINOS_COMPAT or "Enable Dominos Compatibility",
-            desc = L.ENABLE_DOMINOS_COMPAT_DESC or "Enable overlays for Dominos action bars.",
-                        order = 3,
-                        get = function() local db = getSafeProfile() return db.dominosCompat end,
-                        set = function(_, val) local db = getSafeProfile() db.dominosCompat = val; addon.Core:FullUpdate() end,
+                        name = L.DOMINOS_COMPAT_NOTE or "Dominos is supported directly. If a skin hides overlays on some bars, try 'Dominos: Use Native Text' in Display.",
                     },
                 },
             },
-            advanced = {
+            debug = {
                 type = "group",
-        name = L.ADVANCED or "Advanced",
+        name = L.DEBUGGING or "Debugging",
                 order = 6,
                 args = {
+                    info = {
+                        type = "description",
+                        order = 0,
+                        name = L.DEBUGGING_INFO or "Use these tools only when troubleshooting. Normal setup should not require them.",
+                    },
                     debugExport = {
                         type = "execute",
             name = L.EXPORT_DEBUG_DATA or "Export Debug Data",
@@ -603,17 +688,28 @@ function Options:GetOptions()
                         get = function() local db = getSafeProfile() return db.showPerfMetrics end,
                         set = function(_, val) local db = getSafeProfile() db.showPerfMetrics = val end,
                     },
+                    openLog = {
+                        type = "execute",
+                        name = L.OPEN_DEBUG_LOG or "Open Debug Log",
+                        desc = L.OPEN_DEBUG_LOG_DESC or "Open the in-game debug log window.",
+                        order = 4,
+                        func = function()
+                            if addon and addon.ShowDebugLogWindow then
+                                addon:ShowDebugLogWindow()
+                            end
+                        end,
+                    },
                 },
             },
-            help = {
+            support = {
                 type = "group",
-        name = L.HELP_AND_DEBUGGING or "Help & Debugging",
-                order = 97, -- Moved to 97 to make space for About
+        name = L.HELP_AND_DEBUGGING or "Support",
+                order = 97,
                 args = {
-                    helpdesc = {
+                    supportDesc = {
                         type = "description",
-            name = (L.HELP_AND_DEBUGGING_TEXT or "|cffFFD700How to Report Bugs|r\n- Please include your WoW version, addon version, and a description of the issue.\n- For UI or overlay issues, include a screenshot if possible.\n- You can export your profile or debug data using the options or /ahos debugexport.\n\n|cffFFD700Available Slash Commands|r\n/ahos show - Open options panel\n/ahos lock|unlock - Lock/unlock settings\n/ahos reset - Reset all settings\n/ahos toggle - Enable/disable overlays\n/ahos reload|refresh - Reload overlays\n/ahos cleanup - Clear overlays\n/ahos debug - Toggle debug mode\n/ahos detectui - Manually detect UI\n/ahos inspect <ButtonName> - Print debug info for a button\n/ahos debugexport [tablepath] - Export profile or subtable for debugging\n/ahoslog - Open the debug log window\n\n|cffFFD700Debugging Tips|r\n- Enable debug mode with /ahos debug to see extra output.\n- Use /ahos debugexport to copy your profile or a subtable for bug reports.\n- Use /ahoslog to view/copy all debug output.\n- Paste exported data in your bug report for faster help!\n\n|cffFFD700Changelog & Version Info|r\n- See the 'Changelog' tab for recent updates and version history.\n\n|cffFFD700Addon Version:|r ")
-                .. ((C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(addonName, "Version")) or (GetAddOnMetadata and GetAddOnMetadata(addonName, "Version")) or "unknown"),
+            name = (L.HELP_AND_DEBUGGING_TEXT or "When reporting an issue, include your WoW flavor, AHOS version, bar addon, and whether you use skins like Masque.\n\nUseful commands:\n/ahos show\n/ahos reload\n/ahos detectui\n/ahos inspect <ButtonName>\n/ahos debug\n/ahos debugexport [tablepath]\n/ahoslog\n\nIf a third-party bar addon uses its own private binding system and does not expose stable button commands or hotkey update hooks, AHOS should not claim direct support for it.")
+                .. "\n\nVersion: " .. getVersionString(),
                         order = 1,
                     },
                 },
@@ -630,7 +726,7 @@ function Options:GetOptions()
             name = L.ABOUT_TEXT or [[
 |cffFFD700Advanced Hotkey Overlay System|r
 
-A modular, robust hotkey overlay system for World of Warcraft action bars, supporting Blizzard, AzeriteUI, and ConsolePort-style keybind abbreviations.
+A modular hotkey overlay system for World of Warcraft action bars with dedicated support for Blizzard, AzeriteUI, and Dominos.
 
 |cffFFD700Made by:|r JuNNeZ
 |cffFFD700Libraries:|r Ace3, LibDBIcon-1.0, LibSharedMedia-3.0, LibSerialize, LibDeflate.
@@ -640,73 +736,6 @@ Thank you for using AHOS!
             ]]
                     }
                 }
-            },
-            changelog = {
-                type = "group",
-        name = L.CHANGELOG or "Changelog",
-                order = 99,
-                args = {
-                    changelogHeader = {
-                        type = "description",
-            name = (L.CHANGELOG_FOR or "Changelog for Advanced Hotkey Overlay System") .. "\n\n",
-                        order = 1,
-                        fontSize = "medium",
-                    },
-                    -- Latest changes
-                    version251 = {
-                        type = "group",
-                        name = function()
-                            local v = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(addonName, "Version"))
-                                or (GetAddOnMetadata and GetAddOnMetadata(addonName, "Version"))
-                                or "unknown"
-                return (L.VERSION_LABEL or "Version ") .. tostring(v)
-                        end,
-                        order = 2,
-                        args = {
-                            details = {
-                                type = "description",
-                                name = "- Retail (AzeriteUI): Removed placeholder square/bullet on unbound buttons; safer native label suppression with deep-scan.\n- Classic: Fixed invalid event registration by gating Retail-only events.\n- Dominos: Overlays visible immediately without reload; native labels stay hidden after binding mode.\n- Overlay layering: Bumped frame level to sit above nested containers and skins (Masque/AzeriteUI).",
-                                order = 1,
-                            },
-                        },
-                    },
-                    version242 = {
-                        type = "group",
-            name = (L.VERSION_LABEL or "Version ") .. "2.4.2",
-                        order = 3,
-                        args = {
-                            details = {
-                                type = "description",
-                                name = "- Embedded AceGUI-3.0 and wired AceConfigDialog to prevent missing library issues.\n- Stabilized options panel name to avoid duplicate Blizzard options categories.\n- Minimap icon and addon logo path fixes.\n- Misc robustness improvements and debug commands.",
-                                order = 1,
-                            },
-                        },
-                    },
-                    version240 = {
-                        type = "group",
-            name = (L.VERSION_LABEL or "Version ") .. "2.4.0 (2025-06-24)",
-                        order = 4,
-                        args = {
-                            details = {
-                                type = "description",
-                                name = "- Added in-game changelog and version info tab.\n- Implemented debug export window and /ahos debugexport command for easy profile/table export.\n- Integrated LibSerialize/LibDeflate support for profile export/import and debug tools.\n- New Help & Debugging tab in options for easier access to support information.\n- Many bugfixes and polish, including overlay logic, minimap icon, and options panel structure.",
-                                order = 1,
-                            },
-                        },
-                    },
-                    version230 = {
-                        type = "group",
-            name = (L.VERSION_LABEL or "Version ") .. "2.3.0 (2025-06-23)",
-                        order = 4,
-                        args = {
-                            details = {
-                                type = "description",
-                                name = "- Modernized and cleaned up all options panel registration and naming logic.\n- Removed color codes and icons in the options panel and .toc metadata.\n- Ensured only one options panel is registered, with robust error handling.\n- Minimap/DataBroker icon and Blizzard options panel now always show the correct, user-friendly name.\n- Improved ElvUI compatibility and user prompt logic.\n- Removed legacy and duplicate code for reliability.\n- Ensured all overlays and minimap icon logic are robust and error-free.\n- Overlay settings now update instantly on profile or option changes.\n- Implemented lock/unlock feature: `/ahos lock` greys out all options and prevents changes; attempting to change settings while locked shows a high-strata popup with unlock prompt.\n- Added StaticPopup dialog for unlocking settings, with Yes/No options.\n- Added debug-only button to delete all profiles except the current one.\n- Improved error handling for profile changes and minimap icon registration.\n- Ensured profile deletion and switching is robust and bug-free.\n- Resolved minimap icon unregister errors.\n- Settings lock now effectively prevents changes in the options panel.\n- Eliminated duplicate options panel errors.",
-                                order = 1,
-                            },
-                        },
-                    },
-                },
             },
         },
     }
