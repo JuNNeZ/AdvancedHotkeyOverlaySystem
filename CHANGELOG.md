@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.17] - 2026-03-07
+
+### Fixed (2.5.17)
+
+- Fixed intermittent missing overlay text after mount/combat transitions (with or without DynamicCam) by hooking action-button `OnShow` and reapplying overlays when buttons become visible again.
+
+### Changed (2.5.17)
+
+- Added per-button visibility recovery logic in `modules/Display.lua` with queued and delayed update passes after `OnShow`.
+- Bumped all TOC version metadata to `2.5.17`.
+- Updated README version highlights for `2.5.17`.
+
 ## [2.5.16] - 2026-03-07
 
 ### Fixed (2.5.16)
@@ -339,3 +351,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [2.5.14]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.14
 [2.5.15]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.15
 [2.5.16]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.16
+[2.5.17]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.17

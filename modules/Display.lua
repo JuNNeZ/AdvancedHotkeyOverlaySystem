@@ -12,6 +12,7 @@ local hookedHotkeyRegions = {}   -- Track fontstrings we have hooksecurefunc'ed
 local guardSetText = setmetatable({}, { __mode = "k" }) -- Re-entrancy guard per FontString
 local nativeRewriteButtons = {}  -- Per-button flag when we actively rewrite native FS
 local providerHotkeyHooks = setmetatable({}, { __mode = "k" })
+local buttonVisibilityHooks = setmetatable({}, { __mode = "k" })
 -- Simple build gate: Retail Dragonflight+ has build numbers >= 100000
 local isRetail = (select(4, GetBuildInfo()) or 0) >= 100000
 
@@ -193,6 +194,35 @@ local function IsFallbackHotkeyGlyph(text)
         or text == "�" -- replacement character
 end
 
+function Display:EnsureButtonVisibilityHook(button)
+    if not button or not button.HookScript or buttonVisibilityHooks[button] then return end
+    buttonVisibilityHooks[button] = true
+
+    button:HookScript("OnShow", function(self)
+        if not addon or not addon.IsReady or not addon:IsReady() then return end
+        if not addon.db or not addon.db.profile or not addon.db.profile.enabled then return end
+
+        if addon.Performance and addon.Performance.QueueButtonUpdate then
+            addon.Performance:QueueButtonUpdate(self)
+        end
+
+        -- Some UI hiders/showers (e.g., DynamicCam) restore bars asynchronously.
+        -- Run a couple of direct passes after OnShow so overlays reliably come back.
+        if addon.Core and addon.Core.ScheduleTimer and addon.Display and addon.Display.UpdateOverlayForButton then
+            addon.Core:ScheduleTimer(function()
+                if self and self.IsShown and self:IsShown() then
+                    addon.Display:UpdateOverlayForButton(self)
+                end
+            end, 0.05)
+            addon.Core:ScheduleTimer(function()
+                if self and self.IsShown and self:IsShown() then
+                    addon.Display:UpdateOverlayForButton(self)
+                end
+            end, 0.2)
+        end
+    end)
+end
+
 -- Taint-safe anchor check used by hotkey region heuristics.
 -- Some protected regions can return secure/secret strings for points.
 local function IsTopRightAnchor(region)
@@ -279,6 +309,7 @@ function Display:UpdateAllOverlays()
         end
     end
     for _, button in ipairs(buttons) do
+        self:EnsureButtonVisibilityHook(button)
         self:UpdateOverlayForButton(button)
     end
     if addon.db and addon.db.profile and addon.db.profile.debug then
