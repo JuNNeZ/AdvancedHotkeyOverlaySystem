@@ -15,12 +15,46 @@ local providerHotkeyHooks = setmetatable({}, { __mode = "k" })
 -- Simple build gate: Retail Dragonflight+ has build numbers >= 100000
 local isRetail = (select(4, GetBuildInfo()) or 0) >= 100000
 
+local strataOrder = {
+    BACKGROUND = 1,
+    LOW = 2,
+    MEDIUM = 3,
+    HIGH = 4,
+    DIALOG = 5,
+    FULLSCREEN = 6,
+    FULLSCREEN_DIALOG = 7,
+    TOOLTIP = 8,
+}
+
+local function NormalizeStrata(strata, fallback)
+    local value = type(strata) == "string" and string.upper(strata) or nil
+    if value and strataOrder[value] then
+        return value
+    end
+    local fallbackValue = type(fallback) == "string" and string.upper(fallback) or "MEDIUM"
+    if strataOrder[fallbackValue] then
+        return fallbackValue
+    end
+    return "MEDIUM"
+end
+
+local function GetStrataRank(strata)
+    return strataOrder[NormalizeStrata(strata, "MEDIUM")] or strataOrder.MEDIUM
+end
+
 -- Whether we should reuse the native hotkey FontString (rewrite its text)
 -- instead of drawing our own overlay text. Default: true (auto-skins with Dominos/Masque).
 function Display:UseNativeRewrite()
     local db = addon and addon.db and addon.db.profile
     local v = db and db.display and db.display.nativeRewrite
     -- Default OFF to honor AHOS positioning/reskin settings
+    if v == nil then return false end
+    return v and true or false
+end
+
+function Display:UseSmartStrata()
+    local db = addon and addon.db and addon.db.profile
+    local v = db and db.display and db.display.smartStrata
     if v == nil then return false end
     return v and true or false
 end
@@ -679,8 +713,7 @@ function Display:StyleOverlay(overlay, parent, text)
     if not addon:IsReady() then return end
     if not addon.db or not addon.db.profile then return end
     local db = addon.db.profile
-    local parentName = parent and parent.GetName and parent:GetName() or ""
-    local isDominos = parentName:match("^DominosActionButton%d+$") and true or false
+    local smartStrata = self:UseSmartStrata()
 
     -- Sizing and Positioning
     overlay:SetAllPoints(parent)
@@ -781,17 +814,23 @@ function Display:StyleOverlay(overlay, parent, text)
     overlay:SetAlpha(db.display.alpha)
     overlay:SetScale(db.display.scale)
 
-    -- Set overlay frame strata/level (raise when using native styling to avoid skin art above us)
-    local strata = (addon.db and addon.db.profile and addon.db.profile.display and addon.db.profile.display.strata) or "HIGH"
-    if strata == "MEDIUM" then strata = "HIGH" end
-    if usedNative or isDominos then strata = "TOOLTIP" end
-    overlay:SetFrameStrata(strata)
-    -- Ensure we're well above the parent; native skins sometimes create art at high levels
-    local configuredLevel = (addon.db and addon.db.profile and addon.db.profile.display and addon.db.profile.display.frameLevel) or 10
+    -- Frame layering: default to parent-based strata/level to avoid leaking above unrelated UI.
+    local configuredStrata = NormalizeStrata(db.display and db.display.strata, "HIGH")
+    local parentStrata = NormalizeStrata(parent and parent.GetFrameStrata and parent:GetFrameStrata(), configuredStrata)
+    local targetStrata = smartStrata and parentStrata or configuredStrata
+    overlay:SetFrameStrata(targetStrata)
+
+    local configuredLevel = tonumber(db.display and db.display.frameLevel) or 10
+    if configuredLevel < 1 then configuredLevel = 1 end
     local parentLevel = parent and parent.GetFrameLevel and parent:GetFrameLevel() or 0
-    local bump = (usedNative or isDominos) and 50 or 1
-    local frameLevel = math.max(configuredLevel, parentLevel + bump)
+    local frameLevel
+    if smartStrata then
+        frameLevel = parentLevel + 1
+    else
+        frameLevel = math.max(configuredLevel, parentLevel + 1)
+    end
     overlay:SetFrameLevel(frameLevel)
+
     -- If the bar skin adds a nested text container (e.g., AzeriteUI TextOverlayContainer), ensure we sit above it
     if parent and parent.GetChildren then
         local maxChildLevel, maxChildStrata
@@ -807,13 +846,15 @@ function Display:StyleOverlay(overlay, parent, text)
         end
         if maxChildLevel and overlay:GetFrameLevel() <= maxChildLevel then
             overlay:SetFrameLevel(maxChildLevel + 1)
-            if maxChildStrata then overlay:SetFrameStrata(maxChildStrata) end
+            if not smartStrata and maxChildStrata and GetStrataRank(maxChildStrata) > GetStrataRank(overlay:GetFrameStrata()) then
+                overlay:SetFrameStrata(NormalizeStrata(maxChildStrata, targetStrata))
+            end
         end
     end
 
     -- Debug output for troubleshooting overlays
     if addon.db and addon.db.profile and addon.db.profile.debug then
-        addon:Print("[AHOS DEBUG] StyleOverlay: parent=" .. tostring(parent and parent:GetName() or "nil") .. ", frameLevel=" .. tostring(overlay:GetFrameLevel()) .. ", text='" .. tostring(text) .. "', usedNative=" .. tostring(usedNative) .. ", alpha=" .. tostring(db.display.alpha) .. ", scale=" .. tostring(db.display.scale))
+        addon:Print("[AHOS DEBUG] StyleOverlay: parent=" .. tostring(parent and parent:GetName() or "nil") .. ", strata=" .. tostring(overlay:GetFrameStrata()) .. ", frameLevel=" .. tostring(overlay:GetFrameLevel()) .. ", text='" .. tostring(text) .. "', usedNative=" .. tostring(usedNative) .. ", smartStrata=" .. tostring(smartStrata) .. ", alpha=" .. tostring(db.display.alpha) .. ", scale=" .. tostring(db.display.scale))
     end
 end
 

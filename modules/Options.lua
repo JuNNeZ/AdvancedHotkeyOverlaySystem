@@ -102,6 +102,13 @@ local function isLocked()
     return db.display and db.display.locked
 end
 
+local function isSmartStrataEnabled()
+    local db = getSafeProfile()
+    if not db.display then return false end
+    if db.display.smartStrata == nil then return false end
+    return db.display.smartStrata and true or false
+end
+
 function Options:GetOptions()
     -- If the database isn't ready, provide a placeholder options table.
     local db_check = getSafeProfile()
@@ -361,10 +368,25 @@ function Options:GetOptions()
                         get = function() local db = getSafeProfile() return db.display and db.display.alpha end,
                         set = function(info, val) local db = getSafeProfile() if db.display then db.display.alpha = val; addon.Core:FullUpdate() end end,
                     },
+                    smartStrata = {
+                        type = "toggle",
+                        name = L.SMART_STRATA or "Smart Frame Layering",
+                        desc = L.SMART_STRATA_DESC or "Keeps overlays on the same strata as their parent buttons to avoid overlapping unrelated UI (for example bags). Disable to use manual strata and frame level overrides.",
+                        order = 7,
+                        width = "full",
+                        get = isSmartStrataEnabled,
+                        set = function(_, val)
+                            local db = getSafeProfile()
+                            if db.display then
+                                db.display.smartStrata = val and true or false
+                                addon.Core:FullUpdate()
+                            end
+                        end,
+                    },
                     strata = {
                         type = "select",
                         name = L.OVERLAY_STRATA or "Overlay Frame Strata",
-                        desc = L.OVERLAY_STRATA_DESC or "Sets the drawing layer for the overlays. Use a higher value (like DIALOG or TOOLTIP) if overlays are hidden behind other UI elements.",
+                        desc = L.OVERLAY_STRATA_DESC or "Manual override: sets the drawing layer for overlays when Smart Frame Layering is disabled.",
                         order = 8,
                         values = {
                             BACKGROUND = "Background",
@@ -374,15 +396,17 @@ function Options:GetOptions()
                             DIALOG = "Dialog",
                             TOOLTIP = "Tooltip",
                         },
+                        disabled = isSmartStrataEnabled,
                         get = function() local db = getSafeProfile() return db.display and db.display.strata or "HIGH" end,
                         set = function(info, val) local db = getSafeProfile() if db.display then db.display.strata = val; addon.Core:FullUpdate() end end,
                     },
                     frameLevel = {
                         type = "range",
                         name = L.OVERLAY_LEVEL or "Overlay Frame Level",
-                        desc = L.OVERLAY_LEVEL_DESC or "Fine-tune overlay stacking within the chosen strata. Higher values appear above lower ones in the same strata.",
+                        desc = L.OVERLAY_LEVEL_DESC or "Manual override: fine-tune overlay stacking within the chosen strata when Smart Frame Layering is disabled.",
                         order = 9,
                         min = 1, max = 128, step = 1,
+                        disabled = isSmartStrataEnabled,
                         get = function() local db = getSafeProfile() return db.display and db.display.frameLevel or 10 end,
                         set = function(info, val) local db = getSafeProfile() if db.display then db.display.frameLevel = val; addon.Core:FullUpdate() end end,
                     },

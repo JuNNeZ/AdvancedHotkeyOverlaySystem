@@ -96,6 +96,7 @@ function Config:GetDefaultProfile()
             dominosRewrite = false,        -- Dominos-only override for rewrite (overlay is default)
             autoNativeFallback = true,     -- If overlay seems hidden, auto-fallback to native per-button
             followNativeHotkeyStyle = false, -- Let overlay mirror native hotkey font/positioning
+            smartStrata = false,           -- Opt-in: keep overlays in the parent button layer
             frameLevel = 10,               -- Base overlay frame level (fine-tune in Options)
         },
         text = {

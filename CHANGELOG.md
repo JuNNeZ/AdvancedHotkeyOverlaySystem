@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.14] - 2026-03-07
+
+### Fixed (2.5.14)
+
+- Reworked overlay frame layering so Dominos/native-style overlays no longer force `TOOLTIP` strata or extreme frame-level bumps that could cover other addons (e.g., BetterBags).
+
+### Changed (2.5.14)
+
+- Added a new Display option: `Smart Frame Layering`.
+- Made Smart Frame Layering opt-in (disabled by default) and treated unset legacy profiles as disabled.
+- When Smart Frame Layering is enabled, overlays inherit parent-button strata and use a minimal frame-level offset to stay scoped to action bars.
+- Manual strata/frame-level controls are now clearly marked as manual overrides and are disabled while Smart Frame Layering is enabled.
+- Bumped all TOC version metadata to `2.5.14`.
+- Updated README version highlights for `2.5.14`.
+
 ## [2.5.13] - 2026-03-07
 
 ### Added (2.5.13)
@@ -296,3 +311,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [2.5.11]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.11
 [2.5.12]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.12
 [2.5.13]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.13
+[2.5.14]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.14
