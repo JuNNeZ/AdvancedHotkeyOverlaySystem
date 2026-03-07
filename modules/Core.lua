@@ -118,6 +118,11 @@ function Core:RegisterEvents()
     self:RegisterEvent("ACTIONBAR_HIDEGRID", "FullUpdate")
     self:RegisterEvent("ACTIONBAR_PAGE_CHANGED", "FullUpdate")
     self:RegisterEvent("ACTIONBAR_SLOT_CHANGED", "UpdateSpecificButton")
+    -- Dynamic visibility setups (e.g., DynamicCam mount hide) can restore bars right as combat starts.
+    -- Run state refresh passes on combat and mount-display transitions so overlays re-attach when bars return.
+    self:RegisterEvent("PLAYER_REGEN_DISABLED", function() self:HandleBarStateChanged("PLAYER_REGEN_DISABLED") end)
+    self:RegisterEvent("PLAYER_REGEN_ENABLED", function() self:HandleBarStateChanged("PLAYER_REGEN_ENABLED") end)
+    self:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED", function() self:HandleBarStateChanged("PLAYER_MOUNT_DISPLAY_CHANGED") end)
     self:RegisterEvent("PET_BAR_UPDATE", function() self:HandleBarStateChanged("PET_BAR_UPDATE") end)
     self:RegisterEvent("UPDATE_SHAPESHIFT_FORM", function() self:HandleBarStateChanged("UPDATE_SHAPESHIFT_FORM") end)
     self:RegisterEvent("UPDATE_POSSESS_BAR", function() self:HandleBarStateChanged("UPDATE_POSSESS_BAR") end)

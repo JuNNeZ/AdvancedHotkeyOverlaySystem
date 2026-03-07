@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.16] - 2026-03-07
+
+### Fixed (2.5.16)
+
+- Fixed a mount-to-combat refresh gap where overlays could miss some keys after DynamicCam-style UI hiding by triggering bar-state refresh passes on combat and mount display transitions.
+
+### Changed (2.5.16)
+
+- Extended `modules/Core.lua` bar-state event coverage with `PLAYER_REGEN_DISABLED`, `PLAYER_REGEN_ENABLED`, and `PLAYER_MOUNT_DISPLAY_CHANGED`.
+- Bumped all TOC version metadata to `2.5.16`.
+- Updated README version highlights for `2.5.16`.
+
 ## [2.5.15] - 2026-03-07
 
 ### Fixed (2.5.15)
@@ -326,3 +338,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [2.5.13]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.13
 [2.5.14]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.14
 [2.5.15]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.15
+[2.5.16]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.16
