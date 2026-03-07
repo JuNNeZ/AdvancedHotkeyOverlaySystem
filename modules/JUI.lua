@@ -13,6 +13,40 @@ local function GetDB()
 	return (addon and addon.db and addon.db.profile) or {}
 end
 
+local function GetProviderKey()
+	return (addon and addon.GetDetectedProviderKey and addon:GetDetectedProviderKey()) or (addon and addon.detectedUI) or "Blizzard"
+end
+
+local function GetProviderText()
+	return (addon and addon.GetDetectedProviderText and addon:GetDetectedProviderText())
+		or (addon and addon.GetProviderLabel and addon:GetProviderLabel(GetProviderKey()))
+		or GetProviderKey()
+end
+
+local function GetProviderColor()
+	return (addon and addon.GetProviderHexColor and addon:GetProviderHexColor(GetProviderKey())) or "ffffffff"
+end
+
+local function GetDiagnosticsText()
+	local diagnostics = addon and addon.Bars and addon.Bars.GetDiagnostics and addon.Bars:GetDiagnostics()
+	if not diagnostics then
+		return "Detected buttons: unavailable"
+	end
+	local parts = { "Detected buttons: " .. tostring(diagnostics.total or 0) }
+	local providerParts = {}
+	for _, key in ipairs({ "Blizzard", "AzeriteUI", "Dominos", "Bartender4", "DiabolicUI3" }) do
+		local count = diagnostics.providers and diagnostics.providers[key]
+		if count and count > 0 then
+			local label = addon and addon.GetProviderLabel and addon:GetProviderLabel(key) or key
+			providerParts[#providerParts + 1] = string.format("%s %d", label, count)
+		end
+	end
+	if #providerParts > 0 then
+		parts[#parts + 1] = "By provider: " .. table.concat(providerParts, ", ")
+	end
+	return table.concat(parts, "\n")
+end
+
 local function SafeUpdate()
 	if addon and addon.Core and addon.IsReady and addon:IsReady() and addon.Core.FullUpdate then
 		addon.Core:FullUpdate()
@@ -353,94 +387,18 @@ local function BuildSection_Profiles(parent)
 	current:SetText((L.CURRENT_PROFILE or "Current Profile:") .. " |cffffd700" .. tostring(curName) .. "|r")
 	y = y - 28
 
-	local useGlobal = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-	useGlobal:SetText(L.USE_GLOBAL_PROFILE or "Use Global Profile")
-	useGlobal:SetSize(180, 24)
-	useGlobal:SetPoint("TOPLEFT", 8, y)
-	useGlobal:SetScript("OnClick", function()
-		if not addon.db then return end
-		StaticPopupDialogs["AHOS_CONFIRM_PROFILE_SWITCH"] = {
-			text = L.CONFIRM_SWITCH_GLOBAL or "Switch to the global (Default) profile? This will overwrite your current settings.",
-			button1 = L.YES or "Yes",
-			button2 = L.NO or "No",
-			OnAccept = function()
-				addon.db:SetProfile("Default")
-				SafeUpdate()
-			end,
-			timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
-		}
-		StaticPopup_Show("AHOS_CONFIRM_PROFILE_SWITCH")
-	end)
-
-	local useChar = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-	useChar:SetText(L.USE_CHARACTER_PROFILE or "Use Character Profile")
-	useChar:SetSize(180, 24)
-	useChar:SetPoint("LEFT", useGlobal, "RIGHT", 10, 0)
-	useChar:SetScript("OnClick", function()
-		if not addon.db then return end
-		local charProfile = UnitName("player") .. " - " .. GetRealmName()
-		StaticPopupDialogs["AHOS_CONFIRM_PROFILE_SWITCH_CHAR"] = {
-			text = L.CONFIRM_SWITCH_CHARACTER or "Switch to the character-specific profile? This will overwrite your current settings.",
-			button1 = L.YES or "Yes",
-			button2 = L.NO or "No",
-			OnAccept = function()
-				addon.db:SetProfile(charProfile)
-				SafeUpdate()
-			end,
-			timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
-		}
-		StaticPopup_Show("AHOS_CONFIRM_PROFILE_SWITCH_CHAR")
-	end)
-	y = y - 36
-
-	local copyRow = CreateFrame("Frame", nil, parent)
-	copyRow:SetPoint("TOPLEFT", 8, -64)
-	copyRow:SetSize(1, 1)
-	local copyLbl = parent:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-	copyLbl:SetPoint("TOPLEFT", 8, -64)
-	copyLbl:SetText(L.COPY_PROFILE_TO or "Copy Current Profile To…")
-	local copyEB = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
-	copyEB:SetAutoFocus(false)
-	copyEB:SetSize(220, 24)
-	copyEB:SetPoint("TOPLEFT", copyLbl, "BOTTOMLEFT", 0, -6)
-	local copyBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-	copyBtn:SetText(L.COPY or "Copy")
-	copyBtn:SetSize(80, 24)
-	copyBtn:SetPoint("LEFT", copyEB, "RIGHT", 8, 0)
-	copyBtn:SetScript("OnClick", function()
-		local name = (copyEB:GetText() or ""):gsub("^%s+", ""):gsub("%s+$", "")
-		if addon.db and name ~= "" then
-			addon.db:CopyProfile(name)
-			SafeUpdate()
-		end
-	end)
-	y = y - 78
-
-	local resetAll = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-	resetAll:SetText(L.RESET_ALL_PROFILES or "Reset All Profiles")
-	resetAll:SetSize(180, 24)
-	resetAll:SetPoint("TOPLEFT", 8, -150)
-	resetAll:SetScript("OnClick", function()
-		if not addon.db then return end
-		StaticPopupDialogs["AHOS_CONFIRM_RESET_ALL"] = {
-			text = L.CONFIRM_RESET_ALL or "Reset ALL profiles to default? This cannot be undone!",
-			button1 = L.YES or "Yes",
-			button2 = L.NO or "No",
-			OnAccept = function()
-				addon.db:ResetDB("Default")
-				SafeUpdate()
-			end,
-			timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
-		}
-		StaticPopup_Show("AHOS_CONFIRM_RESET_ALL")
-	end)
+	local info = parent:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+	info:SetPoint("TOPLEFT", 8, y)
+	info:SetWidth(640)
+	info:SetJustifyH("LEFT")
+	info:SetText("Use the AceConfig profile controls for switching, copying, and resetting profiles. AHOS keeps only the support-focused tools here.")
+	y = y - 40
 
 	local autoSwitch = CreateCheck(parent, L.AUTO_SWITCH_PROFILE or "Auto-Switch Profile by Spec", nil,
 		function() return db.autoSwitchProfile end,
 		function(v) db.autoSwitchProfile = v end)
-	autoSwitch:SetPoint("LEFT", resetAll, "RIGHT", 16, 0)
-
-	y = -190
+	autoSwitch:SetPoint("TOPLEFT", 8, y)
+	y = y - 36
 
 	local exportBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
 	exportBtn:SetText(L.EXPORT_PROFILE or "Export Current Profile")
@@ -466,12 +424,12 @@ local function BuildSection_Profiles(parent)
 	importBtn:SetScript("OnClick", function()
 		local text = importEB:GetText() or ""
 		if text ~= "" and addon.ImportProfileString then
-			addon.ImportProfileString(text)
+			addon:ImportProfileString(text)
 			SafeUpdate()
 		end
 	end)
 
-	parent._height = 280
+	parent._height = 210
 end
 
 local function BuildSection_Help(parent)
@@ -568,11 +526,29 @@ end
 local function BuildSection_Integration(parent)
 	local db = GetDB()
 	local y = -8
+	local summary = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+	summary:SetPoint("TOPLEFT", 8, y)
+	summary:SetWidth(640)
+	summary:SetJustifyH("LEFT")
+	summary:SetText("Detected provider: " .. GetProviderText() .. "\n" .. GetDiagnosticsText())
+	y = y - 52
 	local elv = CreateCheck(parent, L.ENABLE_ELVUI or "Enable ElvUI Compatibility", nil,
 		function() return db.forceOverlaysWithElvUI end,
 		function(v) db.forceOverlaysWithElvUI = v end)
 	elv:SetPoint("TOPLEFT", 8, y)
 	y = y - 28
+
+	for _, key in ipairs({ "Dominos", "Bartender4", "DiabolicUI3" }) do
+		local provider = addon and addon.GetProviderInfo and addon:GetProviderInfo(key)
+		if provider and provider.compatibility_note and addon:IsProviderLoaded(key) then
+			local note = parent:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+			note:SetPoint("TOPLEFT", 8, y)
+			note:SetWidth(640)
+			note:SetJustifyH("LEFT")
+			note:SetText(provider.compatibility_note)
+			y = y - math.max(28, math.floor(note:GetStringHeight() + 10))
+		end
+	end
 
 	parent._height = math.abs(y)
 end
@@ -580,11 +556,47 @@ end
 local function BuildSection_Advanced(parent)
 	local db = GetDB()
 	local y = -8
+	local tools = CreateCheck(parent, L.ENABLE_TROUBLESHOOTING_TOOLS or "Enable Troubleshooting Tools", nil,
+		function() return db.troubleshootingTools end,
+		function(v) db.troubleshootingTools = v end)
+	tools:SetPoint("TOPLEFT", 8, y)
+	y = y - 32
+
+	local hint = parent:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+	hint:SetPoint("TOPLEFT", 8, y)
+	hint:SetWidth(640)
+	hint:SetJustifyH("LEFT")
+	hint:SetText((db.troubleshootingTools and "Troubleshooting tools are enabled." or "Enable troubleshooting tools to show debug import/export and profiling controls."))
+	y = y - 36
+
 	local perf = CreateCheck(parent, L.SHOW_PERF_METRICS or "Show Performance Metrics", nil,
 		function() return db.showPerfMetrics end,
 		function(v) db.showPerfMetrics = v end)
-	perf:SetPoint("TOPLEFT", 8, y)
-	y = y - 36
+	if db.troubleshootingTools then
+		perf:SetPoint("TOPLEFT", 8, y)
+		y = y - 32
+
+		local openLog = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+		openLog:SetText(L.OPEN_DEBUG_LOG or "Open Debug Log")
+		openLog:SetSize(180, 24)
+		openLog:SetPoint("TOPLEFT", 8, y)
+		openLog:SetScript("OnClick", function()
+			if addon and addon.ShowDebugLogWindow then
+				addon:ShowDebugLogWindow()
+			end
+		end)
+
+		local exportDebug = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+		exportDebug:SetText(L.EXPORT_DEBUG_DATA or "Export Debug Data")
+		exportDebug:SetSize(180, 24)
+		exportDebug:SetPoint("LEFT", openLog, "RIGHT", 10, 0)
+		exportDebug:SetScript("OnClick", function()
+			if addon and addon.DebugExportTable and addon.db and addon.db.profile then
+				addon:DebugExportTable(addon.db.profile)
+			end
+		end)
+		y = y - 36
+	end
 
 	local openAce = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
 	openAce:SetText(L.OPEN_ACE_OPTIONS or "Open Classic Options (AceConfig)")
@@ -695,9 +707,7 @@ function addon:OpenJUI(section)
 		local ver = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(addonName, "Version"))
 			or (GetAddOnMetadata and GetAddOnMetadata(addonName, "Version"))
 			or "unknown"
-		local ui = (addon and addon.detectedUI) or "Blizzard"
-		local color = (AdvancedHotkeyOverlaySystem and AdvancedHotkeyOverlaySystem.UI_DETECTED_COLORS and AdvancedHotkeyOverlaySystem.UI_DETECTED_COLORS[ui]) or "ffffffff"
-		footer:SetText(string.format("Version %s • UI: |c%s%s|r", tostring(ver), tostring(color), tostring(ui)))
+		footer:SetText(string.format("Version %s • Provider: |c%s%s|r", tostring(ver), tostring(GetProviderColor()), tostring(GetProviderText())))
 	end
 	updateFooter()
 	frame:SetScript("OnShow", function()

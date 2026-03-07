@@ -43,11 +43,6 @@ function Bars:UpdateTrackedButtons()
     wipe(trackedButtons)
     wipe(buttonToAction)
     wipe(addedNames)
-    -- Detect Dominos, but do not exclude Blizzard bars. We overlay both and rely on
-    -- HasAction() in Display to skip empty slots.
-    local dominosActive = (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("Dominos"))
-        or (IsAddOnLoaded and IsAddOnLoaded("Dominos"))
-        or (addon and addon.detectedUI == "Dominos")
     local function add(btn)
         if not btn or not btn.GetName then return end
         local name = btn:GetName()
@@ -88,37 +83,36 @@ function Bars:UpdateTrackedButtons()
     local function addButton(btn)
         add(btn)
     end
-
-    if dominosActive then
-        if addon.db and addon.db.profile and addon.db.profile.debug then
-            addon:Print("[AHOS DEBUG] Dominos detected - scanning for DominosActionButtons")
-        end
-        -- Attempt common global names: DominosActionButton1..200 (covers larger configs)
-        for i = 1, 200 do
-            local b = _G["DominosActionButton" .. i]
-            if b then addButton(b) end
-        end
-        -- Fallback: scan Dominos bar frames for button children (DominosBar* and DominosFrame*)
-        local function scanContainer(prefix, count)
-            for i = 1, count do
-                local bar = _G[prefix .. i]
-                if bar and bar.GetChildren then
-                    local kids = { bar:GetChildren() }
-                    for _, child in ipairs(kids) do
-                        if child and child.GetName then
-                            local cname = child:GetName()
-                            if cname and cname:match("^DominosActionButton%d+") then
-                                addButton(child)
-                            end
+    local function scanContainer(prefix, count, matcher)
+        for i = 1, count do
+            local bar = _G[prefix .. i]
+            if bar and bar.GetChildren then
+                local kids = { bar:GetChildren() }
+                for _, child in ipairs(kids) do
+                    if child and child.GetName then
+                        local cname = child:GetName()
+                        if cname and cname:match(matcher) then
+                            addButton(child)
                         end
                     end
                 end
             end
         end
-        scanContainer("DominosBar", 20)
-        scanContainer("DominosFrame", 20)
-        if addon.db and addon.db.profile and addon.db.profile.debug then
-            addon:Print("[AHOS DEBUG] After Dominos scan, tracked buttons count: " .. tostring(#trackedButtons))
+    end
+
+    for _, provider in ipairs(addon:IterateScannableProviders()) do
+        if addon:IsProviderLoaded(provider.key) then
+            if addon.db and addon.db.profile and addon.db.profile.debug then
+                addon:Print(string.format("[AHOS DEBUG] %s detected - scanning custom buttons", provider.label))
+            end
+            for _, scanner in ipairs((provider.button_scanners and provider.button_scanners.globals) or {}) do
+                for i = 1, scanner.max do
+                    addButton(_G[scanner.prefix .. i])
+                end
+            end
+            for _, scanner in ipairs((provider.button_scanners and provider.button_scanners.containers) or {}) do
+                scanContainer(scanner.prefix, scanner.count, scanner.matcher)
+            end
         end
     end
     if addon:IsReady() and addon.db and addon.db.profile and addon.db.profile.debug then
@@ -144,4 +138,19 @@ function Bars:GetButtonBySlot(slot)
         end
     end
     return nil
+end
+
+function Bars:GetDiagnostics()
+    local providerCounts = {}
+    local buttons = self:GetAllButtons()
+    for _, btn in ipairs(buttons) do
+        local name = btn and btn.GetName and btn:GetName()
+        local provider = addon:GetProviderForButtonName(name)
+        local key = provider and provider.key or "Blizzard"
+        providerCounts[key] = (providerCounts[key] or 0) + 1
+    end
+    return {
+        total = #buttons,
+        providers = providerCounts,
+    }
 end

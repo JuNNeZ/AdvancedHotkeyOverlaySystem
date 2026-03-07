@@ -35,6 +35,217 @@ local function IsAddOnLoadedCompat(name)
     return false
 end
 
+local PROVIDER_ORDER = {
+    "AzeriteUI",
+    "Dominos",
+    "Bartender4",
+    "DiabolicUI3",
+    "Blizzard",
+}
+
+addon.ProviderRegistry = {
+    Blizzard = {
+        key = "Blizzard",
+        label = "Blizzard",
+        color_hex = "ffb4e0ff",
+        color_rgb = {0.71, 0.88, 1.0},
+        supported = true,
+        defaultOffsets = { xOffset = -22, yOffset = -3, scale = 0.95 },
+    },
+    AzeriteUI = {
+        key = "AzeriteUI",
+        label = "AzeriteUI",
+        addon = "AzeriteUI",
+        globals = { "AzeriteUI" },
+        color_hex = "ffe6c200",
+        color_rgb = {0.90, 0.76, 0.00},
+        supported = true,
+        defaultOffsets = { xOffset = -18, yOffset = -2, scale = 0.90 },
+        button_patterns = {
+            "^AzeriteActionBar%d+Button%d+$",
+            "^AzeriteStanceBarButton%d+$",
+        },
+    },
+    Dominos = {
+        key = "Dominos",
+        label = "Dominos",
+        addon = "Dominos",
+        globals = { "Dominos" },
+        color_hex = "ffb6ff00",
+        color_rgb = {0.71, 1.0, 0.0},
+        supported = true,
+        defaultOffsets = { xOffset = -20, yOffset = -4, scale = 0.90 },
+        rewrite_setting = "dominosRewrite",
+        compatibility_note = "Dominos is supported directly. If a skin hides overlays on some bars, try 'Dominos: Use Native Text' in Display.",
+        button_patterns = {
+            "^DominosActionButton%d+$",
+        },
+        button_scanners = {
+            globals = {
+                { prefix = "DominosActionButton", max = 200 },
+            },
+            containers = {
+                { prefix = "DominosBar", count = 20, matcher = "^DominosActionButton%d+" },
+                { prefix = "DominosFrame", count = 20, matcher = "^DominosActionButton%d+" },
+            },
+        },
+        binding_rules = {
+            { matcher = "^DominosActionButton%d+$", suffixes = { ":HOTKEY", ":LeftButton", ":Button1", ":AnyUp", ":AnyDown", ":RightButton", ":Button2", ":MiddleButton", ":Button3" } },
+        },
+        command_fields = { "commandName", "keyBoundTarget" },
+        hotkey_update_method = "UpdateHotkeys",
+    },
+    Bartender4 = {
+        key = "Bartender4",
+        label = "Bartender4",
+        addon = "Bartender4",
+        color_hex = "fff69528",
+        color_rgb = {0.96, 0.59, 0.16},
+        supported = true,
+        defaultOffsets = { xOffset = -20, yOffset = -4, scale = 0.90 },
+        compatibility_note = "Bartender4 is supported directly through BT4 button discovery and :Keybind bindings.",
+        button_patterns = {
+            "^BT4Button%d+$",
+            "^BT4PetButton%d+$",
+            "^BT4StanceButton%d+$",
+        },
+        button_scanners = {
+            globals = {
+                { prefix = "BT4Button", max = 180 },
+                { prefix = "BT4PetButton", max = 10 },
+                { prefix = "BT4StanceButton", max = 10 },
+            },
+            containers = {
+                { prefix = "BT4Bar", count = 10, matcher = "^BT4Button%d+" },
+            },
+        },
+        binding_rules = {
+            { matcher = "^BT4Button%d+$", suffixes = { ":Keybind" } },
+            { matcher = "^BT4PetButton%d+$", suffixes = { ":LeftButton" } },
+            { matcher = "^BT4StanceButton%d+$", suffixes = { ":LeftButton" } },
+        },
+        command_fields = { "commandName", "keyBoundTarget" },
+        hotkey_update_method = "UpdateHotkeys",
+    },
+    DiabolicUI3 = {
+        key = "DiabolicUI3",
+        label = "DiabolicUI",
+        addon = "DiabolicUI3",
+        color_hex = "ffdb3930",
+        color_rgb = {0.86, 0.22, 0.19},
+        supported = true,
+        defaultOffsets = { xOffset = -20, yOffset = -4, scale = 0.90 },
+        compatibility_note = "DiabolicUI support relies on the current Arahort edition button naming and action-button library.",
+        button_patterns = {
+            "^DiabolicActionBar%d+Button%d+$",
+            "^DiabolicSmallActionBar%d+Button%d+$",
+            "^DiabolicPetActionBarButton%d+$",
+            "^DiabolicStanceBarButton%d+$",
+        },
+        button_scanners = {
+            globals = {
+                { prefix = "DiabolicActionBar1Button", max = 12 },
+                { prefix = "DiabolicActionBar2Button", max = 12 },
+                { prefix = "DiabolicActionBar3Button", max = 12 },
+                { prefix = "DiabolicSmallActionBar1Button", max = 12 },
+                { prefix = "DiabolicSmallActionBar2Button", max = 12 },
+                { prefix = "DiabolicSmallActionBar3Button", max = 12 },
+                { prefix = "DiabolicSmallActionBar4Button", max = 12 },
+                { prefix = "DiabolicSmallActionBar5Button", max = 12 },
+                { prefix = "DiabolicSmallActionBar6Button", max = 12 },
+                { prefix = "DiabolicPetActionBarButton", max = 10 },
+                { prefix = "DiabolicStanceBarButton", max = 10 },
+            },
+        },
+        command_fields = { "commandName", "keyBoundTarget" },
+        hotkey_update_method = "UpdateHotkeys",
+    },
+    ElvUI = {
+        key = "ElvUI",
+        label = "ElvUI",
+        addon = "ElvUI",
+        globals = { "ElvUI" },
+        color_hex = "ff1784d1",
+        color_rgb = {0.09, 0.52, 0.82},
+        supported = false,
+        conflict_only = true,
+    },
+}
+
+function addon:GetProviderInfo(key)
+    return self.ProviderRegistry[key or "Blizzard"] or self.ProviderRegistry.Blizzard
+end
+
+function addon:GetProviderLabel(key)
+    return self:GetProviderInfo(key).label or tostring(key or "Blizzard")
+end
+
+function addon:GetProviderHexColor(key)
+    return self:GetProviderInfo(key).color_hex or self.ProviderRegistry.Blizzard.color_hex
+end
+
+function addon:GetProviderColor(key)
+    return self:GetProviderInfo(key).color_rgb or self.ProviderRegistry.Blizzard.color_rgb
+end
+
+function addon:IsProviderLoaded(key)
+    if key == "Blizzard" then return true end
+    local provider = self:GetProviderInfo(key)
+    for _, globalName in ipairs(provider.globals or {}) do
+        if rawget(_G, globalName) ~= nil then
+            return true
+        end
+    end
+    if provider.addon then
+        return IsAddOnLoadedCompat(provider.addon)
+    end
+    return false
+end
+
+function addon:IsElvUIConflictActive()
+    return self:IsProviderLoaded("ElvUI")
+end
+
+function addon:GetDetectedProviderKey()
+    return self.detectedUI or "Blizzard"
+end
+
+function addon:GetDetectedProviderLabel()
+    return self:GetProviderLabel(self:GetDetectedProviderKey())
+end
+
+function addon:GetDetectedProviderText()
+    local label = self:GetDetectedProviderLabel()
+    if self:IsElvUIConflictActive() and self:GetDetectedProviderKey() ~= "ElvUI" then
+        return label .. " + ElvUI"
+    end
+    return label
+end
+
+function addon:IterateScannableProviders()
+    local providers = {}
+    for _, key in ipairs(PROVIDER_ORDER) do
+        local provider = self.ProviderRegistry[key]
+        if provider and provider.button_scanners then
+            providers[#providers + 1] = provider
+        end
+    end
+    return providers
+end
+
+function addon:GetProviderForButtonName(buttonName)
+    if not buttonName then return nil end
+    for _, key in ipairs(PROVIDER_ORDER) do
+        local provider = self.ProviderRegistry[key]
+        for _, pattern in ipairs(provider.button_patterns or {}) do
+            if buttonName:match(pattern) then
+                return provider
+            end
+        end
+    end
+    return self.ProviderRegistry.Blizzard
+end
+
 -- Wrapper to call the correct module's UpdateAllButtons
 function addon:UpdateAllButtons(...)
     if not self:ShouldShowOverlays() or not (self.db and self.db.profile and self.db.profile.enabled) then
@@ -411,10 +622,10 @@ function AdvancedHotkeyOverlaySystem:SlashHandler(input)
     elseif cmd == "detectui" then
         self:Print(Loc.MSG_MANUAL_DETECT_UI or "|cff4A9EFFManually detecting UI...|r")
         self:DetectUI()
-        local ui = self.detectedUI or "None"
-        local colors = self.UI_DETECTED_COLORS or addon.UI_DETECTED_COLORS or {}
-        local color = colors[ui] or colors["Blizzard"] or "FFFFFFFF"
-        self:Print((Loc.MSG_CURRENT_DETECTED_UI or "|cffFFD700Current detected UI:|r ") .. "|c" .. color .. ui .. "|r")
+        local providerKey = self:GetDetectedProviderKey()
+        local color = self:GetProviderHexColor(providerKey) or "FFFFFFFF"
+        local label = self:GetDetectedProviderText()
+        self:Print((Loc.MSG_CURRENT_DETECTED_UI or "|cffFFD700Current detected UI:|r ") .. "|c" .. color .. label .. "|r")
 
     elseif cmd == "debugexport" then
         local path = rest and rest:match("^(%S+)")
@@ -510,21 +721,18 @@ function AdvancedHotkeyOverlaySystem:DetectUI()
     if debugEnabled then
         self:Print("=== UI Detection Debug ===")
     end
-    -- Existing UI detection logic...
-    local detectedUI = "Blizzard" -- Default to Blizzard UI
-    -- Check for other known UI addons and set detectedUI accordingly
-    if IsAddOnLoadedCompat("ElvUI") then
-        detectedUI = "ElvUI"
-    elseif IsAddOnLoadedCompat("AzeriteUI") then
-        detectedUI = "AzeriteUI"
-    elseif IsAddOnLoadedCompat("Dominos") then
-        detectedUI = "Dominos"
+    local detectedUI = "Blizzard"
+    for _, key in ipairs(PROVIDER_ORDER) do
+        if key ~= "Blizzard" and self:IsProviderLoaded(key) then
+            detectedUI = key
+            break
+        end
     end
 
     self.detectedUI = detectedUI
 
     if debugEnabled then
-        self:Print("Final detected UI: " .. (self.detectedUI or "None"))
+        self:Print("Final detected provider: " .. (self:GetDetectedProviderText() or "None"))
         self:Print("=== End UI Detection Debug ===")
     end
     -- Force options panel to refresh detected UI display
@@ -534,24 +742,17 @@ function AdvancedHotkeyOverlaySystem:DetectUI()
     end
 end
 
--- UI color table for detected UIs (hex color codes for chat)
-local UI_DETECTED_COLORS = {
-    Blizzard = "ffb4e0ff", -- Blizzard blue
-    AzeriteUI = "ffe6c200", -- AzeriteUI gold
-    ElvUI = "ff1784d1", -- ElvUI blue
-    Dominos = "ffb6ff00", -- Dominos green
-    None = "ffffffff", -- fallback white
-}
+AdvancedHotkeyOverlaySystem.UI_DETECTED_COLORS = setmetatable({}, {
+    __index = function(_, key)
+        return addon:GetProviderHexColor(key)
+    end,
+})
 
-AdvancedHotkeyOverlaySystem.UI_DETECTED_COLORS = UI_DETECTED_COLORS
-
-AdvancedHotkeyOverlaySystem.UIColors = {
-    Blizzard = {0.71, 0.88, 1.0},
-    AzeriteUI = {0.90, 0.76, 0.00},
-    ElvUI = {0.09, 0.52, 0.82},
-    Dominos = {0.71, 1.0, 0.0},
-    None = {1, 1, 1},
-}
+AdvancedHotkeyOverlaySystem.UIColors = setmetatable({}, {
+    __index = function(_, key)
+        return addon:GetProviderColor(key)
+    end,
+})
 
 local optionsAddedToBliz = false
 

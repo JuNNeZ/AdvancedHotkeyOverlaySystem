@@ -86,10 +86,10 @@ Advanced Hotkey Overlay System replaces the default hotkey text on your action b
 - LibSharedMedia-3.0 (included)
 - LibDBIcon-1.0 (included)
 
-## Recent Updates (v2.5.12)
-- Fixed Dominos binding resolution by preferring addon-provided command names and hotkey refresh hooks.
-- Modernized the in-game options layout around status, compatibility, support, and debugging.
-- Updated Retail, Mists, and Vanilla TOC targets for current client builds while keeping Retail `120000` compatibility.
+## Recent Updates (v2.5.13)
+- Added direct provider integrations for Bartender4 and DiabolicUI.
+- Refactored provider detection/scanning/keybind handling for consistent behavior across supported bars.
+- Fixed a secure-string taint compare path in hotkey-region anchor checks.
 
 ---
 

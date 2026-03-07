@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.13] - 2026-03-07
+
+### Added (2.5.13)
+
+- Added provider-registry based integrations for Bartender4 and DiabolicUI, including button discovery and provider-aware diagnostics.
+- Added a `verify-toc-targets` validation step to the GitHub release workflow.
+
+### Fixed (2.5.13)
+
+- Fixed a secure/secret string comparison taint error in `modules/Display.lua` hotkey-region anchor checks by guarding anchor comparisons.
+- Fixed provider hotkey-refresh hooks to use each provider's configured update method instead of a Dominos-only path.
+
+### Changed (2.5.13)
+
+- Refactored UI detection, button scanning, keybind resolution, and options diagnostics around a shared provider model.
+- Updated support messaging and settings visibility rules for provider-specific options.
+- Bumped all TOC version metadata to `2.5.13`.
+- Refreshed README and CurseForge release notes for the provider/taint-fix release.
+
 ## [2.5.12] - 2026-03-02
 
 ### Fixed (2.5.12)
@@ -275,3 +294,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [2.5.9]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.9
 [2.5.10]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.10
 [2.5.11]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.11
+[2.5.12]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.12
+[2.5.13]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.13

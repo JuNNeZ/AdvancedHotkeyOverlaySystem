@@ -11,7 +11,7 @@ local squelchedByButton = {}    -- Track buttons currently squelched
 local hookedHotkeyRegions = {}   -- Track fontstrings we have hooksecurefunc'ed
 local guardSetText = setmetatable({}, { __mode = "k" }) -- Re-entrancy guard per FontString
 local nativeRewriteButtons = {}  -- Per-button flag when we actively rewrite native FS
-local dominosHotkeyHooks = setmetatable({}, { __mode = "k" })
+local providerHotkeyHooks = setmetatable({}, { __mode = "k" })
 -- Simple build gate: Retail Dragonflight+ has build numbers >= 100000
 local isRetail = (select(4, GetBuildInfo()) or 0) >= 100000
 
@@ -30,11 +30,12 @@ function Display:ShouldRewriteForButton(button)
     if not button or not button.GetName then return self:UseNativeRewrite() end
     local name = button:GetName() or ""
     local db = addon and addon.db and addon.db.profile
-    local dominosPref = db and db.display and db.display.dominosRewrite
-    if name:match("^DominosActionButton%d+$") then
-    -- Default is overlays for Dominos; opt-in to rewrite if explicitly enabled
-    if dominosPref == nil then return false end
-        return dominosPref and true or false
+    local provider = addon and addon.GetProviderForButtonName and addon:GetProviderForButtonName(name)
+    local rewriteSetting = provider and provider.rewrite_setting
+    if rewriteSetting then
+        local providerPref = db and db.display and db.display[rewriteSetting]
+        if providerPref == nil then return false end
+        return providerPref and true or false
     end
     return self:UseNativeRewrite()
 end
@@ -164,7 +165,11 @@ local function IsTopRightAnchor(region)
     if not region or not region.GetPoint then return false end
     local ok, p1, _, p2 = pcall(region.GetPoint, region, 1)
     if not ok then return false end
-    return tostring(p1) == "TOPRIGHT" or tostring(p2) == "TOPRIGHT"
+    local compareOk, isTopRight = pcall(function()
+        return p1 == "TOPRIGHT" or p2 == "TOPRIGHT"
+    end)
+    if not compareOk then return false end
+    return isTopRight
 end
 
 -- Recursively scan a frame and its children for FontStrings that likely represent hotkey labels.
@@ -930,13 +935,19 @@ function Display:OnEnable()
             end
         end)
     end
-    local function hookDominosButton(btn)
-        if not btn or dominosHotkeyHooks[btn] then return end
-        if not btn.GetName or not btn.UpdateHotkeys then return end
+    local function hookCustomButton(btn)
+        if not btn then return end
+        if not btn.GetName then return end
         local name = btn:GetName()
-        if not name or not name:match("^DominosActionButton%d+$") then return end
-        dominosHotkeyHooks[btn] = true
-        hooksecurefunc(btn, "UpdateHotkeys", function(self)
+        if not name then return end
+        local provider = addon and addon.GetProviderForButtonName and addon:GetProviderForButtonName(name)
+        local methodName = provider and provider.hotkey_update_method
+        if not provider or not methodName or type(btn[methodName]) ~= "function" then
+            return
+        end
+        if providerHotkeyHooks[btn] then return end
+        providerHotkeyHooks[btn] = provider.key or true
+        hooksecurefunc(btn, methodName, function(self)
             if not addon or not addon.Core or not addon.Core.ScheduleTimer then return end
             addon.Core:ScheduleTimer(function()
                 if addon.Display and addon.Display.UpdateOverlayForButton then
@@ -947,7 +958,7 @@ function Display:OnEnable()
     end
     if addon and addon.Bars and addon.Bars.GetAllButtons then
         for _, btn in ipairs(addon.Bars:GetAllButtons()) do
-            hookDominosButton(btn)
+            hookCustomButton(btn)
         end
     end
     -- As a safety net, after multi-bar updates, run an overlay refresh shortly after

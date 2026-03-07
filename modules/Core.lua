@@ -167,7 +167,7 @@ function Core:OnPlayerLogin()
     addon:SafeCall("Config", "DetectUI")
     self:FullUpdate()
     if addon.db.profile.debug then
-        addon:Print("PLAYER_LOGIN: UI detected as '" .. (addon.detectedUI or "None") .. "'. Full update triggered.")
+        addon:Print("PLAYER_LOGIN: UI detected as '" .. ((addon.GetDetectedProviderText and addon:GetDetectedProviderText()) or addon.detectedUI or "None") .. "'. Full update triggered.")
     end
 end
 
@@ -250,7 +250,7 @@ function Core:ChatCommand(input)
     elseif args[1] == "detect" then
         addon.Config:DetectUI()
         local L = addon.L or {}
-        addon:Print((L.MSG_CURRENT_DETECTED_UI or "Current detected UI: ") .. (addon.detectedUI or (L.UNKNOWN or "Unknown")))
+        addon:Print((L.MSG_CURRENT_DETECTED_UI or "Current detected UI: ") .. ((addon.GetDetectedProviderText and addon:GetDetectedProviderText()) or addon.detectedUI or (L.UNKNOWN or "Unknown")))
         self:FullUpdate()
     elseif args[1] == "inspect" and args[2] then
         local buttonName = string.upper(args[2])

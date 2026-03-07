@@ -13,26 +13,80 @@ local function getVersionString()
         or "unknown")
 end
 
+local function getDisplayUIName(name)
+    if addon and addon.GetProviderLabel then
+        return addon:GetProviderLabel(name)
+    end
+    return tostring(name or "Blizzard")
+end
+
 local function getDetectedUIName()
-    return (addon.Config and addon.Config.GetDetectedUI and addon.Config:GetDetectedUI())
+    return (addon and addon.GetDetectedProviderKey and addon:GetDetectedProviderKey())
+        or (addon.Config and addon.Config.GetDetectedUI and addon.Config:GetDetectedUI())
         or addon.detectedUI
         or "Blizzard"
 end
 
+local function getDetectedUIText()
+    return (addon and addon.GetDetectedProviderText and addon:GetDetectedProviderText())
+        or getDisplayUIName(getDetectedUIName())
+end
+
+local function isProviderLoaded(key)
+    return addon and addon.IsProviderLoaded and addon:IsProviderLoaded(key)
+end
+
+local function getLoadedProviderNotes()
+    local notes = {}
+    for _, key in ipairs({ "Dominos", "Bartender4", "DiabolicUI3" }) do
+        local provider = addon and addon.GetProviderInfo and addon:GetProviderInfo(key)
+        if provider and provider.compatibility_note and isProviderLoaded(key) then
+            notes[#notes + 1] = "- " .. provider.compatibility_note
+        end
+    end
+    if #notes == 0 then
+        notes[#notes + 1] = "- No direct third-party provider is currently loaded."
+    end
+    return table.concat(notes, "\n")
+end
+
+local function getDiagnosticsSummary()
+    local diagnostics = addon and addon.Bars and addon.Bars.GetDiagnostics and addon.Bars:GetDiagnostics()
+    if not diagnostics then
+        return "Detected buttons: unavailable"
+    end
+
+    local parts = { "Detected buttons: " .. tostring(diagnostics.total or 0) }
+    local providerParts = {}
+    for _, key in ipairs({ "Blizzard", "AzeriteUI", "Dominos", "Bartender4", "DiabolicUI3" }) do
+        local count = diagnostics.providers and diagnostics.providers[key]
+        if count and count > 0 then
+            providerParts[#providerParts + 1] = string.format("%s %d", getDisplayUIName(key), count)
+        end
+    end
+    if #providerParts > 0 then
+        parts[#parts + 1] = "By provider: " .. table.concat(providerParts, ", ")
+    end
+    return table.concat(parts, "\n")
+end
+
 local function getSupportBlurb()
-    local detected = getDetectedUIName()
     return table.concat({
-        "AHOS should only add direct integrations for bar addons that expose stable button names, binding commands, and hotkey refresh hooks.",
+        "AHOS only adds direct integrations for bar providers that expose stable button names, binding commands, and hotkey refresh hooks.",
         "",
         "Dedicated support:",
         "- Blizzard action bars",
         "- AzeriteUI",
         "- Dominos",
+        "- Bartender4",
+        "- DiabolicUI",
         "",
         "Conflict-aware handling:",
         "- ElvUI",
         "",
-        "Current detected UI: " .. tostring(detected),
+        "Current detected provider: " .. getDetectedUIText(),
+        "",
+        getLoadedProviderNotes(),
     }, "\n")
 end
 
@@ -168,13 +222,13 @@ function Options:GetOptions()
                         name = function()
                             local db = getSafeProfile()
                             local enabled = db.enabled and "Enabled" or "Disabled"
-                            local detected = getDetectedUIName()
                             local mode = (db.display and db.display.nativeRewrite) and "Native text rewrite" or "Overlay"
                             return table.concat({
                                 "Version: " .. getVersionString(),
-                                "Detected UI: " .. tostring(detected),
+                                "Detected provider: " .. getDetectedUIText(),
                                 "Render mode: " .. mode,
                                 "Addon state: " .. enabled,
+                                getDiagnosticsSummary(),
                             }, "\n")
                         end,
                     },
@@ -183,7 +237,7 @@ function Options:GetOptions()
                         name = L.REFRESH_OVERLAYS or "Refresh Overlays",
                         desc = L.REFRESH_OVERLAYS_DESC or "Run a full overlay refresh now.",
                         order = 2,
-                        width = "half",
+                        width = "full",
                         func = function()
                             if addon and addon.Core and addon.Core.FullUpdate then
                                 addon.Core:FullUpdate()
@@ -192,10 +246,10 @@ function Options:GetOptions()
                     },
                     detect = {
                         type = "execute",
-                        name = L.DETECT_UI_NOW or "Re-Detect UI",
+                        name = L.DETECT_UI_NOW or "Re-Detect UI Now",
                         desc = L.DETECT_UI_NOW_DESC or "Run UI detection again and refresh overlays.",
                         order = 3,
-                        width = "half",
+                        width = "full",
                         func = function()
                             if addon and addon.DetectUI then
                                 addon:DetectUI()
@@ -232,6 +286,7 @@ function Options:GetOptions()
                         desc = L.DOMINOS_USE_NATIVE_DESC or "For Dominos buttons, rewrite the native hotkey text (overlay is default).",
                         order = 0.6,
                         width = "full",
+                        hidden = function() return not isProviderLoaded("Dominos") end,
                         get = function() local db = getSafeProfile() return db.display and db.display.dominosRewrite end,
                         set = function(_, val) local db = getSafeProfile() if db.display then db.display.dominosRewrite = val; addon.Core:FullUpdate() end end,
                     },
@@ -459,9 +514,9 @@ function Options:GetOptions()
                 order = 3,
                 args = {
                     aceProfiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(addon.db),
-                    customProfileManagement = {
+                    profileTools = {
                         type = "group",
-            name = L.PROFILE_MANAGEMENT or "Profile Management",
+            name = L.PROFILE_MANAGEMENT or "Profile Tools",
                         order = 2,
                         args = {
                             currentProfile = {
@@ -476,112 +531,19 @@ function Options:GetOptions()
                                 order = 0.5,
                                 width = "full",
                             },
-                            useGlobal = {
-                                type = "execute",
-                name = L.USE_GLOBAL_PROFILE or "Use Global Profile",
-                desc = L.USE_GLOBAL_PROFILE_DESC or "Switch to the global (Default) profile.",
+                            profileInfo = {
+                                type = "description",
                                 order = 1,
-                                func = function()
-                                    if addon.db then
-                                        StaticPopupDialogs["AHOS_CONFIRM_PROFILE_SWITCH"] = {
-                        text = L.CONFIRM_SWITCH_GLOBAL or "Switch to the global (Default) profile? This will overwrite your current settings.",
-                        button1 = L.YES or "Yes",
-                        button2 = L.NO or "No",
-                                            OnAccept = function()
-                                                addon.db:SetProfile("Default")
-                        addon:Print(L.SWITCHED_TO_GLOBAL_PROFILE or "|cff4A9EFFSwitched to global profile:|r Default")
-                                            end,
-                                            OnCancel = function() end,
-                                            timeout = 0,
-                                            whileDead = true,
-                                            hideOnEscape = true,
-                                            preferredIndex = 3,
-                                        }
-                                        StaticPopup_Show("AHOS_CONFIRM_PROFILE_SWITCH")
-                                    end
-                                end,
+                                name = "Use the Ace3 profile controls above for switching, copying, and resetting profiles.",
                             },
-                            useCharacter = {
+                            exportProfile = {
                                 type = "execute",
-                name = L.USE_CHARACTER_PROFILE or "Use Character Profile",
-                desc = L.USE_CHARACTER_PROFILE_DESC or "Switch to a character-specific profile.",
+                name = L.EXPORT_PROFILE or "Export Current Profile",
+                desc = L.EXPORT_PROFILE_DESC or "Export the current profile for support or backup.",
                                 order = 2,
                                 func = function()
-                                    if addon.db then
-                                        local charProfile = UnitName("player") .. " - " .. GetRealmName()
-                                        StaticPopupDialogs["AHOS_CONFIRM_PROFILE_SWITCH_CHAR"] = {
-                        text = L.CONFIRM_SWITCH_CHARACTER or "Switch to the character-specific profile? This will overwrite your current settings.",
-                        button1 = L.YES or "Yes",
-                        button2 = L.NO or "No",
-                                            OnAccept = function()
-                                                addon.db:SetProfile(charProfile)
-                        addon:Print((L.SWITCHED_TO_CHARACTER_PROFILE or "|cff4A9EFFSwitched to character profile:|r %s"):format(charProfile))
-                                            end,
-                                            OnCancel = function() end,
-                                            timeout = 0,
-                                            whileDead = true,
-                                            hideOnEscape = true,
-                                            preferredIndex = 3,
-                                        }
-                                        StaticPopup_Show("AHOS_CONFIRM_PROFILE_SWITCH_CHAR")
-                                    end
-                                end,
-                            },
-                            copyProfile = {
-                                type = "input",
-                name = L.COPY_PROFILE_TO or "Copy Current Profile To...",
-                desc = L.COPY_PROFILE_TO_DESC or "Enter a new profile name to copy current settings.",
-                                order = 3,
-                                get = function() return "" end,
-                                set = function(_, val)
-                                    if addon.db and val and val ~= "" then
-                                        addon.db:CopyProfile(val)
-                    addon:Print((L.COPIED_PROFILE_TO or "|cff4A9EFFCopied current profile to:|r %s"):format(val))
-                                    end
-                                end,
-                            },
-                            resetAll = {
-                                type = "execute",
-                name = L.RESET_ALL_PROFILES or "Reset All Profiles",
-                desc = L.RESET_ALL_PROFILES_DESC or "Reset all profiles to default settings (advanced).",
-                                order = 4,
-                                func = function()
-                                    if addon.db then
-                                        StaticPopupDialogs["AHOS_CONFIRM_RESET_ALL"] = {
-                        text = L.CONFIRM_RESET_ALL_PROFILES or "Reset ALL profiles to default? This cannot be undone!",
-                        button1 = L.YES or "Yes",
-                        button2 = L.NO or "No",
-                                            OnAccept = function()
-                                                addon.db:ResetDB("Default")
-                        addon:Print(L.ALL_PROFILES_RESET or "|cffff0000All profiles reset to default!|r")
-                                            end,
-                                            OnCancel = function() end,
-                                            timeout = 0,
-                                            whileDead = true,
-                                            hideOnEscape = true,
-                                            preferredIndex = 3,
-                                        }
-                                        StaticPopup_Show("AHOS_CONFIRM_RESET_ALL")
-                                    end
-                                end,
-                            },
-                            printProfile = {
-                                type = "execute",
-                name = L.PRINT_CURRENT_PROFILE_DATA or "Print Current Profile Data",
-                desc = L.PRINT_CURRENT_PROFILE_DATA_DESC or "Prints the current profile data to the chat for debugging.",
-                                order = 5,
-                                func = function()
-                                    if addon.db and addon.db.profile then
-                                        local serialized = LibSerialize and LibSerialize:Serialize(addon.db.profile)
-                                        if serialized and LibDeflate then
-                                            local compressed = LibDeflate:CompressDeflate(serialized)
-                                            local encoded = LibDeflate:EncodeForPrint(compressed)
-                        addon:Print((L.CURRENT_PROFILE_DATA_COMPRESSED or "|cffFFD700Current Profile Data (compressed):|r") .. "\n" .. ("\n" .. ("|cff888888" .. encoded .. "|r")))
-                                        elseif serialized then
-                        addon:Print((L.CURRENT_PROFILE_DATA or "|cffFFD700Current Profile Data:|r") .. "\n" .. ("\n" .. ("|cff888888" .. serialized .. "|r")))
-                                        else
-                        addon:Print(L.SERIALIZATION_NOT_AVAILABLE or "[Serialization not available]")
-                                        end
+                                    if addon.DebugExportTable and addon.db and addon.db.profile then
+                                        addon:DebugExportTable(addon.db.profile)
                                     end
                                 end,
                             },
@@ -589,15 +551,15 @@ function Options:GetOptions()
                                 type = "input",
                 name = L.IMPORT_PROFILE_DATA or "Import Profile Data",
                 desc = L.IMPORT_PROFILE_DATA_DESC or "Paste a profile export string here to import settings.",
-                                order = 99,
+                                order = 3,
                                 get = function() return "" end,
-                set = function(_, val) if addon.ImportProfileString then addon:ImportProfileString(val) else addon:Print(L.IMPORT_NOT_IMPLEMENTED or "Import feature not yet implemented.") end end,
+                                set = function(_, val) if addon.ImportProfileString then addon:ImportProfileString(val) else addon:Print(L.IMPORT_NOT_IMPLEMENTED or "Import feature not yet implemented.") end end,
                             },
                             autoSwitch = {
                                 type = "toggle",
                 name = L.AUTO_SWITCH_PROFILE or "Auto-Switch Profile by Spec",
                 desc = L.AUTO_SWITCH_PROFILE_DESC or "Automatically switch profiles when changing specialization.",
-                                order = 100,
+                                order = 4,
                                 get = function() local db = getSafeProfile() return db.autoSwitchProfile end,
                                 set = function(_, val) local db = getSafeProfile() db.autoSwitchProfile = val end,
                             },
@@ -642,9 +604,10 @@ function Options:GetOptions()
                     },
                     elvui = {
                         type = "toggle",
-            name = L.ENABLE_ELVUI_COMPAT or "Enable ElvUI Compatibility",
+            name = L.ENABLE_ELVUI_COMPAT or "ElvUI Compatibility",
             desc = L.ENABLE_ELVUI_COMPAT_DESC or "Force overlays even if ElvUI is loaded (may cause conflicts).",
                         order = 1,
+                        width = "full",
                         get = function() local db = getSafeProfile() return db.forceOverlaysWithElvUI end,
                         set = function(_, val) local db = getSafeProfile() db.forceOverlaysWithElvUI = val; addon.Core:FullUpdate() end,
                     },
@@ -665,18 +628,29 @@ function Options:GetOptions()
                         order = 0,
                         name = L.DEBUGGING_INFO or "Use these tools only when troubleshooting. Normal setup should not require them.",
                     },
+                    enableTroubleshooting = {
+                        type = "toggle",
+                        name = L.ENABLE_TROUBLESHOOTING_TOOLS or "Enable Troubleshooting Tools",
+                        desc = L.ENABLE_TROUBLESHOOTING_TOOLS_DESC or "Show import/export and profiling tools used for support and debugging.",
+                        order = 1,
+                        width = "full",
+                        get = function() local db = getSafeProfile() return db.troubleshootingTools end,
+                        set = function(_, val) local db = getSafeProfile() db.troubleshootingTools = val end,
+                    },
                     debugExport = {
                         type = "execute",
             name = L.EXPORT_DEBUG_DATA or "Export Debug Data",
             desc = L.EXPORT_DEBUG_DATA_DESC or "Export current settings or table for debugging.",
-                        order = 1,
+                        order = 2,
+                        hidden = function() local db = getSafeProfile() return not db.troubleshootingTools end,
             func = function() if addon.DebugExportTable then addon:DebugExportTable(addon.db and addon.db.profile) else addon:Print(L.DEBUG_EXPORT_NOT_AVAILABLE or "Debug export not available.") end end,
                     },
                     debugImport = {
                         type = "input",
             name = L.IMPORT_DEBUG_DATA or "Import Debug Data",
             desc = L.IMPORT_DEBUG_DATA_DESC or "Paste a debug export string to import settings or data.",
-                        order = 2,
+                        order = 3,
+                        hidden = function() local db = getSafeProfile() return not db.troubleshootingTools end,
                         get = function() return "" end,
             set = function(_, val) if addon.DebugImportString then addon:DebugImportString(val) else addon:Print(L.DEBUG_IMPORT_NOT_IMPLEMENTED or "Debug import not yet implemented.") end end,
                     },
@@ -684,7 +658,8 @@ function Options:GetOptions()
                         type = "toggle",
             name = L.SHOW_PERF_METRICS or "Show Performance Metrics",
             desc = L.SHOW_PERF_METRICS_DESC or "Show overlay update times and enable performance logging.",
-                        order = 3,
+                        order = 4,
+                        hidden = function() local db = getSafeProfile() return not db.troubleshootingTools end,
                         get = function() local db = getSafeProfile() return db.showPerfMetrics end,
                         set = function(_, val) local db = getSafeProfile() db.showPerfMetrics = val end,
                     },
@@ -692,7 +667,8 @@ function Options:GetOptions()
                         type = "execute",
                         name = L.OPEN_DEBUG_LOG or "Open Debug Log",
                         desc = L.OPEN_DEBUG_LOG_DESC or "Open the in-game debug log window.",
-                        order = 4,
+                        order = 5,
+                        hidden = function() local db = getSafeProfile() return not db.troubleshootingTools end,
                         func = function()
                             if addon and addon.ShowDebugLogWindow then
                                 addon:ShowDebugLogWindow()
@@ -726,7 +702,7 @@ function Options:GetOptions()
             name = L.ABOUT_TEXT or [[
 |cffFFD700Advanced Hotkey Overlay System|r
 
-A modular hotkey overlay system for World of Warcraft action bars with dedicated support for Blizzard, AzeriteUI, and Dominos.
+A modular hotkey overlay system for World of Warcraft action bars with dedicated support for Blizzard, AzeriteUI, Dominos, Bartender4, and DiabolicUI.
 
 |cffFFD700Made by:|r JuNNeZ
 |cffFFD700Libraries:|r Ace3, LibDBIcon-1.0, LibSharedMedia-3.0, LibSerialize, LibDeflate.

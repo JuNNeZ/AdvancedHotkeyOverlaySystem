@@ -43,14 +43,6 @@ Config.ready = false
 Config.uiDetected = false
 Config._finalized = false
 
--- Known UI addons to check
-local uiAddons = {
-    -- Keys must be exact folder names (case-sensitive)
-    ["ElvUI"] = "ElvUI",
-    ["AzeriteUI"] = "AzeriteUI",
-    ["Dominos"] = "Dominos",
-}
-
 -- Font path fix
 local DEFAULT_FONT = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 local LibSharedMedia = LibStub and LibStub("LibSharedMedia-3.0", true)
@@ -121,6 +113,7 @@ function Config:GetDefaultProfile()
         bars = {},
         performance = {},
         debug = false,
+        troubleshootingTools = false,
     }
 end
 
@@ -160,73 +153,38 @@ end
 
 function Config:DetectUserInterface()
     if self._finalized then return end
-    
-    -- Check for known UI addons
-    for folder, uiName in pairs(uiAddons) do
-        if IsAddOnLoaded(folder) then
-            self.detectedUI = uiName
-            addon.detectedUI = uiName
-            break
-        end
-    end
-    
+
     -- Debug: List all loaded addons if debug is enabled
     if self.db and self.db.profile and self.db.profile.debug then
-        addon:Print("=== UI Detection Debug ===")
-        
-        -- Check if specific UI detection indicators are present
-        addon:Print("Checking UI indicators:")
-        addon:Print("- AzeriteUI loaded: " .. tostring(IsAddOnLoaded("AzeriteUI")))
-        addon:Print("- Azerite loaded: " .. tostring(IsAddOnLoaded("Azerite")))
-        addon:Print("- AzUI loaded: " .. tostring(IsAddOnLoaded("AzUI")))
-        addon:Print("- AzUI_Color_Picker loaded: " .. tostring(IsAddOnLoaded("AzUI_Color_Picker")))
-        addon:Print("- ElvUI loaded: " .. tostring(IsAddOnLoaded("ElvUI")))
-        addon:Print("- Global AzeriteUI exists: " .. tostring(rawget(_G, "AzeriteUI") ~= nil))
-        addon:Print("- Global ElvUI exists: " .. tostring(rawget(_G, "ElvUI") ~= nil))
-        
+        addon:Print("=== Provider Detection Debug ===")
         local loadedAddons = {}
         for i = 1, GetNumAddOns() do
             if IsAddOnLoaded(i) then
                 local folderName = select(2, GetAddOnInfo(i)) or "Unknown"
                 local title = GetAddOnMetadata(i, "Title") or folderName
-                if folderName:lower():find("azer") or folderName:lower():find("azui") or 
-                   title:lower():find("azer") or title:lower():find("azui") then
-                    table.insert(loadedAddons, folderName .. " (" .. title .. ") [AZERITE RELATED]")
-                else
-                    table.insert(loadedAddons, folderName .. " (" .. title .. ")")
-                end
+                table.insert(loadedAddons, folderName .. " (" .. title .. ")")
             end
         end
         addon:Print("All loaded addons: " .. table.concat(loadedAddons, ", "))
     end
-    
-    -- Check for AzeriteUI with multiple possible names and detection methods
-    if rawget(_G, "AzeriteUI") then
-        self.detectedUI = "AzeriteUI"
-        addon.detectedUI = "AzeriteUI"
-    elseif rawget(_G, "ElvUI") then
-        self.detectedUI = "ElvUI"
-        addon.detectedUI = "ElvUI"
-    elseif rawget(_G, "Dominos") then
-        self.detectedUI = "Dominos"
-        addon.detectedUI = "Dominos"
-    else
-        self.detectedUI = "Blizzard"
-        addon.detectedUI = "Blizzard"
-    end
-    
+
+    self.detectedUI = addon:DetectUI() or "Blizzard"
+    addon.detectedUI = self.detectedUI
+
     if self.db and self.db.profile and self.db.profile.debug then
-        addon:Print("Final detected UI: " .. (addon.detectedUI or "None"))
-        addon:Print("=== End UI Detection Debug ===")
+        addon:Print("Final detected provider: " .. addon:GetDetectedProviderText())
+        addon:Print("=== End Provider Detection Debug ===")
     end
 end
 
 function Config:OnAddonLoaded(_, name)
     if self._finalized then return end
-    -- Use exact folder names only
-    if uiAddons[name] then
-        self.detectedUI = uiAddons[name]
-        addon.detectedUI = uiAddons[name]
+    for key, provider in pairs(addon.ProviderRegistry or {}) do
+        if provider.addon == name and not provider.conflict_only then
+            self.detectedUI = key
+            addon.detectedUI = key
+            break
+        end
     end
 end
 
@@ -252,19 +210,13 @@ function Config:InitializeSettings()
 end
 
 function Config:ApplyUISettings()    local db = addon.db.profile
-
-    -- Apply settings based on detected UI
-    if self.detectedUI == "AzeriteUI" then
-        db.display.xOffset = -18  -- Adjusted for AzeriteUI button positioning
-        db.display.yOffset = -2
-        db.display.scale = 0.9
-    elseif self.detectedUI == "ElvUI" then
-        db.display.xOffset = -20
-        db.display.yOffset = -4
-        db.display.scale = 0.85
+    local provider = addon:GetProviderInfo(self.detectedUI)
+    local offsets = provider and provider.defaultOffsets
+    if offsets then
+        db.display.xOffset = offsets.xOffset
+        db.display.yOffset = offsets.yOffset
+        db.display.scale = offsets.scale
     end
-    
-    -- Note: Changes are automatically saved since db is a reference to the profile
 end
 
 function Config:BroadcastConfigReady()
@@ -291,12 +243,11 @@ function Config:IsUIDetected()
 end
 
 -- UI-specific color table for overlays
-addon.UIColors = {
-    AzeriteUI = {0.25, 0.78, 0.92},      -- Cyan
-    ElvUI = {0.51, 0.85, 0.98},         -- Light blue
-    Dominos = {0.00, 0.80, 0.60},       -- Teal
-    Blizzard = {1.00, 1.00, 1.00},      -- White
-}
+addon.UIColors = setmetatable({}, {
+    __index = function(_, key)
+        return addon:GetProviderColor(key)
+    end,
+})
 
 -- Helper to get the color for the detected UI
 function Config:GetUIColor()
