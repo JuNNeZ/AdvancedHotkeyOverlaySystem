@@ -17,6 +17,16 @@ local function IsRetail()
 end
 local isRetail = IsRetail()
 
+function Core:HandleBarStateChanged(eventName)
+    if addon.db and addon.db.profile and addon.db.profile.debug then
+        addon:Print("[AHOS DEBUG] Bar state event: " .. tostring(eventName) .. " -> scheduling overlay refresh passes.")
+    end
+    self:FullUpdate()
+    self:ScheduleTimer(function() self:FullUpdate() end, 0.05)
+    self:ScheduleTimer(function() self:FullUpdate() end, 0.2)
+    self:ScheduleTimer(function() self:FullUpdate() end, 0.5)
+end
+
 function Core:OnInitialize()
     -- Register with AceDB
     if not LibStub("AceDB-3.0") then
@@ -108,9 +118,21 @@ function Core:RegisterEvents()
     self:RegisterEvent("ACTIONBAR_HIDEGRID", "FullUpdate")
     self:RegisterEvent("ACTIONBAR_PAGE_CHANGED", "FullUpdate")
     self:RegisterEvent("ACTIONBAR_SLOT_CHANGED", "UpdateSpecificButton")
-    self:RegisterEvent("PET_BAR_UPDATE", "FullUpdate")
-    self:RegisterEvent("UPDATE_SHAPESHIFT_FORM", "FullUpdate")
-    self:RegisterEvent("UPDATE_POSSESS_BAR", "FullUpdate")
+    self:RegisterEvent("PET_BAR_UPDATE", function() self:HandleBarStateChanged("PET_BAR_UPDATE") end)
+    self:RegisterEvent("UPDATE_SHAPESHIFT_FORM", function() self:HandleBarStateChanged("UPDATE_SHAPESHIFT_FORM") end)
+    self:RegisterEvent("UPDATE_POSSESS_BAR", function() self:HandleBarStateChanged("UPDATE_POSSESS_BAR") end)
+    -- Possess/vehicle/override transitions can restore normal action bars asynchronously.
+    -- Listen to all relevant state transitions and run a few delayed refresh passes.
+    self:RegisterEvent("UPDATE_OVERRIDE_ACTIONBAR", function() self:HandleBarStateChanged("UPDATE_OVERRIDE_ACTIONBAR") end)
+    self:RegisterEvent("UPDATE_VEHICLE_ACTIONBAR", function() self:HandleBarStateChanged("UPDATE_VEHICLE_ACTIONBAR") end)
+    self:RegisterEvent("UNIT_ENTERED_VEHICLE", function(_, unit)
+        if unit == "player" then self:HandleBarStateChanged("UNIT_ENTERED_VEHICLE") end
+    end)
+    self:RegisterEvent("UNIT_EXITED_VEHICLE", function(_, unit)
+        if unit == "player" then self:HandleBarStateChanged("UNIT_EXITED_VEHICLE") end
+    end)
+    self:RegisterEvent("PLAYER_ENTERING_VEHICLE", function() self:HandleBarStateChanged("PLAYER_ENTERING_VEHICLE") end)
+    self:RegisterEvent("PLAYER_EXITING_VEHICLE", function() self:HandleBarStateChanged("PLAYER_EXITING_VEHICLE") end)
     -- self:RegisterEvent("VEHICLE_UI_SHOW", "FullUpdate") -- Event does not exist in modern WoW
     -- self:RegisterEvent("VEHICLE_UI_HIDE", "FullUpdate") -- Event does not exist in modern WoW
     self:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", "FullUpdate")

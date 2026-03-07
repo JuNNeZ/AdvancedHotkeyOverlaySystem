@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.15] - 2026-03-07
+
+### Fixed (2.5.15)
+
+- Fixed overlays not returning automatically after possess/vehicle/override bar transitions by adding robust bar-state refresh handling with delayed passes.
+
+### Changed (2.5.15)
+
+- Added a consolidated `HandleBarStateChanged` refresh path in `modules/Core.lua`.
+- Expanded event coverage for action-bar state swaps (`UPDATE_OVERRIDE_ACTIONBAR`, `UPDATE_VEHICLE_ACTIONBAR`, vehicle enter/exit events, and possess-related updates).
+- Bumped all TOC version metadata to `2.5.15`.
+- Updated README version highlights for `2.5.15`.
+
 ## [2.5.14] - 2026-03-07
 
 ### Fixed (2.5.14)
@@ -312,3 +325,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [2.5.12]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.12
 [2.5.13]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.13
 [2.5.14]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.14
+[2.5.15]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.15
