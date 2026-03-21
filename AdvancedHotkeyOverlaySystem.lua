@@ -362,9 +362,19 @@ function addon:SetReady()
     self:SafeCall("Core", "FullUpdate")
     -- Register overlay update events only after ready
     self:RegisterEvent("UPDATE_BINDINGS", function()
-        if self.db.profile.debug then self:Print("UPDATE_BINDINGS: Updating overlays.") end
+        if self.Keybinds and self.Keybinds.ClearCache then
+            self.Keybinds:ClearCache()
+        end
+        if self.db.profile.debug then self:Print("UPDATE_BINDINGS: Clearing keybind cache and updating overlays.") end
         self:UpdateAllButtons()
     end)
+        self:RegisterEvent("PLAYER_REGEN_DISABLED", function()
+            if self.Keybinds and self.Keybinds.ClearCache then
+                self.Keybinds:ClearCache()
+            end
+            if self.db.profile.debug then self:Print("PLAYER_REGEN_DISABLED: Entered combat, clearing keybind cache and updating overlays.") end
+            self:UpdateAllButtons()
+        end)
     self:RegisterEvent("ACTIONBAR_SLOT_CHANGED", function()
         if not InCombatLockdown() then
             if self.db.profile.debug then self:Print("ACTIONBAR_SLOT_CHANGED: Updating overlays.") end

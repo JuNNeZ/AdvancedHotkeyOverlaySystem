@@ -25,6 +25,7 @@ function Core:HandleBarStateChanged(eventName)
     self:ScheduleTimer(function() self:FullUpdate() end, 0.05)
     self:ScheduleTimer(function() self:FullUpdate() end, 0.2)
     self:ScheduleTimer(function() self:FullUpdate() end, 0.5)
+    self:ScheduleTimer(function() self:FullUpdate() end, 1.0)
 end
 
 function Core:OnInitialize()

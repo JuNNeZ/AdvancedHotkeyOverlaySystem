@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.18] - 2026-03-21
+
+### Fixed (2.5.18)
+
+- Fixed remaining missing keybind overlays when exiting DynamicCam mount camera mode directly into combat by retrying button recovery until the buttons become effectively visible again.
+
+### Changed (2.5.18)
+
+- Extended delayed combat and bar-state refresh passes to cover longer asynchronous mount-to-combat UI restores.
+- Bumped all TOC version metadata to `2.5.18`.
+- Updated README version highlights for `2.5.18`.
+
 ## [2.5.17] - 2026-03-07
 
 ### Fixed (2.5.17)
@@ -351,4 +363,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [2.5.14]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.14
 [2.5.15]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.15
 [2.5.16]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.16
+[2.5.18]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.18
 [2.5.17]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.17

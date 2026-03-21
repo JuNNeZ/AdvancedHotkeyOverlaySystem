@@ -86,7 +86,7 @@ Advanced Hotkey Overlay System replaces the default hotkey text on your action b
 - LibSharedMedia-3.0 (included)
 - LibDBIcon-1.0 (included)
 
-## Recent Updates (v2.5.13)
+## Recent Updates (v2.5.18)
 - Added direct provider integrations for Bartender4 and DiabolicUI.
 - Refactored provider detection/scanning/keybind handling for consistent behavior across supported bars.
 - Fixed a secure-string taint compare path in hotkey-region anchor checks.

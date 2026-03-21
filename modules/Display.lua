@@ -13,6 +13,7 @@ local guardSetText = setmetatable({}, { __mode = "k" }) -- Re-entrancy guard per
 local nativeRewriteButtons = {}  -- Per-button flag when we actively rewrite native FS
 local providerHotkeyHooks = setmetatable({}, { __mode = "k" })
 local buttonVisibilityHooks = setmetatable({}, { __mode = "k" })
+local visibilityRecoveryDelays = { 0, 0.05, 0.2, 0.5, 1.0 }
 -- Simple build gate: Retail Dragonflight+ has build numbers >= 100000
 local isRetail = (select(4, GetBuildInfo()) or 0) >= 100000
 
@@ -202,23 +203,21 @@ function Display:EnsureButtonVisibilityHook(button)
         if not addon or not addon.IsReady or not addon:IsReady() then return end
         if not addon.db or not addon.db.profile or not addon.db.profile.enabled then return end
 
-        if addon.Performance and addon.Performance.QueueButtonUpdate then
-            addon.Performance:QueueButtonUpdate(self)
-        end
-
         -- Some UI hiders/showers (e.g., DynamicCam) restore bars asynchronously.
-        -- Run a couple of direct passes after OnShow so overlays reliably come back.
+        -- OnShow can fire before the button becomes effectively visible, so keep retrying
+        -- until the parent bar has actually finished restoring.
         if addon.Core and addon.Core.ScheduleTimer and addon.Display and addon.Display.UpdateOverlayForButton then
-            addon.Core:ScheduleTimer(function()
-                if self and self.IsShown and self:IsShown() then
-                    addon.Display:UpdateOverlayForButton(self)
-                end
-            end, 0.05)
-            addon.Core:ScheduleTimer(function()
-                if self and self.IsShown and self:IsShown() then
-                    addon.Display:UpdateOverlayForButton(self)
-                end
-            end, 0.2)
+            for _, delay in ipairs(visibilityRecoveryDelays) do
+                addon.Core:ScheduleTimer(function()
+                    if not self or not self.IsShown or not self:IsShown() then return end
+                    if addon.Performance and addon.Performance.QueueButtonUpdate then
+                        addon.Performance:QueueButtonUpdate(self)
+                    end
+                    if self.IsVisible and self:IsVisible() then
+                        addon.Display:UpdateOverlayForButton(self)
+                    end
+                end, delay)
+            end
         end
     end)
 end
