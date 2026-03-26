@@ -100,21 +100,9 @@ function Core:RegisterEvents()
     self:ScheduleTimer(function() self:FullUpdate() end, 0.5)
     self:ScheduleTimer(function() self:FullUpdate() end, 1.0)
     end)
-    -- Some UIs fire PLAYER_BINDING_CHANGED frequently while editing
-    if isRetail then
-      self:RegisterEvent("PLAYER_BINDING_CHANGED", function()
-          if addon.Keybinds and addon.Keybinds.ClearCache then
-              addon.Keybinds:ClearCache()
-          end
-          self:FullUpdate()
-          self:ScheduleTimer(function() self:FullUpdate() end, 0.2)
-          self:ScheduleTimer(function() self:FullUpdate() end, 0.5)
-      end)
-    else
-      -- Classic: event not available, rely on UPDATE_BINDINGS
-      if addon.db and addon.db.profile and addon.db.profile.debug then
-        addon:Print("[AHOS DEBUG] Skipping PLAYER_BINDING_CHANGED on Classic.")
-      end
+    -- Retail 12.0.1 no longer exposes PLAYER_BINDING_CHANGED; rely on UPDATE_BINDINGS.
+    if addon.db and addon.db.profile and addon.db.profile.debug and isRetail then
+        addon:Print("[AHOS DEBUG] Using UPDATE_BINDINGS for binding refreshes on Retail.")
     end
     self:RegisterEvent("ACTIONBAR_HIDEGRID", "FullUpdate")
     self:RegisterEvent("ACTIONBAR_PAGE_CHANGED", "FullUpdate")
@@ -137,8 +125,6 @@ function Core:RegisterEvents()
     self:RegisterEvent("UNIT_EXITED_VEHICLE", function(_, unit)
         if unit == "player" then self:HandleBarStateChanged("UNIT_EXITED_VEHICLE") end
     end)
-    self:RegisterEvent("PLAYER_ENTERING_VEHICLE", function() self:HandleBarStateChanged("PLAYER_ENTERING_VEHICLE") end)
-    self:RegisterEvent("PLAYER_EXITING_VEHICLE", function() self:HandleBarStateChanged("PLAYER_EXITING_VEHICLE") end)
     -- self:RegisterEvent("VEHICLE_UI_SHOW", "FullUpdate") -- Event does not exist in modern WoW
     -- self:RegisterEvent("VEHICLE_UI_HIDE", "FullUpdate") -- Event does not exist in modern WoW
     self:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", "FullUpdate")
@@ -150,13 +136,13 @@ function Core:RegisterEvents()
     -- Optional: listen for LibKeyBound callbacks if library is present (used by Dominos/Bartender keybind mode)
     local ok, KeyBound = pcall(LibStub, "LibKeyBound-1.0")
     if ok and KeyBound and KeyBound.RegisterCallback then
-        KeyBound:RegisterCallback(self, "LIBKEYBOUND_ENABLED", function()
+        KeyBound.RegisterCallback(self, "LIBKEYBOUND_ENABLED", function()
             if addon.db and addon.db.profile and addon.db.profile.debug then
                 addon:Print("[AHOS DEBUG] LibKeyBound: enabled; suppressing native hotkeys during binding.")
             end
             self:FullUpdate()
         end)
-        KeyBound:RegisterCallback(self, "LIBKEYBOUND_DISABLED", function()
+        KeyBound.RegisterCallback(self, "LIBKEYBOUND_DISABLED", function()
             if addon.db and addon.db.profile and addon.db.profile.debug then
                 addon:Print("[AHOS DEBUG] LibKeyBound: disabled; re-applying overlay suppression.")
             end

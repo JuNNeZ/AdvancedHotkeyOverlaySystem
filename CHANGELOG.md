@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.19] - 2026-03-26
+
+### Fixed (2.5.19)
+
+- Removed invalid `PLAYER_BINDING_CHANGED`, `PLAYER_ENTERING_VEHICLE`, and `PLAYER_EXITING_VEHICLE` registrations that now error on WoW `12.0.1`.
+- Fixed `LibKeyBound-1.0` callback registration in `modules/Core.lua` by using the correct `RegisterCallback` call form.
+
+### Changed (2.5.19)
+
+- Standardized binding and vehicle refresh logic on valid modern client events already supported by the addon.
+- Bumped all TOC version metadata to `2.5.19`.
+- Updated README version highlights for `2.5.19`.
+
 ## [2.5.18] - 2026-03-21
 
 ### Fixed (2.5.18)
@@ -363,5 +376,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [2.5.14]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.14
 [2.5.15]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.15
 [2.5.16]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.16
-[2.5.18]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.18
 [2.5.17]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.17
+[2.5.18]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.18
+[2.5.19]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.19
