@@ -1,0 +1,35 @@
+name: Publish Wiki
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'wiki/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Push wiki/ to GitHub wiki remote
+        run: |
+          git clone "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git" wiki-remote
+          cp -r wiki/. wiki-remote/
+          cd wiki-remote
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          if git diff --cached --quiet; then
+            echo "No wiki changes to commit."
+          else
+            git commit -m "Sync wiki from main repo @ ${{ github.sha }}"
+            git push
+          fi
