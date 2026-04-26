@@ -35,6 +35,21 @@ end
 
 local function GetButtonCommandName(button, provider)
     if not button then return nil end
+    if button.GetBindingAction then
+        local ok, cmd = pcall(button.GetBindingAction, button)
+        if ok and cmd and cmd ~= "" then return cmd end
+    end
+    if button.config then
+        local cmd = button.config.keyBoundTarget
+        if cmd and cmd ~= "" then return cmd end
+        local clickButton = button.config.keyBoundClickButton
+        if clickButton and clickButton ~= "" and button.GetName then
+            local buttonName = button:GetName()
+            if buttonName and buttonName ~= "" then
+                return "CLICK " .. buttonName .. ":" .. clickButton
+            end
+        end
+    end
     local fields = (provider and provider.command_fields) or { "commandName", "keyBoundTarget" }
     for _, field in ipairs(fields) do
         local cmd = button[field]
@@ -119,6 +134,26 @@ local function GetBindingCommandFromButtonName(buttonName)
     if n then return "MULTIACTIONBAR3BUTTON" .. n end
     n = buttonName:match("^MultiBarLeftButton(%d+)$")
     if n then return "MULTIACTIONBAR4BUTTON" .. n end
+    n = buttonName:match("^MultiBar5Button(%d+)$")
+    if n then return "MULTIACTIONBAR5BUTTON" .. n end
+    n = buttonName:match("^MultiBar6Button(%d+)$")
+    if n then return "MULTIACTIONBAR6BUTTON" .. n end
+    n = buttonName:match("^MultiBar7Button(%d+)$")
+    if n then return "MULTIACTIONBAR7BUTTON" .. n end
+    n = buttonName:match("^MultiBarRightActionButton(%d+)$")
+    if n then return "MULTIACTIONBAR3BUTTON" .. n end
+    n = buttonName:match("^MultiBarLeftActionButton(%d+)$")
+    if n then return "MULTIACTIONBAR4BUTTON" .. n end
+    n = buttonName:match("^MultiBarBottomRightActionButton(%d+)$")
+    if n then return "MULTIACTIONBAR2BUTTON" .. n end
+    n = buttonName:match("^MultiBarBottomLeftActionButton(%d+)$")
+    if n then return "MULTIACTIONBAR1BUTTON" .. n end
+    n = buttonName:match("^MultiBar5ActionButton(%d+)$")
+    if n then return "MULTIACTIONBAR5BUTTON" .. n end
+    n = buttonName:match("^MultiBar6ActionButton(%d+)$")
+    if n then return "MULTIACTIONBAR6BUTTON" .. n end
+    n = buttonName:match("^MultiBar7ActionButton(%d+)$")
+    if n then return "MULTIACTIONBAR7BUTTON" .. n end
     -- Stance/Shapeshift & Pet & Possess bars
     n = buttonName:match("^StanceButton(%d+)$")
     if n then return "SHAPESHIFTBUTTON" .. n end
@@ -136,16 +171,41 @@ local function GetBindingCommandFromButtonName(buttonName)
         elseif azBar == 2 then return "MULTIACTIONBAR1BUTTON" .. azBtn
         elseif azBar == 3 then return "MULTIACTIONBAR2BUTTON" .. azBtn
         elseif azBar == 4 then return "MULTIACTIONBAR3BUTTON" .. azBtn
-        elseif azBar == 5 then return "MULTIACTIONBAR4BUTTON" .. azBtn end
+        elseif azBar == 5 then return "MULTIACTIONBAR4BUTTON" .. azBtn
+        elseif azBar == 6 then return "MULTIACTIONBAR5BUTTON" .. azBtn
+        elseif azBar == 7 then return "MULTIACTIONBAR6BUTTON" .. azBtn
+        elseif azBar == 8 then return "MULTIACTIONBAR7BUTTON" .. azBtn end
     end
     local stanceBtn = buttonName:match("^AzeriteStanceBarButton(%d+)$")
     if stanceBtn then return "SHAPESHIFTBUTTON" .. stanceBtn end
+    local petBtn = buttonName:match("^AzeritePetBarButton(%d+)$")
+    if petBtn then return "BONUSACTIONBUTTON" .. petBtn end
     return nil
 end
 
 -- Helper function to get the correct binding command string from a Blizzard action ID.
 function Keybinds:GetBindingCommandFromAction(actionID)
     if not actionID or actionID < 1 then return nil end
+    if isRetail then
+        if actionID >= 1 and actionID <= 12 then
+            return "ACTIONBUTTON" .. actionID
+        elseif actionID >= 25 and actionID <= 36 then
+            return "MULTIACTIONBAR3BUTTON" .. (actionID - 24)
+        elseif actionID >= 37 and actionID <= 48 then
+            return "MULTIACTIONBAR4BUTTON" .. (actionID - 36)
+        elseif actionID >= 49 and actionID <= 60 then
+            return "MULTIACTIONBAR2BUTTON" .. (actionID - 48)
+        elseif actionID >= 61 and actionID <= 72 then
+            return "MULTIACTIONBAR1BUTTON" .. (actionID - 60)
+        elseif actionID >= 133 and actionID <= 144 then
+            return "MULTIACTIONBAR5BUTTON" .. (actionID - 132)
+        elseif actionID >= 145 and actionID <= 156 then
+            return "MULTIACTIONBAR6BUTTON" .. (actionID - 144)
+        elseif actionID >= 157 and actionID <= 168 then
+            return "MULTIACTIONBAR7BUTTON" .. (actionID - 156)
+        end
+        return nil
+    end
     if actionID >= 1 and actionID <= 12 then
         return "ACTIONBUTTON" .. actionID
     elseif actionID >= 13 and actionID <= 24 then
@@ -384,7 +444,18 @@ function Keybinds:GetFullBindingText(button)
         end
     end
 
-    -- If that failed (e.g., no .action property), fall back to name matching for specific UIs.
+    -- If that failed, fall back to stable button-name mappings.
+    if not key or key == "" then
+        local nameCommand = GetBindingCommandFromButtonName(buttonName)
+        if nameCommand then
+            key = FirstBindingKey(nameCommand)
+            if addon.db and addon.db.profile and addon.db.profile.debug then
+                addon:Print(string.format("[AHOS DEBUG] Name-based binding fallback for %s => %s (%s)", tostring(buttonName), tostring(key), nameCommand))
+            end
+        end
+    end
+
+    -- If that failed (e.g., no .action property), fall back to legacy UI-specific matching.
     if not key or key == "" then
         -- AzeriteUI main bar mapping
         local azBar, azBtn = buttonName:match("^AzeriteActionBar(%d+)Button(%d+)$")
@@ -397,6 +468,9 @@ function Keybinds:GetFullBindingText(button)
             elseif azBar == 3 then command = "MULTIACTIONBAR2BUTTON" .. azBtn
             elseif azBar == 4 then command = "MULTIACTIONBAR3BUTTON" .. azBtn
             elseif azBar == 5 then command = "MULTIACTIONBAR4BUTTON" .. azBtn
+            elseif azBar == 6 then command = "MULTIACTIONBAR5BUTTON" .. azBtn
+            elseif azBar == 7 then command = "MULTIACTIONBAR6BUTTON" .. azBtn
+            elseif azBar == 8 then command = "MULTIACTIONBAR7BUTTON" .. azBtn
             end
             if command then key = GetBindingKey(command) end
         end
@@ -405,6 +479,11 @@ function Keybinds:GetFullBindingText(button)
         local stanceBtn = buttonName:match("^AzeriteStanceBarButton(%d+)$")
         if stanceBtn then
             key = GetBindingKey("SHAPESHIFTBUTTON" .. stanceBtn)
+        end
+
+        local petBtn = buttonName:match("^AzeritePetBarButton(%d+)$")
+        if petBtn then
+            key = GetBindingKey("BONUSACTIONBUTTON" .. petBtn)
         end
     end
 

@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.20] - 2026-04-26
+
+### Fixed (2.5.20)
+
+- Fixed Bartender4 detection and binding resolution so AHOS can discover all Retail Bartender action bars instead of only bar 1.
+- Added LibActionButton binding target support for action bar addons that expose `GetBindingAction`, `keyBoundTarget`, or configured click-binding buttons.
+- Added Retail extra-bar binding mappings for Blizzard/Dominos-style bars 5, 6, and 7.
+
+### Changed (2.5.20)
+
+- Expanded local compatibility coverage for Dominos Retail native-style buttons, AzeriteUI5 JuNNeZ Edition bars 1-8 plus pet/stance bars, DiabolicUI2/3 aliases, and GW2_UI-style native Blizzard bars.
+- Bumped all TOC version metadata to `2.5.20`.
+- Updated README and CurseForge compatibility notes for `2.5.20`.
+
 ## [2.5.19] - 2026-03-26
 
 ### Fixed (2.5.19)
@@ -379,3 +393,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [2.5.17]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.17
 [2.5.18]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.18
 [2.5.19]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.19
+[2.5.20]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.20

@@ -4,13 +4,13 @@ Enhanced hotkey overlays for all action bar addons with intelligent UI detection
 
 ## What does this addon do?
 
-Advanced Hotkey Overlay System replaces the default hotkey text on your action buttons with fully customizable overlays. It currently has dedicated support for the default Blizzard interface, AzeriteUI, and Dominos, with conflict-aware handling for ElvUI.
+Advanced Hotkey Overlay System replaces the default hotkey text on your action buttons with fully customizable overlays. It currently has dedicated support for the default Blizzard interface, AzeriteUI, Bartender4, Dominos, and DiabolicUI, with conflict-aware handling for ElvUI.
 
 ## Key Features
 
 ### Universal Compatibility
 
-- Automatically detects Blizzard UI, AzeriteUI, Dominos, and ElvUI conflict state
+- Automatically detects Blizzard UI, AzeriteUI, Bartender4, Dominos, DiabolicUI, and ElvUI conflict state
 - Focused support for the action bar addons the codebase explicitly targets
 - Intelligent button detection for new and custom action bars
 

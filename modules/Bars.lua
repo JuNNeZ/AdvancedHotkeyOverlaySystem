@@ -23,13 +23,17 @@ local barDefinitions = {
     { "MultiBarBottomRightButton%d", 1, 12 },
     { "MultiBarRightButton%d", 1, 12 },
     { "MultiBarLeftButton%d", 1, 12 },
+    { "MultiBar5Button%d", 1, 12 },
+    { "MultiBar6Button%d", 1, 12 },
+    { "MultiBar7Button%d", 1, 12 },
     { "StanceButton%d", 1, 10 },
     { "PetActionButton%d", 1, 10 },
     { "PossessButton%d", 1, 12 },
     { "ExtraActionButton1", 0, 0 },
     { "OverrideActionBarButton%d", 1, 12 },
-    -- AzeriteUI bars (support up to 5 bars, 12 buttons each)
-    { "AzeriteActionBar%dButton%d", 1, 5, 1, 12 },
+    -- AzeriteUI Retail supports up to 8 bars, 12 buttons each.
+    { "AzeriteActionBar%dButton%d", 1, 8, 1, 12 },
+    { "AzeritePetBarButton%d", 1, 10 },
     { "AzeriteStanceBarButton%d", 1, 10 },
     -- Dominos (Retail/Classic): buttons are often named DominosActionButton<globalIndex>
     -- We'll also dynamically discover Dominos frames if loaded.

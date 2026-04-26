@@ -56,6 +56,7 @@ addon.ProviderRegistry = {
         key = "AzeriteUI",
         label = "AzeriteUI",
         addon = "AzeriteUI",
+        addons = { "AzeriteUI", "AzeriteUI5_JuNNeZ_Edition" },
         globals = { "AzeriteUI" },
         color_hex = "ffe6c200",
         color_rgb = {0.90, 0.76, 0.00},
@@ -63,6 +64,7 @@ addon.ProviderRegistry = {
         defaultOffsets = { xOffset = -18, yOffset = -2, scale = 0.90 },
         button_patterns = {
             "^AzeriteActionBar%d+Button%d+$",
+            "^AzeritePetBarButton%d+$",
             "^AzeriteStanceBarButton%d+$",
         },
     },
@@ -79,18 +81,33 @@ addon.ProviderRegistry = {
         compatibility_note = "Dominos is supported directly. If a skin hides overlays on some bars, try 'Dominos: Use Native Text' in Display.",
         button_patterns = {
             "^DominosActionButton%d+$",
+            "^MultiBarRightActionButton%d+$",
+            "^MultiBarLeftActionButton%d+$",
+            "^MultiBarBottomRightActionButton%d+$",
+            "^MultiBarBottomLeftActionButton%d+$",
+            "^MultiBar5ActionButton%d+$",
+            "^MultiBar6ActionButton%d+$",
+            "^MultiBar7ActionButton%d+$",
         },
         button_scanners = {
             globals = {
                 { prefix = "DominosActionButton", max = 200 },
+                { prefix = "MultiBarRightActionButton", max = 12 },
+                { prefix = "MultiBarLeftActionButton", max = 12 },
+                { prefix = "MultiBarBottomRightActionButton", max = 12 },
+                { prefix = "MultiBarBottomLeftActionButton", max = 12 },
+                { prefix = "MultiBar5ActionButton", max = 12 },
+                { prefix = "MultiBar6ActionButton", max = 12 },
+                { prefix = "MultiBar7ActionButton", max = 12 },
             },
             containers = {
-                { prefix = "DominosBar", count = 20, matcher = "^DominosActionButton%d+" },
-                { prefix = "DominosFrame", count = 20, matcher = "^DominosActionButton%d+" },
+                { prefix = "DominosBar", count = 20, matcher = "ActionButton%d+$" },
+                { prefix = "DominosFrame", count = 20, matcher = "ActionButton%d+$" },
             },
         },
         binding_rules = {
             { matcher = "^DominosActionButton%d+$", suffixes = { ":HOTKEY", ":LeftButton", ":Button1", ":AnyUp", ":AnyDown", ":RightButton", ":Button2", ":MiddleButton", ":Button3" } },
+            { matcher = "^MultiBar.+ActionButton%d+$", suffixes = { ":HOTKEY", ":LeftButton", ":Button1", ":AnyUp", ":AnyDown", ":RightButton", ":Button2", ":MiddleButton", ":Button3" } },
         },
         command_fields = { "commandName", "keyBoundTarget" },
         hotkey_update_method = "UpdateHotkeys",
@@ -103,7 +120,7 @@ addon.ProviderRegistry = {
         color_rgb = {0.96, 0.59, 0.16},
         supported = true,
         defaultOffsets = { xOffset = -20, yOffset = -4, scale = 0.90 },
-        compatibility_note = "Bartender4 is supported directly through BT4 button discovery and :Keybind bindings.",
+        compatibility_note = "Bartender4 is supported directly through BT4 button discovery, LibActionButton binding targets, and :Keybind bindings.",
         button_patterns = {
             "^BT4Button%d+$",
             "^BT4PetButton%d+$",
@@ -116,7 +133,7 @@ addon.ProviderRegistry = {
                 { prefix = "BT4StanceButton", max = 10 },
             },
             containers = {
-                { prefix = "BT4Bar", count = 10, matcher = "^BT4Button%d+" },
+                { prefix = "BT4Bar", count = 15, matcher = "^BT4Button%d+" },
             },
         },
         binding_rules = {
@@ -131,6 +148,7 @@ addon.ProviderRegistry = {
         key = "DiabolicUI3",
         label = "DiabolicUI",
         addon = "DiabolicUI3",
+        addons = { "DiabolicUI3", "DiabolicUI2" },
         color_hex = "ffdb3930",
         color_rgb = {0.86, 0.22, 0.19},
         supported = true,
@@ -193,6 +211,11 @@ function addon:IsProviderLoaded(key)
     local provider = self:GetProviderInfo(key)
     for _, globalName in ipairs(provider.globals or {}) do
         if rawget(_G, globalName) ~= nil then
+            return true
+        end
+    end
+    for _, addonName in ipairs(provider.addons or {}) do
+        if IsAddOnLoadedCompat(addonName) then
             return true
         end
     end

@@ -1,14 +1,14 @@
 # Advanced Hotkey Overlay System (AHOS)
 
-![Version](https://img.shields.io/badge/version-2.5.19-cyan)
+![Version](https://img.shields.io/badge/version-2.5.20-cyan)
 
-A modular, robust hotkey overlay system for World of Warcraft action bars, with dedicated support for Blizzard bars, AzeriteUI, and Dominos.
+A modular, robust hotkey overlay system for World of Warcraft action bars, with dedicated support for Blizzard bars, AzeriteUI, Bartender4, Dominos, and DiabolicUI.
 
-## Version 2.5.19 Highlights
+## Version 2.5.20 Highlights
 
-- Removed invalid Retail event registrations that started erroring on WoW `12.0.1`.
-- Fixed LibKeyBound callback registration so keybind-mode hooks initialize without CallbackHandler errors.
-- Kept binding and vehicle refresh coverage on valid modern client events only.
+- Fixed Bartender4 support across all Retail bars, not just bar 1.
+- Expanded Dominos Retail support for native-style extra bar buttons.
+- Added broader LibActionButton binding-target detection for AzeriteUI, Bartender4, and DiabolicUI-style buttons.
 
 ## Features
 
