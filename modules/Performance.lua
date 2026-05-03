@@ -54,6 +54,9 @@ function Performance:ProcessQueue()
             addon:Print("Processing partial update for " .. count .. " buttons.")
         end
         for _, button in pairs(updateQueue) do
+            if addon.Keybinds and addon.Keybinds.ClearButtonCache then
+                addon.Keybinds:ClearButtonCache(button)
+            end
             addon.Display:UpdateOverlayForButton(button)
         end
         wipe(updateQueue)

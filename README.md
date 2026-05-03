@@ -1,14 +1,14 @@
 # Advanced Hotkey Overlay System (AHOS)
 
-![Version](https://img.shields.io/badge/version-2.5.20-cyan)
+![Version](https://img.shields.io/badge/version-2.5.21-cyan)
 
 A modular, robust hotkey overlay system for World of Warcraft action bars, with dedicated support for Blizzard bars, AzeriteUI, Bartender4, Dominos, and DiabolicUI.
 
-## Version 2.5.20 Highlights
+## Version 2.5.21 Highlights
 
-- Fixed Bartender4 support across all Retail bars, not just bar 1.
-- Expanded Dominos Retail support for native-style extra bar buttons.
-- Added broader LibActionButton binding-target detection for AzeriteUI, Bartender4, and DiabolicUI-style buttons.
+- Fixed AzeriteUI dragonflying dismount refreshes where some keybind overlays could disappear until another bar-state change.
+- Added AzeriteUI `:Keybind` route detection and state-aware binding cache keys for dynamic action bar transitions.
+- Added bonus action bar refresh coverage for dragonflying mount and dismount state changes.
 
 ## Features
 

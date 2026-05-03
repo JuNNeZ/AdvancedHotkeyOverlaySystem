@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.21] - 2026-05-03
+
+### Fixed (2.5.21)
+
+- Fixed AzeriteUI dragonflying dismount transitions where several keybind overlays could disappear until combat or another bar-state refresh.
+- Added AzeriteUI `:Keybind` click-route binding resolution so overlays follow AzeriteUI's dynamic dragon/bonus action bar routing.
+- Made keybind caching state-aware for reused action button names during action, page, and binding-route swaps.
+- Prevented transient empty action-slot reads from removing AzeriteUI overlays when a stable keybind still resolves.
+
+### Changed (2.5.21)
+
+- Added `UPDATE_BONUS_ACTIONBAR` refresh handling for dragonflying and bonus-bar state changes.
+- Bumped all TOC version metadata to `2.5.21`.
+- Updated README version highlights for `2.5.21`.
+
 ## [2.5.20] - 2026-04-26
 
 ### Fixed (2.5.20)
@@ -394,3 +409,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [2.5.18]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.18
 [2.5.19]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.19
 [2.5.20]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.20
+[2.5.21]: https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/releases/tag/v2.5.21

@@ -323,13 +323,19 @@ function Display:UpdateOverlayForButton(button)
         end
         return
     end
+    local buttonName = button:GetName()
+    local provider = addon.GetProviderForButtonName and addon:GetProviderForButtonName(buttonName)
+    local overlayText = addon.Keybinds:GetBinding(button)
+
     -- Avoid drawing overlays on empty action slots. Works for Blizzard and many bar addons.
+    -- AzeriteUI can briefly report state-swapped dragon/bonus action slots as empty while the
+    -- stable button binding is still valid, so keep its overlay when the binding resolved.
     local actionId = (button.action and tonumber(button.action)) or (button.GetAttribute and tonumber(button:GetAttribute("action")))
     if actionId and actionId > 0 and type(HasAction) == "function" then
         local ok, has = pcall(HasAction, actionId)
-        if ok and has == false then
+        local keepBoundDynamicButton = provider and provider.key == "AzeriteUI" and overlayText and overlayText ~= ""
+        if ok and has == false and not keepBoundDynamicButton then
             -- Clear any existing overlay and ensure original hotkey regions are unsquelched
-            local buttonName = button:GetName()
             if activeOverlays[buttonName] then
                 ReleaseOverlayToPool(activeOverlays[buttonName])
                 activeOverlays[buttonName] = nil
@@ -349,8 +355,7 @@ function Display:UpdateOverlayForButton(button)
             return
         end
     end
-    local buttonName = button:GetName()
-    local overlayText = addon.Keybinds:GetBinding(button)
+
     -- Manage original hotkey text (save, hide, or restore)
     local hotkeyTextRegion = button.HotKey or _G[buttonName .. "HotKey"]
     -- Dominos/Masque/Classic may use unnamed FontStrings; scan heuristically

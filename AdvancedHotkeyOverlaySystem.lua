@@ -67,6 +67,11 @@ addon.ProviderRegistry = {
             "^AzeritePetBarButton%d+$",
             "^AzeriteStanceBarButton%d+$",
         },
+        binding_rules = {
+            { matcher = "^AzeriteActionBar%d+Button%d+$", suffixes = { ":Keybind" } },
+        },
+        command_fields = { "commandName", "keyBoundTarget" },
+        hotkey_update_method = "UpdateHotkeys",
     },
     Dominos = {
         key = "Dominos",

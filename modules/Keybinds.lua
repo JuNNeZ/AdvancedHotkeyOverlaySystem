@@ -8,6 +8,7 @@ Manages keybinding detection, mapping, and abbreviation for overlays.
 local addonName, privateScope = ...
 local addon = privateScope.addon
 local Keybinds = addon.Keybinds
+local GetButtonCommandName
 
 function Keybinds:OnInitialize()
     if addon.db and addon.db.profile and addon.db.profile.debug then
@@ -25,6 +26,34 @@ local function FirstBindingKey(command)
     return nil
 end
 
+local function SafeFrameValue(frame, methodName, ...)
+    if not frame or type(frame[methodName]) ~= "function" then return nil end
+    local ok, value = pcall(frame[methodName], frame, ...)
+    if ok then return value end
+    return nil
+end
+
+local function GetBindingCacheKey(button, provider)
+    local buttonName = button and button.GetName and button:GetName() or ""
+    local actionId = (button and button.action) or SafeFrameValue(button, "GetAttribute", "action") or ""
+    local state = (button and button.state) or SafeFrameValue(button, "GetAttribute", "state") or ""
+    local parent = button and button.GetParent and button:GetParent()
+    local parentState = SafeFrameValue(parent, "GetAttribute", "state") or SafeFrameValue(parent, "GetAttribute", "state-page") or ""
+    local route = button and rawget(button, "__AzeriteUI_BindingRoute") or ""
+    local mode = button and rawget(button, "__AzeriteUI_BindingMode") or ""
+    local command = GetButtonCommandName(button, provider) or ""
+
+    return table.concat({
+        tostring(buttonName),
+        tostring(actionId),
+        tostring(state),
+        tostring(parentState),
+        tostring(route),
+        tostring(mode),
+        tostring(command),
+    }, "|")
+end
+
 
 -- Simple build gate: Retail Dragonflight+ has build numbers >= 100000
 local isRetail = (select(4, GetBuildInfo()) or 0) >= 100000
@@ -33,7 +62,7 @@ local function GetButtonProvider(buttonName)
     return addon and addon.GetProviderForButtonName and addon:GetProviderForButtonName(buttonName) or addon.ProviderRegistry.Blizzard
 end
 
-local function GetButtonCommandName(button, provider)
+function GetButtonCommandName(button, provider)
     if not button then return nil end
     if button.GetBindingAction then
         local ok, cmd = pcall(button.GetBindingAction, button)
@@ -351,11 +380,28 @@ function Keybinds:ClearCache()
     wipe(keybindCache)
 end
 
+function Keybinds:ClearButtonCache(buttonOrName)
+    local buttonName = buttonOrName
+    if type(buttonOrName) == "table" and buttonOrName.GetName then
+        buttonName = buttonOrName:GetName()
+    end
+    if not buttonName or buttonName == "" then return end
+
+    local prefix = tostring(buttonName) .. "|"
+    for cacheKey in pairs(keybindCache) do
+        if cacheKey == buttonName or cacheKey:sub(1, #prefix) == prefix then
+            keybindCache[cacheKey] = nil
+        end
+    end
+end
+
 function Keybinds:GetBinding(button)
     if not button or not button.GetName then return nil end
     local buttonName = button:GetName()
-    if keybindCache[buttonName] then
-        return keybindCache[buttonName]
+    local provider = GetButtonProvider(buttonName)
+    local cacheKey = GetBindingCacheKey(button, provider)
+    if keybindCache[cacheKey] ~= nil then
+        return keybindCache[cacheKey]
     end
 
     local fullKey = self:GetFullBindingText(button)
@@ -365,12 +411,12 @@ function Keybinds:GetBinding(button)
     end
 
     if not fullKey or fullKey == "" then
-        keybindCache[buttonName] = ""
+        keybindCache[cacheKey] = ""
         return ""
     end
     -- Always abbreviate (yields Dominos-like labels such as ACS1, B4)
     local abbreviatedKey = self:Abbreviate(fullKey)
-    keybindCache[buttonName] = abbreviatedKey
+    keybindCache[cacheKey] = abbreviatedKey
     return abbreviatedKey
 end
 
