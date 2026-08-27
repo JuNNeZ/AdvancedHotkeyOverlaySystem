@@ -1,0 +1,23 @@
+name: Validate
+
+# Runs the same checks the release workflow runs, but on every push and PR,
+# so a broken release configuration is caught before a tag is ever cut.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone project
+        uses: actions/checkout@v5
+
+      - name: Verify addon metadata
+        uses: ./.github/actions/verify

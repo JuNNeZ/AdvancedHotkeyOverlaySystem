@@ -20,6 +20,7 @@ ignore:
     - .github
     - .git
     - .gitignore
+    - .gitattributes
     - .vscode
     - AdvancedHotkeyOverlaySystem.code-workspace
     - modules/ModuleTemplate.lua

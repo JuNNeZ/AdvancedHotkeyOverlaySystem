@@ -20,27 +20,28 @@ jobs:
 
     steps:
       - name: Clone project
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Verify version consistency
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          ./.vscode/scripts/verify-version.ps1
+      - name: Verify addon metadata
+        uses: ./.github/actions/verify
 
-      - name: Verify changelog order
-        shell: pwsh
+      # The packager skips a target silently when its token is empty, which
+      # hides a half-published release. Surface it as a warning instead.
+      - name: Report upload targets
+        shell: bash
         run: |
-          $ErrorActionPreference = 'Stop'
-          ./.vscode/scripts/verify-changelog.ps1
-
-      - name: Verify TOC targets
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          ./.vscode/scripts/verify-toc-targets.ps1
+          check() {
+            if [ -n "$2" ]; then
+              echo "$1: token set, upload will be attempted."
+            else
+              echo "::warning::$1 token is not set; the packager will skip that upload."
+            fi
+          }
+          check CurseForge "$CF_API_KEY"
+          check WoWInterface "$WOWI_API_TOKEN"
+          check Wago "$WAGO_API_TOKEN"
 
       - name: Package and release
         uses: BigWigsMods/packager@v2

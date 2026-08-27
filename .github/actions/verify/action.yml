@@ -1,0 +1,54 @@
+name: Verify addon metadata
+description: >
+  Runs every pre-packaging check: that the verification scripts themselves are
+  tracked, that version metadata and the changelog agree, that TOC targets are
+  intact, and that all Lua parses.
+
+runs:
+  using: composite
+  steps:
+    # .vscode was gitignored wholesale at one point, which silently left
+    # verify-toc-targets.ps1 untracked and broke every tagged release.
+    # Fail loudly and early if a script CI depends on is missing again.
+    - name: Verify verification scripts are tracked
+      shell: bash
+      run: |
+        missing=0
+        for script in verify-version verify-changelog verify-toc-targets lint-lua; do
+          path=".vscode/scripts/$script.ps1"
+          if ! git ls-files --error-unmatch "$path" >/dev/null 2>&1; then
+            echo "::error file=$path::$path is required by CI but is not tracked in git."
+            missing=1
+          fi
+        done
+        exit $missing
+
+    - name: Install Lua
+      shell: bash
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends lua5.1
+
+    - name: Verify version consistency
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        ./.vscode/scripts/verify-version.ps1
+
+    - name: Verify changelog order
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        ./.vscode/scripts/verify-changelog.ps1
+
+    - name: Verify TOC targets
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        ./.vscode/scripts/verify-toc-targets.ps1
+
+    - name: Verify Lua syntax
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        ./.vscode/scripts/lint-lua.ps1

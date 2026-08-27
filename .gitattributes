@@ -1,0 +1,9 @@
+# Normalize line endings so mixed CRLF/LF can never land in the repo again.
+* text=auto eol=lf
+
+*.png binary
+*.tga binary
+*.blp binary
+*.ttf binary
+*.otf binary
+*.zip binary

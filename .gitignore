@@ -1,5 +1,7 @@
-/.vscode
-CURSEFORGE.md
+# Editor settings are local, but .vscode/scripts holds the verification
+# scripts the release workflow runs, so that directory must stay tracked.
+/.vscode/*
+!/.vscode/scripts/
+
 AdvancedHotkeyOverlaySystem.code-workspace
-ChangeLog.md
 /build/
