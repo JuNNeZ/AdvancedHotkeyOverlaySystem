@@ -47,29 +47,39 @@ local function GetDiagnosticsText()
 	return table.concat(parts, "\n")
 end
 
-local function SafeUpdate()
-	if addon and addon.Core and addon.IsReady and addon:IsReady() and addon.Core.FullUpdate then
-		addon.Core:FullUpdate()
-	end
+local function SafeUpdate(mode)
+    if mode == "style" and addon and addon.IsReady and addon:IsReady()
+        and addon.Display and addon.Display.UpdateAllOverlayStyles then
+        addon.Display:UpdateAllOverlayStyles()
+    elseif mode ~= "none" and addon and addon.Core and addon.IsReady and addon:IsReady() and addon.Core.FullUpdate then
+        -- This UI already updates the control that originated the change. Avoid
+        -- rebuilding the whole active tab while a slider/edit box is still in use.
+        addon._suppressJUIRefresh = true
+        local ok, err = pcall(addon.Core.FullUpdate, addon.Core)
+        addon._suppressJUIRefresh = nil
+        if not ok and addon.Print then
+            addon:Print("[AHOS] JUI update failed: " .. (addon.SafeToString and addon:SafeToString(err) or tostring(err)))
+        end
+    end
 	local reg = LibStub and LibStub("AceConfigRegistry-3.0", true)
 	if reg then
 	reg:NotifyChange(_G.AHOS_OPTIONS_PANEL_NAME or addonName)
 	end
 end
 
-local function CreateCheck(parent, label, tooltip, getter, setter)
+local function CreateCheck(parent, label, tooltip, getter, setter, refreshMode)
 	local cb = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
 	cb.text:SetText(label)
 	if tooltip then cb.tooltipText = tooltip end
 	cb:SetScript("OnShow", function(self) self:SetChecked(getter()) end)
 	cb:SetScript("OnClick", function(self)
 		setter(self:GetChecked() and true or false)
-		SafeUpdate()
+        SafeUpdate(refreshMode)
 	end)
 	return cb
 end
 
-local function CreateSlider(parent, label, minV, maxV, step, getter, setter)
+local function CreateSlider(parent, label, minV, maxV, step, getter, setter, refreshMode)
 	local f = CreateFrame("Frame", nil, parent, "BackdropTemplate")
 	f:SetSize(380, 56)
 	local text = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
@@ -89,23 +99,26 @@ local function CreateSlider(parent, label, minV, maxV, step, getter, setter)
 	local valText = f:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	valText:SetPoint("TOPRIGHT", -2, -2)
 
-	s:SetScript("OnShow", function(self)
-		local v = getter()
-		if v == nil then v = minV end
-		self:SetValue(v)
-		valText:SetText(string.format("%.2f", v))
-	end)
-	s:SetScript("OnValueChanged", function(self, v)
-		setter(v)
-		valText:SetText(string.format("%.2f", v))
-		SafeUpdate()
+    s:SetScript("OnShow", function(self)
+        local v = getter()
+        if v == nil then v = minV end
+        self._ahosInitializing = true
+        self:SetValue(v)
+        self._ahosInitializing = nil
+        valText:SetText(string.format("%.2f", v))
+    end)
+    s:SetScript("OnValueChanged", function(self, v)
+        if self._ahosInitializing then return end
+        setter(v)
+        valText:SetText(string.format("%.2f", v))
+        SafeUpdate(refreshMode)
 	end)
 
 	f.slider = s
 	return f
 end
 
-local function CreateEditBox(parent, label, width, getter, setter)
+local function CreateEditBox(parent, label, width, getter, setter, refreshMode)
 	local f = CreateFrame("Frame", nil, parent, "BackdropTemplate")
 	f:SetSize(380, 44)
 	local text = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
@@ -124,7 +137,7 @@ local function CreateEditBox(parent, label, width, getter, setter)
 	eb:SetScript("OnEnterPressed", function(self)
 		setter(self:GetText() or "")
 		self:ClearFocus()
-		SafeUpdate()
+        SafeUpdate(refreshMode)
 	end)
 	eb:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
 
@@ -132,7 +145,7 @@ local function CreateEditBox(parent, label, width, getter, setter)
 	return f
 end
 
-local function CreateCycle(parent, label, values, getter, setter)
+local function CreateCycle(parent, label, values, getter, setter, refreshMode)
 	local f = CreateFrame("Frame", nil, parent, "BackdropTemplate")
 	f:SetSize(380, 40)
 	local text = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
@@ -162,7 +175,7 @@ local function CreateCycle(parent, label, values, getter, setter)
 		local v = values[i]
 		setter(v)
 		valText:SetText(v)
-		SafeUpdate()
+        SafeUpdate(refreshMode)
 	end
 
 	f:SetScript("OnShow", function()
@@ -197,7 +210,7 @@ local function BuildSection_General(parent)
 
 	local enable = CreateCheck(parent, L.ENABLE_ADDON or "Enable Addon", nil,
 		function() return db.enabled end,
-		function(v) db.enabled = v if v then addon.Core:OnEnable() else addon.Core:OnDisable() end end)
+		function(v) db.enabled = v if v then addon.Core:OnEnable() else addon.Core:OnDisable() end end, "none")
 	enable:SetPoint("TOPLEFT", row, "BOTTOMLEFT", 0, y)
 	y = y - 28
 
@@ -209,7 +222,7 @@ local function BuildSection_General(parent)
 
 	local debug = CreateCheck(parent, L.DEBUG_MODE or "Debug Mode", nil,
 		function() return db.debug end,
-		function(v) db.debug = v end)
+		function(v) db.debug = v end, "none")
 	debug:SetPoint("TOPLEFT", row, "BOTTOMLEFT", 0, y)
 	y = y - 28
 
@@ -221,13 +234,13 @@ local function BuildSection_General(parent)
 		db.display = db.display or {}
 		db.display.locked = not db.display.locked
 	lock:SetText(db.display.locked and (L.UNLOCK_SETTINGS or "Unlock Settings") or (L.LOCK_SETTINGS or "Lock Settings"))
-		SafeUpdate()
+		SafeUpdate("none")
 	end)
 	y = y - 36
 
 	local hideMM = CreateCheck(parent, L.HIDE_MINIMAP_ICON or "Hide Minimap Icon", nil,
 		function() return (db.minimap and db.minimap.hide) end,
-		function(v) db.minimap = db.minimap or {}; db.minimap.hide = v; if addon.SetupMinimapButton then addon:SetupMinimapButton() end end)
+		function(v) db.minimap = db.minimap or {}; db.minimap.hide = v; if addon.SetupMinimapButton then addon:SetupMinimapButton() end end, "none")
 	hideMM:SetPoint("TOPLEFT", row, "BOTTOMLEFT", 0, y)
 
 	parent._height = 160
@@ -247,43 +260,43 @@ local function BuildSection_Display(parent)
 
 	local anchor = CreateCycle(parent, L.ANCHOR_POINT or "Anchor Point", ANCHOR_VALUES,
 		function() return d.anchor or "TOP" end,
-		function(v) d.anchor = v end)
+		function(v) d.anchor = v end, "style")
 	anchor:SetPoint("TOPLEFT", 8, y)
 	y = y - 42
 
 	local xoff = CreateSlider(parent, L.X_OFFSET or "X Offset", -50, 50, 1,
 		function() return d.xOffset or 0 end,
-		function(v) d.xOffset = math.floor(v + 0.5) end)
+		function(v) d.xOffset = math.floor(v + 0.5) end, "style")
 	xoff:SetPoint("TOPLEFT", 8, y)
 	y = y - 56
 
 	local yoff = CreateSlider(parent, L.Y_OFFSET or "Y Offset", -50, 50, 1,
 		function() return d.yOffset or 0 end,
-		function(v) d.yOffset = math.floor(v + 0.5) end)
+		function(v) d.yOffset = math.floor(v + 0.5) end, "style")
 	yoff:SetPoint("TOPLEFT", 8, y)
 	y = y - 56
 
 	local scale = CreateSlider(parent, L.SCALE or "Scale", 0.1, 2.0, 0.05,
 		function() return d.scale or 1 end,
-		function(v) d.scale = tonumber(string.format("%.2f", v)) end)
+		function(v) d.scale = tonumber(string.format("%.2f", v)) end, "style")
 	scale:SetPoint("TOPLEFT", 8, y)
 	y = y - 56
 
 	local alpha = CreateSlider(parent, L.ALPHA or "Alpha", 0, 1, 0.05,
 		function() return d.alpha or 1 end,
-		function(v) d.alpha = tonumber(string.format("%.2f", v)) end)
+		function(v) d.alpha = tonumber(string.format("%.2f", v)) end, "style")
 	alpha:SetPoint("TOPLEFT", 8, y)
 	y = y - 56
 
 	local strata = CreateCycle(parent, L.OVERLAY_STRATA or "Overlay Frame Strata", STRATA_VALUES,
 		function() return d.strata or "HIGH" end,
-		function(v) d.strata = v end)
+		function(v) d.strata = v end, "style")
 	strata:SetPoint("TOPLEFT", 8, y)
 	y = y - 42
 
 	local level = CreateSlider(parent, L.OVERLAY_LEVEL or "Overlay Frame Level", 1, 128, 1,
 		function() return d.frameLevel or 10 end,
-		function(v) d.frameLevel = math.floor(v + 0.5) end)
+		function(v) d.frameLevel = math.floor(v + 0.5) end, "style")
 	level:SetPoint("TOPLEFT", 8, y)
 	y = y - 56
 
@@ -298,33 +311,15 @@ local function BuildSection_Keybinds(parent)
 
 	local outline = CreateCheck(parent, L.FONT_OUTLINE or "Font Outline", nil,
 		function() return t.outline end,
-		function(v) t.outline = v end)
+		function(v) t.outline = v; t.outlineStyle = v and "OUTLINE" or "NONE" end, "style")
 	outline:SetPoint("TOPLEFT", 8, y)
 	y = y - 28
 
-	local abbr = CreateCheck(parent, L.ABBREVIATIONS or "Enable Abbreviations", nil,
-		function() return t.abbreviations end,
-		function(v) t.abbreviations = v end)
-	abbr:SetPoint("TOPLEFT", 8, y)
-	y = y - 36
-
-	local maxLen = CreateSlider(parent, L.MAX_LENGTH or "Max Length", 1, 10, 1,
-		function() return t.maxLength or 4 end,
-		function(v) t.maxLength = math.floor(v + 0.5) end)
-	maxLen:SetPoint("TOPLEFT", 8, y)
-	y = y - 56
-
 	local fontSize = CreateSlider(parent, L.FONT_SIZE or "Font Size", 6, 48, 1,
 		function() return t.fontSize or 12 end,
-		function(v) t.fontSize = math.floor(v + 0.5) end)
+		function(v) t.fontSize = math.floor(v + 0.5) end, "style")
 	fontSize:SetPoint("TOPLEFT", 8, y)
 	y = y - 56
-
-	local modSep = CreateEditBox(parent, L.MOD_SEPARATOR or "Modifier Separator", 160,
-		function() return (t.modSeparator or "") end,
-		function(v) t.modSeparator = v end)
-	modSep:SetPoint("TOPLEFT", 8, y)
-	y = y - 48
 
 	local colorBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
 	colorBtn:SetText(L.PICK_FONT_COLOR or "Pick Font Color")
@@ -346,7 +341,7 @@ local function BuildSection_Keybinds(parent)
 			local nr,ng,nb = ColorPickerFrame:GetColorRGB()
 			t.color = {nr,ng,nb}
 			preview:SetColorTexture(nr,ng,nb,1)
-			SafeUpdate()
+			SafeUpdate("style")
 		end
 		if ColorPickerFrame and ColorPickerFrame.SetupColorPickerAndShow then
 			ColorPickerFrame:SetupColorPickerAndShow({ swatchFunc = apply, r = r, g = g, b = b, hasOpacity = false })
@@ -368,7 +363,7 @@ local function BuildSection_Keybinds(parent)
 		if type(list) == "table" and #list > 0 then
 			local cycle = CreateCycle(parent, L.FONT or "Font", list,
 				function() return t.font or list[1] end,
-				function(v) t.font = v end)
+				function(v) t.font = v end, "style")
 			cycle:SetPoint("TOPLEFT", 8, y)
 			y = y - 42
 		end
@@ -396,7 +391,7 @@ local function BuildSection_Profiles(parent)
 
 	local autoSwitch = CreateCheck(parent, L.AUTO_SWITCH_PROFILE or "Auto-Switch Profile by Spec", nil,
 		function() return db.autoSwitchProfile end,
-		function(v) db.autoSwitchProfile = v end)
+		function(v) db.autoSwitchProfile = v end, "none")
 	autoSwitch:SetPoint("TOPLEFT", 8, y)
 	y = y - 36
 
@@ -492,10 +487,10 @@ local function BuildSection_Changelog(parent)
 
 	local body = [[
 	|cffFFD700Latest|r
-	- Retail (AzeriteUI): Removed placeholder square/bullet on unbound buttons; safer native label suppression with deep-scan.
-	- Classic: Fixed invalid event registration by gating Retail-only events.
-	- Dominos: Overlays visible immediately without reload; native labels stay hidden after binding mode.
-	- Overlay layering: Bumped frame level above nested containers and skins (Masque/AzeriteUI).
+	- Retail 12.1: Updated TOC/API compatibility through interface 120100.
+	- Migrated action-bar, addon, specialization, and raid-warning calls to current APIs.
+	- Added secret-value-safe action button discovery, visibility, text, and diagnostics.
+	- Replaced the removed global hotkey hook with current button mixin method hooks.
 
 |cffFFD7002.4.2|r
 - Embedded AceGUI fixes and stable options registration.
@@ -553,12 +548,153 @@ local function BuildSection_Integration(parent)
 	parent._height = math.abs(y)
 end
 
+local function BuildSection_Abbreviations(parent)
+	local db = GetDB()
+	db.text = db.text or {}
+	local t = db.text
+	local y = -8
+
+	local intro = parent:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+	intro:SetPoint("TOPLEFT", 8, y)
+	intro:SetWidth(650)
+	intro:SetJustifyH("LEFT")
+	intro:SetText(L.CUSTOM_ABBREVIATIONS_DESC or "Choose the text AHOS uses for each modifier and key. Clear an entry to restore its default. Changes are saved per profile.")
+	y = y - math.max(44, math.floor(intro:GetStringHeight() + 14))
+
+	local enabled = CreateCheck(parent, L.ABBREVIATIONS or "Enable Abbreviations", nil,
+		function() return t.abbreviations end,
+		function(value) t.abbreviations = value end)
+	enabled:SetPoint("TOPLEFT", 8, y)
+	y = y - 34
+
+	local maxLen = CreateSlider(parent, L.MAX_LENGTH or "Max Length", 1, 24, 1,
+		function() return t.maxLength or 6 end,
+		function(value) t.maxLength = math.floor(value + 0.5) end)
+	maxLen:SetPoint("TOPLEFT", 8, y)
+	y = y - 58
+
+	local modSep = CreateEditBox(parent, L.MOD_SEPARATOR or "Modifier Separator", 160,
+		function() return t.modSeparator or "" end,
+		function(value) t.modSeparator = value end)
+	modSep:SetPoint("TOPLEFT", 8, y)
+	y = y - 50
+
+	local preview = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+	preview:SetPoint("TOPLEFT", 8, y)
+	preview:SetWidth(420)
+	preview:SetJustifyH("LEFT")
+	local function UpdatePreview()
+		local sample = addon.Keybinds and addon.Keybinds.Abbreviate
+			and addon.Keybinds:Abbreviate("CTRL-SHIFT-MOUSEBUTTON4") or "CSB4"
+		preview:SetText((L.ABBREVIATION_PREVIEW or "Preview") .. ": |cffffffff" .. tostring(sample) .. "|r")
+	end
+	UpdatePreview()
+
+	local reset = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+	reset:SetText(L.RESET_ABBREVIATIONS or "Reset All Abbreviations")
+	reset:SetSize(200, 24)
+	reset:SetPoint("TOPLEFT", 440, y - 4)
+	reset:SetScript("OnClick", function()
+		local function ResetAll()
+			if addon.Keybinds and addon.Keybinds.ResetCustomAbbreviations then
+				addon.Keybinds:ResetCustomAbbreviations()
+				SafeUpdate()
+				if addon._jui and addon.RefreshJUI then addon:RefreshJUI() end
+			end
+		end
+		if StaticPopupDialogs and StaticPopup_Show then
+			StaticPopupDialogs.AHOS_RESET_ABBREVIATIONS = StaticPopupDialogs.AHOS_RESET_ABBREVIATIONS or {
+				text = L.RESET_ABBREVIATIONS_CONFIRM or "Reset every custom abbreviation in this profile?",
+				button1 = L.YES or YES or "Yes",
+				button2 = L.NO or NO or "No",
+				OnAccept = ResetAll,
+				timeout = 0,
+				whileDead = true,
+				hideOnEscape = true,
+				preferredIndex = 3,
+			}
+			StaticPopup_Show("AHOS_RESET_ABBREVIATIONS")
+		else
+			ResetAll()
+		end
+	end)
+	y = y - 40
+
+	local categories = addon.Keybinds and addon.Keybinds.GetAbbreviationCategories
+		and addon.Keybinds:GetAbbreviationCategories() or {}
+	local definitions = addon.Keybinds and addon.Keybinds.GetAbbreviationDefinitions
+		and addon.Keybinds:GetAbbreviationDefinitions() or {}
+	local byCategory = {}
+	for _, definition in ipairs(definitions) do
+		byCategory[definition.category] = byCategory[definition.category] or {}
+		table.insert(byCategory[definition.category], definition)
+	end
+
+	local function CreateMappingEditor(definition, x, offsetY)
+		local row = CreateFrame("Frame", nil, parent)
+		row:SetSize(315, 32)
+		row:SetPoint("TOPLEFT", x, offsetY)
+		local label = row:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+		label:SetPoint("LEFT", 0, 0)
+		label:SetWidth(176)
+		label:SetJustifyH("LEFT")
+		label:SetText(definition.label)
+		local edit = CreateFrame("EditBox", nil, row, "InputBoxTemplate")
+		edit:SetSize(120, 22)
+		edit:SetPoint("RIGHT", -2, 0)
+		edit:SetAutoFocus(false)
+		if edit.SetMaxLetters then edit:SetMaxLetters(24) end
+		local function RefreshValue()
+			edit:SetText(addon.Keybinds:GetConfiguredAbbreviation(definition.key) or definition.default or "")
+			edit:HighlightText(0, 0)
+		end
+		edit:SetScript("OnShow", RefreshValue)
+		edit:SetScript("OnEnterPressed", function(self)
+			addon.Keybinds:SetCustomAbbreviation(definition.key, self:GetText() or "")
+			RefreshValue()
+			self:ClearFocus()
+			UpdatePreview()
+			SafeUpdate()
+		end)
+		edit:SetScript("OnEscapePressed", function(self) RefreshValue(); self:ClearFocus() end)
+		row:EnableMouse(true)
+		row:SetScript("OnEnter", function()
+			if not GameTooltip then return end
+			GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+			GameTooltip:AddLine(definition.label, 1, 0.82, 0)
+			GameTooltip:AddLine("Token: " .. definition.key, 1, 1, 1)
+			GameTooltip:AddLine("Default: " .. definition.default, 0.75, 0.75, 0.75)
+			GameTooltip:AddLine(L.ABBREVIATION_CLEAR_HINT or "Clear and press Enter to restore the default.", 0.6, 0.8, 1, true)
+			GameTooltip:Show()
+		end)
+		row:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+	end
+
+	for _, category in ipairs(categories) do
+		local entries = byCategory[category.key] or {}
+		if #entries > 0 then
+			local heading = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlightLarge")
+			heading:SetPoint("TOPLEFT", 8, y)
+			heading:SetText(category.label)
+			y = y - 28
+			for index, definition in ipairs(entries) do
+				local column = (index - 1) % 2
+				local rowIndex = math.floor((index - 1) / 2)
+				CreateMappingEditor(definition, 8 + column * 330, y - rowIndex * 34)
+			end
+			y = y - math.ceil(#entries / 2) * 34 - 18
+		end
+	end
+
+	parent._height = math.abs(y)
+end
+
 local function BuildSection_Advanced(parent)
 	local db = GetDB()
 	local y = -8
 	local tools = CreateCheck(parent, L.ENABLE_TROUBLESHOOTING_TOOLS or "Enable Troubleshooting Tools", nil,
 		function() return db.troubleshootingTools end,
-		function(v) db.troubleshootingTools = v end)
+		function(v) db.troubleshootingTools = v end, "none")
 	tools:SetPoint("TOPLEFT", 8, y)
 	y = y - 32
 
@@ -571,7 +707,7 @@ local function BuildSection_Advanced(parent)
 
 	local perf = CreateCheck(parent, L.SHOW_PERF_METRICS or "Show Performance Metrics", nil,
 		function() return db.showPerfMetrics end,
-		function(v) db.showPerfMetrics = v end)
+		function(v) db.showPerfMetrics = v end, "none")
 	if db.troubleshootingTools then
 		perf:SetPoint("TOPLEFT", 8, y)
 		y = y - 32
@@ -651,8 +787,8 @@ function addon:OpenJUI(section)
 		function frame:ApplyPortrait()
 			local function tryPortrait(path)
 				if not path or path == "" then return false end
-				if SetPortraitToTexture then
-					SetPortraitToTexture(self.portrait, path)
+				if self.SetPortraitToAsset then
+					self:SetPortraitToAsset(path)
 				else
 					self.portrait:SetTexture(path)
 				end
@@ -731,6 +867,7 @@ function addon:OpenJUI(section)
 		{ key = "general",  text = L.GENERAL or "General" },
 		{ key = "display",  text = L.DISPLAY or "Display" },
 		{ key = "keybinds", text = L.KEYBINDS or "Keybinds" },
+		{ key = "abbreviations", text = L.CUSTOM_ABBREVIATIONS or "Abbreviations" },
 		{ key = "profiles", text = L.PROFILES or "Profiles" },
 		{ key = "integration", text = L.INTEGRATION or "Integration" },
 		{ key = "advanced", text = L.ADVANCED or "Advanced" },
@@ -784,6 +921,7 @@ function addon:OpenJUI(section)
 			general = L.GENERAL or "General",
 			display = L.DISPLAY or "Display",
 			keybinds = L.KEYBINDS or "Keybinds",
+			abbreviations = L.CUSTOM_ABBREVIATIONS or "Abbreviations",
 			profiles = L.PROFILES or "Profiles",
 			integration = L.INTEGRATION or "Integration",
 			advanced = L.ADVANCED or "Advanced",
@@ -806,6 +944,8 @@ function addon:OpenJUI(section)
 			BuildSection_Display(f)
 		elseif key == "keybinds" then
 			BuildSection_Keybinds(f)
+		elseif key == "abbreviations" then
+			BuildSection_Abbreviations(f)
 		elseif key == "integration" then
 			BuildSection_Integration(f)
 		elseif key == "advanced" then
@@ -840,6 +980,7 @@ function addon:OpenJUI(section)
 			general = { "toggles" },
 			display = { "display" },
 			keybinds = { "text" },
+			abbreviations = { "abbreviations" },
 			profiles = { "profiles" },
 			integration = { "integration" },
 			advanced = { "advanced" },
@@ -857,6 +998,7 @@ function addon:OpenJUI(section)
 			general = L.GENERAL or "General",
 			display = L.DISPLAY or "Display",
 			keybinds = L.KEYBINDS or "Keybinds",
+			abbreviations = L.CUSTOM_ABBREVIATIONS or "Abbreviations",
 			profiles = L.PROFILES or "Profiles",
 			integration = L.INTEGRATION or "Integration",
 			advanced = L.ADVANCED or "Advanced",

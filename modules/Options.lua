@@ -102,6 +102,140 @@ local function isLocked()
     return db.display and db.display.locked
 end
 
+local function RefreshOverlayStyles()
+    if addon and addon.IsReady and addon:IsReady()
+        and addon.Display and addon.Display.UpdateAllOverlayStyles then
+        addon.Display:UpdateAllOverlayStyles()
+    end
+end
+
+local function RefreshAbbreviations()
+    if addon.Keybinds and addon.Keybinds.ClearCache then
+        addon.Keybinds:ClearCache()
+    end
+    if addon.IsReady and addon:IsReady() and addon.Core and addon.Core.FullUpdate then
+        addon.Core:FullUpdate()
+    end
+    local registry = LibStub and LibStub("AceConfigRegistry-3.0", true)
+    if registry then registry:NotifyChange(_G.AHOS_OPTIONS_PANEL_NAME or addonName) end
+end
+
+local function BuildAbbreviationOptions()
+    local args = {
+        intro = {
+            type = "description",
+            name = L.CUSTOM_ABBREVIATIONS_DESC or "Choose the text AHOS uses for every supported modifier and key. Values are saved per profile; clearing a field restores its default.",
+            order = 1,
+            width = "full",
+        },
+        enabled = {
+            type = "toggle",
+            name = L.ABBREVIATIONS or "Enable Abbreviations",
+            desc = L.ABBREVIATIONS_DESC or "Use abbreviated keybind text.",
+            order = 2,
+            width = "half",
+            get = function() local db = getSafeProfile() return db.text and db.text.abbreviations end,
+            set = function(_, value)
+                local db = getSafeProfile()
+                if db.text then db.text.abbreviations = value; RefreshAbbreviations() end
+            end,
+        },
+        maxLength = {
+            type = "range",
+            name = L.MAX_LENGTH or "Max Length",
+            desc = L.MAX_LENGTH_DESC or "Maximum length of the final abbreviated hotkey.",
+            order = 3,
+            min = 1, max = 24, step = 1,
+            width = "half",
+            get = function() local db = getSafeProfile() return db.text and db.text.maxLength or 6 end,
+            set = function(_, value)
+                local db = getSafeProfile()
+                if db.text then db.text.maxLength = value; RefreshAbbreviations() end
+            end,
+        },
+        modSeparator = {
+            type = "input",
+            name = L.MOD_SEPARATOR or "Modifier Separator",
+            desc = L.MOD_SEPARATOR_DESC or "Text inserted between multiple modifiers.",
+            order = 4,
+            width = "half",
+            get = function() local db = getSafeProfile() return db.text and db.text.modSeparator or "" end,
+            set = function(_, value)
+                local db = getSafeProfile()
+                if db.text then db.text.modSeparator = value or ""; RefreshAbbreviations() end
+            end,
+        },
+        preview = {
+            type = "description",
+            name = function()
+                local sample = addon.Keybinds and addon.Keybinds.Abbreviate
+                    and addon.Keybinds:Abbreviate("CTRL-SHIFT-MOUSEBUTTON4") or "CSB4"
+                return (L.ABBREVIATION_PREVIEW or "Preview") .. ": |cffffffff" .. tostring(sample) .. "|r"
+            end,
+            order = 5,
+            width = "half",
+        },
+        reset = {
+            type = "execute",
+            name = L.RESET_ABBREVIATIONS or "Reset All Abbreviations",
+            desc = L.RESET_ABBREVIATIONS_DESC or "Restore every abbreviation to its built-in default.",
+            order = 6,
+            width = "full",
+            confirm = true,
+            confirmText = L.RESET_ABBREVIATIONS_CONFIRM or "Reset every custom abbreviation in this profile?",
+            func = function()
+                if addon.Keybinds and addon.Keybinds.ResetCustomAbbreviations then
+                    addon.Keybinds:ResetCustomAbbreviations()
+                    RefreshAbbreviations()
+                end
+            end,
+        },
+    }
+
+    local categories = addon.Keybinds and addon.Keybinds.GetAbbreviationCategories
+        and addon.Keybinds:GetAbbreviationCategories() or {}
+    local definitions = addon.Keybinds and addon.Keybinds.GetAbbreviationDefinitions
+        and addon.Keybinds:GetAbbreviationDefinitions() or {}
+    local groups = {}
+    for categoryIndex, category in ipairs(categories) do
+        local categoryKey = category.key
+        local group = {
+            type = "group",
+            name = category.label,
+            inline = true,
+            order = 10 + categoryIndex,
+            args = {},
+        }
+        groups[categoryKey] = group
+        args["category_" .. categoryKey] = group
+    end
+
+    for definitionIndex, definition in ipairs(definitions) do
+        local key = definition.key
+        local label = definition.label
+        local defaultValue = definition.default
+        local group = groups[definition.category]
+        if group then
+            group.args["key_" .. key] = {
+                type = "input",
+                name = label,
+                desc = string.format((L.ABBREVIATION_ENTRY_DESC or "Binding token: %s\nDefault: %s\nClear the field to restore the default."), key, defaultValue),
+                order = definitionIndex,
+                width = "half",
+                get = function()
+                    return addon.Keybinds:GetConfiguredAbbreviation(key)
+                end,
+                set = function(_, value)
+                    addon.Keybinds:SetCustomAbbreviation(key, value)
+                    RefreshAbbreviations()
+                end,
+            }
+        end
+    end
+
+    return args
+end
+
 local function isSmartStrataEnabled()
     local db = getSafeProfile()
     if not db.display then return false end
@@ -182,7 +316,7 @@ function Options:GetOptions()
                         order = 1,
                         width = "third",
                         get = function() local db = getSafeProfile() return db.enabled end,
-                        set = function(_, val) local db = getSafeProfile() db.enabled = val if val then addon.Core:OnEnable() else addon.Core:OnDisable() end if addon:IsReady() then addon.Core:FullUpdate() end end,
+                        set = function(_, val) local db = getSafeProfile() db.enabled = val if val then addon.Core:OnEnable() else addon.Core:OnDisable() end end,
                     },
                     autodetect = {
                         type = "toggle",
@@ -200,7 +334,7 @@ function Options:GetOptions()
                         order = 3,
                         width = "third",
                         get = function() local db = getSafeProfile() return db.debug end,
-                        set = function(_, val) local db = getSafeProfile() db.debug = val if addon:IsReady() then addon.Core:FullUpdate() end end,
+                        set = function(_, val) local db = getSafeProfile() db.debug = val end,
                     },
                     lock = {
                         type = "execute",
@@ -213,7 +347,6 @@ function Options:GetOptions()
                             db.display = db.display or {}
                             db.display.locked = not db.display.locked
                             addon:Print(db.display.locked and (L.MSG_SETTINGS_LOCKED or "|cffFFD700Settings locked|r - |cff888888protected from changes|r") or (L.MSG_SETTINGS_UNLOCKED or "|cff4A9EFFSettings unlocked|r - |cff888888you can now modify settings|r"))
-                            if addon:IsReady() then addon.Core:FullUpdate() end
                         end,
                     },
                 },
@@ -330,7 +463,7 @@ function Options:GetOptions()
                         order = 2,
                         values = { TOPLEFT = "TOPLEFT", TOP = "TOP", TOPRIGHT = "TOPRIGHT", LEFT = "LEFT", CENTER = "CENTER", RIGHT = "RIGHT", BOTTOMLEFT = "BOTTOMLEFT", BOTTOM = "BOTTOM", BOTTOMRIGHT = "BOTTOMRIGHT" },
                         get = function() local db = getSafeProfile() return db.display and db.display.anchor end,
-                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.anchor = val; addon.Core:FullUpdate() end end,
+                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.anchor = val; RefreshOverlayStyles() end end,
                     },
                     xOffset = {
                         type = "range",
@@ -339,7 +472,7 @@ function Options:GetOptions()
                         order = 3,
                         min = -50, max = 50, step = 1,
                         get = function() local db = getSafeProfile() return db.display and db.display.xOffset end,
-                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.xOffset = val; addon.Core:FullUpdate() end end,
+                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.xOffset = val; RefreshOverlayStyles() end end,
                     },
                     yOffset = {
                         type = "range",
@@ -348,7 +481,7 @@ function Options:GetOptions()
                         order = 4,
                         min = -50, max = 50, step = 1,
                         get = function() local db = getSafeProfile() return db.display and db.display.yOffset end,
-                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.yOffset = val; addon.Core:FullUpdate() end end,
+                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.yOffset = val; RefreshOverlayStyles() end end,
                     },
                     scale = {
                         type = "range",
@@ -357,7 +490,7 @@ function Options:GetOptions()
                         order = 5,
                         min = 0.1, max = 2, step = 0.05,
                         get = function() local db = getSafeProfile() return db.display and db.display.scale end,
-                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.scale = val; addon.Core:FullUpdate() end end,
+                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.scale = val; RefreshOverlayStyles() end end,
                     },
                     alpha = {
                         type = "range",
@@ -366,7 +499,7 @@ function Options:GetOptions()
                         order = 6,
                         min = 0, max = 1, step = 0.05,
                         get = function() local db = getSafeProfile() return db.display and db.display.alpha end,
-                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.alpha = val; addon.Core:FullUpdate() end end,
+                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.alpha = val; RefreshOverlayStyles() end end,
                     },
                     smartStrata = {
                         type = "toggle",
@@ -379,7 +512,7 @@ function Options:GetOptions()
                             local db = getSafeProfile()
                             if db.display then
                                 db.display.smartStrata = val and true or false
-                                addon.Core:FullUpdate()
+                                RefreshOverlayStyles()
                             end
                         end,
                     },
@@ -398,7 +531,7 @@ function Options:GetOptions()
                         },
                         disabled = isSmartStrataEnabled,
                         get = function() local db = getSafeProfile() return db.display and db.display.strata or "HIGH" end,
-                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.strata = val; addon.Core:FullUpdate() end end,
+                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.strata = val; RefreshOverlayStyles() end end,
                     },
                     frameLevel = {
                         type = "range",
@@ -408,7 +541,7 @@ function Options:GetOptions()
                         min = 1, max = 128, step = 1,
                         disabled = isSmartStrataEnabled,
                         get = function() local db = getSafeProfile() return db.display and db.display.frameLevel or 10 end,
-                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.frameLevel = val; addon.Core:FullUpdate() end end,
+                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.frameLevel = val; RefreshOverlayStyles() end end,
                     },
                     followNativeHotkeyStyle = {
                         type = "toggle",
@@ -417,7 +550,14 @@ function Options:GetOptions()
                         order = 10,
                         width = "full",
                         get = function() local db = getSafeProfile() return db.display and db.display.followNativeHotkeyStyle end,
-                        set = function(_, val) local db = getSafeProfile() if db.display then db.display.followNativeHotkeyStyle = val; addon.Core:FullUpdate() end end,
+                        set = function(_, val)
+                            local db = getSafeProfile()
+                            if not db.display then return end
+                            db.display.followNativeHotkeyStyle = val
+                            -- This only changes appearance. Restyle active overlays in place so
+                            -- native labels are never left blank by an unnecessary full rebuild.
+                            RefreshOverlayStyles()
+                        end,
                     },
                 },
             },
@@ -443,7 +583,7 @@ function Options:GetOptions()
                             return { ["Default"] = "Default" }
                         end,
                         get = function() local db = getSafeProfile() return db.text and db.text.font end,
-                        set = function(info, val) local db = getSafeProfile() if db.text then db.text.font = val; addon.Core:FullUpdate() end end,
+                        set = function(info, val) local db = getSafeProfile() if db.text then db.text.font = val; RefreshOverlayStyles() end end,
                     },
                     fontSize = {
                         type = "range",
@@ -452,7 +592,7 @@ function Options:GetOptions()
                         order = 2,
                         min = 6, max = 48, step = 1,
                         get = function() local db = getSafeProfile() return db.text and db.text.fontSize end,
-                        set = function(info, val) local db = getSafeProfile() if db.text then db.text.fontSize = val; addon.Core:FullUpdate() end end,
+                        set = function(info, val) local db = getSafeProfile() if db.text then db.text.fontSize = val; RefreshOverlayStyles() end end,
                     },
                     color = {
                         type = "color",
@@ -461,7 +601,7 @@ function Options:GetOptions()
                         order = 3,
                         hasAlpha = false,
                         get = function() local db = getSafeProfile() if db.text and db.text.color then return unpack(db.text.color) end end,
-                        set = function(info, r, g, b) local db = getSafeProfile() if db.text then db.text.color = {r, g, b}; addon.Core:FullUpdate() end end,
+                        set = function(info, r, g, b) local db = getSafeProfile() if db.text then db.text.color = {r, g, b}; RefreshOverlayStyles() end end,
                     },
                     outlineStyle = {
                         type = "select",
@@ -497,40 +637,17 @@ function Options:GetOptions()
                                 db.text.outlineStyle = val
                                 -- keep legacy key for backward compat off by default
                                 db.text.outline = (val == "OUTLINE" or val == "THICKOUTLINE" or val:find("OUTLINE", 1, true) ~= nil)
-                                addon.Core:FullUpdate()
+                                RefreshOverlayStyles()
                             end
                         end,
                     },
-                    abbreviations = {
-                        type = "toggle",
-                        name = L.ABBREVIATIONS or "Enable Abbreviations",
-            desc = L.ABBREVIATIONS_DESC or "Abbreviate keybind text (e.g., SHIFT -> S).",
-                        order = 5,
-                        get = function() local db = getSafeProfile() return db.text and db.text.abbreviations end,
-                        set = function(info, val) local db = getSafeProfile() if db.text then db.text.abbreviations = val; addon.Core:FullUpdate() end end,
-                    },
-                    maxLength = {
-                        type = "range",
-                        name = L.MAX_LENGTH or "Max Length",
-            desc = L.MAX_LENGTH_DESC or "Maximum length of the abbreviated text.",
-                        order = 6,
-                        min = 1, max = 10, step = 1,
-                        get = function() local db = getSafeProfile() return db.text and db.text.maxLength end,
-                        set = function(info, val) local db = getSafeProfile() if db.text then db.text.maxLength = val; addon.Core:FullUpdate() end end,
-                    },
-                    modSeparator = {
-                        order = 20,
-                        type = "input",
-                        name = L.MOD_SEPARATOR or "Modifier Separator",
-            desc = L.MOD_SEPARATOR_DESC or "String to insert between modifiers and key (leave empty for none, e.g. SM4).",
-                        width = "half",
-                        get = function() return addon.db.profile.text.modSeparator or "" end,
-                        set = function(_, val)
-                            addon.db.profile.text.modSeparator = val
-                            addon:SafeCall("Core", "FullUpdate")
-                        end,
-                    },
                 },
+            },
+            abbreviations = {
+                type = "group",
+                name = L.CUSTOM_ABBREVIATIONS or "Abbreviations",
+                order = 2.5,
+                args = BuildAbbreviationOptions(),
             },
             profiles = {
                 type = "group",

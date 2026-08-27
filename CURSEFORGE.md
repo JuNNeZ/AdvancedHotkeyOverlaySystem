@@ -18,7 +18,7 @@ Advanced Hotkey Overlay System replaces the default hotkey text on your action b
 
 - All settings apply instantly—no UI reload needed
 - Live preview of font, color, position, and scale changes
-- ConsolePort-style hotkey abbreviations (e.g., Ctrl → C, Shift → S)
+- Profile-specific hotkey abbreviations with an editor for every supported modifier and key
 
 ### Complete Visual Control
 
@@ -86,10 +86,10 @@ Advanced Hotkey Overlay System replaces the default hotkey text on your action b
 - LibSharedMedia-3.0 (included)
 - LibDBIcon-1.0 (included)
 
-## Recent Updates (v2.5.18)
-- Added direct provider integrations for Bartender4 and DiabolicUI.
-- Refactored provider detection/scanning/keybind handling for consistent behavior across supported bars.
-- Fixed a secure-string taint compare path in hotkey-region anchor checks.
+## Recent Updates (v2.5.22)
+- Updated Retail compatibility for interface 120100 (12.1.0).
+- Migrated action, specialization, add-on metadata, raid-warning, and portrait calls to current APIs.
+- Reworked hotkey refresh hooks and guarded secret action-button values introduced by Retail 12.x.
 
 ---
 

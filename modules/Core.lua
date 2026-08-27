@@ -16,6 +16,8 @@ local function IsRetail()
     return build >= 100000
 end
 local isRetail = IsRetail()
+local eventsRegistered = false
+local keyBoundCallbacksRegistered = false
 
 function Core:HandleBarStateChanged(eventName)
     if addon.db and addon.db.profile and addon.db.profile.debug then
@@ -58,12 +60,20 @@ function Core:OnDisable()
     if addon.db and addon.db.profile and addon.db.profile.debug then
         addon:Print("[AHOS DEBUG] Core:OnDisable called.")
     end
+    if addon.Performance and addon.Performance.CancelPendingUpdates then
+        addon.Performance:CancelPendingUpdates()
+    end
+    if self.CancelAllTimers then
+        pcall(self.CancelAllTimers, self)
+    end
     addon:SafeCall("Core", "UnregisterEvents")
     addon:SafeCall("Display", "RemoveAllOverlays") -- Remove overlays and restore original keybinds
 end
 
 function Core:RegisterEvents()
     if not addon.db.profile.enabled then return end
+    if eventsRegistered then return end
+    eventsRegistered = true
     if addon.db and addon.db.profile and addon.db.profile.debug then
         addon:Print("[AHOS DEBUG] Core:RegisterEvents called.")
     end
@@ -136,7 +146,8 @@ function Core:RegisterEvents()
 
     -- Optional: listen for LibKeyBound callbacks if library is present (used by Dominos/Bartender keybind mode)
     local ok, KeyBound = pcall(LibStub, "LibKeyBound-1.0")
-    if ok and KeyBound and KeyBound.RegisterCallback then
+    if not keyBoundCallbacksRegistered and ok and KeyBound and KeyBound.RegisterCallback then
+        keyBoundCallbacksRegistered = true
         KeyBound.RegisterCallback(self, "LIBKEYBOUND_ENABLED", function()
             if addon.db and addon.db.profile and addon.db.profile.debug then
                 addon:Print("[AHOS DEBUG] LibKeyBound: enabled; suppressing native hotkeys during binding.")
@@ -161,7 +172,7 @@ end
 
 function Core:UnregisterEvents()
     self:UnregisterAllEvents()
-    addon:SafeCall("Display", "ClearAllOverlays")
+    eventsRegistered = false
     if addon.db.profile.debug then
         addon:Print("Core disabled, events unregistered, overlays cleared.")
     end
@@ -175,12 +186,22 @@ function Core:OnProfileChanged(event, db, newProfileKey)
             addon:Print("Profile changed. Reloading.")
         end
     end
-    self:FullUpdate()
+    if addon.db and addon.db.profile and addon.db.profile.enabled then
+        self:RegisterEvents()
+        self:FullUpdate()
+    else
+        self:OnDisable()
+    end
 end
 
 function Core:OnPlayerLogin()
     addon:SafeCall("Config", "DetectUI")
-    self:FullUpdate()
+    if addon.db and addon.db.profile and addon.db.profile.enabled then
+        self:RegisterEvents()
+        self:FullUpdate()
+    else
+        self:OnDisable()
+    end
     if addon.db.profile.debug then
         addon:Print("PLAYER_LOGIN: UI detected as '" .. ((addon.GetDetectedProviderText and addon:GetDetectedProviderText()) or addon.detectedUI or "None") .. "'. Full update triggered.")
     end
@@ -201,8 +222,13 @@ function Core:HandlePlayerEnteringWorld(...)
     end
 end
 
-function Core:UpdateSpecificButton(slot)
+function Core:UpdateSpecificButton(_, slot)
     if not addon.db.profile.enabled then return end
+    -- Retail uses slot 0 to signal that every action slot changed.
+    if slot == 0 then
+        addon.Performance:QueueFullUpdate()
+        return
+    end
     local button = addon.Bars:GetButtonBySlot(slot)
     if button then
         addon.Performance:QueueButtonUpdate(button)
@@ -217,8 +243,8 @@ function Core:FullUpdate(...)
         addon:SafeCall("Core", "FullUpdate")
         return
     end
-    if not addon.db.profile.enabled then
-        addon:SafeCall("Display", "ClearAllOverlays")
+    if not addon.db.profile.enabled or (addon.ShouldShowOverlays and not addon:ShouldShowOverlays()) then
+        addon:SafeCall("Display", "RemoveAllOverlays")
         return
     end
     if addon.db and addon.db.profile and addon.db.profile.debug then
@@ -229,7 +255,7 @@ function Core:FullUpdate(...)
     local reg = LibStub and LibStub("AceConfigRegistry-3.0", true)
     if reg then reg:NotifyChange(_G.AHOS_OPTIONS_PANEL_NAME or addonName) end
     -- If the handcrafted JUI is open, refresh its current section to reflect latest DB changes
-    if addon.RefreshJUI then addon:RefreshJUI() end
+    if addon.RefreshJUI and not addon._suppressJUIRefresh then addon:RefreshJUI() end
 end
 
 -- Add a stub UpdateAllButtons to ensure overlays update and error is gone

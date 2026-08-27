@@ -1,18 +1,19 @@
 # Advanced Hotkey Overlay System (AHOS)
 
-![Version](https://img.shields.io/badge/version-2.5.21-cyan)
+![Version](https://img.shields.io/badge/version-2.5.22-cyan)
 
 A modular, robust hotkey overlay system for World of Warcraft action bars, with dedicated support for Blizzard bars, AzeriteUI, Bartender4, Dominos, and DiabolicUI.
 
-## Version 2.5.21 Highlights
+## Version 2.5.22 Highlights
 
-- Fixed AzeriteUI dragonflying dismount refreshes where some keybind overlays could disappear until another bar-state change.
-- Added AzeriteUI `:Keybind` route detection and state-aware binding cache keys for dynamic action bar transitions.
-- Added bonus action bar refresh coverage for dragonflying mount and dismount state changes.
+- Updated the Retail API integration for Midnight 12.1.0 (`120100`).
+- Migrated action-bar, add-on, specialization, and raid-warning calls to their current APIs.
+- Added Retail secret-value guards and switched hotkey refresh hooks to the live action-button mixin methods.
+- Fixed full action-bar invalidations sent as `ACTIONBAR_SLOT_CHANGED` slot `0`.
 
 ## Features
 
-- ConsolePort-style keybind abbreviations (condensed, customizable separator, gamepad/mouse support)
+- Profile-specific keybind abbreviations with editable modifier, mouse, numpad, special-key, function-key, and gamepad mappings
 - Minimap icon and options panel access
 - Overlay frame strata control
 - Modular, event-driven updates
@@ -27,7 +28,7 @@ A modular, robust hotkey overlay system for World of Warcraft action bars, with 
 
 - Overlays will appear automatically on supported action bars.
 - Access the options panel via the minimap icon or `/ahos` slash command.
-- Customize keybind abbreviation style and modifier separator in the options panel.
+- Customize every supported abbreviation and the modifier separator in the dedicated Abbreviations tab.
 - Use `/ahoslog` to open the debug log window and view/copy all debug output.
 - Use `/ahos inspect <ButtonName>` to print debug info for any action button.
 - No reload needed after binding changes in Dominos (Classic).

@@ -31,9 +31,38 @@ local addonName, privateScope = ...
 local addon = privateScope.addon
 local Config = addon.Config
 
--- Cache frequently used globals
-local IsAddOnLoaded = select(4, GetBuildInfo()) >= 100000 and C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
-local GetBuildInfo = GetBuildInfo
+-- Cache current APIs while retaining fallbacks for the supported Classic clients.
+local AddOnsAPI = C_AddOns
+local function IsAddOnLoadedCompat(name)
+    if AddOnsAPI and AddOnsAPI.IsAddOnLoaded then
+        return AddOnsAPI.IsAddOnLoaded(name)
+    end
+    return _G.IsAddOnLoaded and _G.IsAddOnLoaded(name) or false
+end
+
+local function GetNumAddOnsCompat()
+    if AddOnsAPI and AddOnsAPI.GetNumAddOns then
+        return AddOnsAPI.GetNumAddOns()
+    end
+    return _G.GetNumAddOns and _G.GetNumAddOns() or 0
+end
+
+local function GetAddOnInfoCompat(index)
+    if AddOnsAPI and AddOnsAPI.GetAddOnInfo then
+        return AddOnsAPI.GetAddOnInfo(index)
+    end
+    if _G.GetAddOnInfo then
+        return _G.GetAddOnInfo(index)
+    end
+end
+
+local function GetAddOnMetadataCompat(name, key)
+    if AddOnsAPI and AddOnsAPI.GetAddOnMetadata then
+        return AddOnsAPI.GetAddOnMetadata(name, key)
+    end
+    return _G.GetAddOnMetadata and _G.GetAddOnMetadata(name, key) or nil
+end
+
 local C_Timer = C_Timer
 local pairs = pairs
 local string = string
@@ -107,6 +136,7 @@ function Config:GetDefaultProfile()
             shadowOffset = {1, -1},
             abbreviations = true,
             maxLength = 6,
+            modSeparator = "",
             customAbbreviations = {},
             outline = true,               -- legacy boolean
             outlineStyle = "OUTLINE",    -- new style flags (NONE, OUTLINE, THICKOUTLINE, MONOCHROME, MONOCHROME,OUTLINE, MONOCHROME,THICKOUTLINE)
@@ -159,10 +189,11 @@ function Config:DetectUserInterface()
     if self.db and self.db.profile and self.db.profile.debug then
         addon:Print("=== Provider Detection Debug ===")
         local loadedAddons = {}
-        for i = 1, GetNumAddOns() do
-            if IsAddOnLoaded(i) then
-                local folderName = select(2, GetAddOnInfo(i)) or "Unknown"
-                local title = GetAddOnMetadata(i, "Title") or folderName
+        for i = 1, GetNumAddOnsCompat() do
+            if IsAddOnLoadedCompat(i) then
+                local folderName, apiTitle = GetAddOnInfoCompat(i)
+                folderName = folderName or "Unknown"
+                local title = GetAddOnMetadataCompat(i, "Title") or apiTitle or folderName
                 table.insert(loadedAddons, folderName .. " (" .. title .. ")")
             end
         end

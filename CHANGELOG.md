@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.22] - 2026-08-27
+
+### Fixed (2.5.22)
+
+- Updated Retail action-slot checks from the removed global `HasAction` fallback to `C_ActionBar.HasAction`.
+- Replaced the removed `ActionButton_UpdateHotkeys` global hook with hooks on the live `UpdateHotkeys`/`SetHotkeys` button methods used by Retail 12.1.
+- Added secret-value access guards for action attributes, frame visibility, names, text, hierarchy, anchors, and frame levels used by overlay discovery and diagnostics.
+- Handled `ACTIONBAR_SLOT_CHANGED` slot `0` as a full action-bar invalidation, matching Blizzard's current event contract.
+- Replaced deprecated specialization and raid-warning calls with `C_SpecializationInfo` and `RaidWarningUtil`.
+- Fixed hotkeys disappearing when toggling **Mirror Native Hotkey Style** by restyling active overlays in place and isolating per-button native-style failures.
+- Made full refreshes reconcile in place, preserving the last known-good overlay across transient empty scans and protected-button errors.
+- Restored native hotkey labels reliably on disable, cleanup, ElvUI suppression, profile changes, and slash-command toggles.
+- Prevented delayed visibility, fallback, and throttled update callbacks from recreating overlays after disable or cleanup.
+- Prevented options-panel initialization and appearance-only controls from triggering destructive overlay rebuilds.
+- Added a dedicated Abbreviations tab with profile-specific editors for modifiers, mouse buttons, numpad, function keys, special keys, and gamepad inputs.
+- Added live abbreviation previews, per-entry default restoration, and a reset-all action without requiring `/reload`.
+- Fixed bindings on the hyphen key losing their base key, which rendered `-` as a blank overlay and `CTRL--` as just `C`.
+- Added abbreviations for the named gamepad tokens (d-pad, shoulders, triggers, stick clicks and directions, paddles, system buttons) so controller binds no longer show truncated raw tokens such as `CSPA`.
+- Stopped recapturing AHOS's own overlay label as the "original" Blizzard hotkey text, which could make an abbreviation stick permanently to a button.
+- Cleared pooled overlay labels on release so a recycled overlay can never show the previous button's keybind.
+
+### Changed (2.5.22)
+
+- Migrated add-on enumeration and metadata diagnostics to `C_AddOns`, with Classic-compatible fallbacks.
+- Updated Retail TOC compatibility through Midnight 12.1.0 (`120100`).
+- Bumped all TOC version metadata and README highlights to `2.5.22`.
+
 ## [2.5.21] - 2026-05-03
 
 ### Fixed (2.5.21)

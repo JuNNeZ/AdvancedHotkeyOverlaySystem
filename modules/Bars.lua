@@ -14,6 +14,17 @@ local trackedButtons = {}
 local buttonToAction = {}
 local addedNames = {}
 
+local function GetSafeButtonName(button)
+    if not button then return nil end
+    local methodOk, getName = pcall(function() return button.GetName end)
+    if not methodOk or type(getName) ~= "function" then return nil end
+    local ok, name = pcall(getName, button)
+    if not ok or not addon:IsValueAccessible(name) or type(name) ~= "string" or name == "" then
+        return nil
+    end
+    return name
+end
+
 -- List of all possible action bars and their button names
 local barDefinitions = {
     -- Blizzard bars
@@ -48,13 +59,12 @@ function Bars:UpdateTrackedButtons()
     wipe(buttonToAction)
     wipe(addedNames)
     local function add(btn)
-        if not btn or not btn.GetName then return end
-        local name = btn:GetName()
+        local name = GetSafeButtonName(btn)
         if not name or addedNames[name] then return end
         -- Add regardless of current visibility; Display filters on visibility per-frame.
         table.insert(trackedButtons, btn)
         addedNames[name] = true
-        local slot = btn.action or (btn.GetAttribute and btn:GetAttribute("action")) or nil
+        local slot = addon:GetButtonActionSlot(btn)
         if slot then buttonToAction[name] = slot end
     end
     for _, def in ipairs(barDefinitions) do
@@ -91,12 +101,15 @@ function Bars:UpdateTrackedButtons()
         for i = 1, count do
             local bar = _G[prefix .. i]
             if bar and bar.GetChildren then
-                local kids = { bar:GetChildren() }
-                for _, child in ipairs(kids) do
-                    if child and child.GetName then
-                        local cname = child:GetName()
-                        if cname and cname:match(matcher) then
-                            addButton(child)
+                local kids = { pcall(bar.GetChildren, bar) }
+                local ok = table.remove(kids, 1)
+                if ok then
+                    for _, child in ipairs(kids) do
+                        if child and addon:IsValueAccessible(child) then
+                            local cname = GetSafeButtonName(child)
+                            if cname and cname:match(matcher) then
+                                addButton(child)
+                            end
                         end
                     end
                 end
@@ -136,7 +149,7 @@ end
 function Bars:GetButtonBySlot(slot)
     if not slot then return nil end
     for _, btn in ipairs(self:GetAllButtons()) do
-        local action = btn.action or (btn.GetAttribute and btn:GetAttribute("action"))
+        local action = addon:GetButtonActionSlot(btn)
         if action == slot then
             return btn
         end
@@ -148,7 +161,7 @@ function Bars:GetDiagnostics()
     local providerCounts = {}
     local buttons = self:GetAllButtons()
     for _, btn in ipairs(buttons) do
-        local name = btn and btn.GetName and btn:GetName()
+        local name = GetSafeButtonName(btn)
         local provider = addon:GetProviderForButtonName(name)
         local key = provider and provider.key or "Blizzard"
         providerCounts[key] = (providerCounts[key] or 0) + 1

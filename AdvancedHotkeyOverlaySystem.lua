@@ -35,6 +35,79 @@ local function IsAddOnLoadedCompat(name)
     return false
 end
 
+-- Retail 12.x can return values that addon code is not allowed to inspect.
+-- Keep all action-button consumers behind the same access checks so a secret
+-- attribute or frame aspect cannot be compared, converted, or logged.
+function addon:IsValueAccessible(value)
+    local accessChecker = rawget(_G, "canaccessvalue")
+    if type(accessChecker) == "function" then
+        local ok, accessible = pcall(accessChecker, value)
+        return ok and accessible == true
+    end
+
+    local secretChecker = rawget(_G, "issecretvalue")
+    if type(secretChecker) == "function" then
+        local ok, isSecret = pcall(secretChecker, value)
+        return not (ok and isSecret == true)
+    end
+
+    return true
+end
+
+function addon:SafeToString(value, fallback)
+    if not self:IsValueAccessible(value) then
+        return fallback or "<secret>"
+    end
+    local ok, text = pcall(tostring, value)
+    return ok and text or (fallback or "<unavailable>")
+end
+
+function addon:GetButtonActionSlot(button)
+    if not button then return nil end
+
+    local ok, action = pcall(function() return button.action end)
+    if not ok or not self:IsValueAccessible(action) then
+        action = nil
+    end
+
+    local methodOk, getAttribute = pcall(function() return button.GetAttribute end)
+    if action == nil and methodOk and type(getAttribute) == "function" then
+        ok, action = pcall(getAttribute, button, "action")
+        if not ok or not self:IsValueAccessible(action) then
+            action = nil
+        end
+    end
+
+    if type(action) == "number" then
+        return action
+    elseif type(action) == "string" then
+        local convertOk, numericAction = pcall(tonumber, action)
+        if convertOk then return numericAction end
+    end
+    return nil
+end
+
+local function ReadFrameBoolean(frame, methodName)
+    if not frame then return true end
+    local methodOk, method = pcall(function() return frame[methodName] end)
+    if not methodOk or type(method) ~= "function" then return true end
+    local ok, value = pcall(method, frame)
+    if not ok or not addon:IsValueAccessible(value) then
+        -- A secret Shown aspect must not prevent a display-only overlay from
+        -- inheriting its parent's visibility.
+        return true
+    end
+    return value ~= false
+end
+
+function addon:IsFrameShownSafe(frame)
+    return ReadFrameBoolean(frame, "IsShown")
+end
+
+function addon:IsFrameVisibleSafe(frame)
+    return ReadFrameBoolean(frame, "IsVisible")
+end
+
 local PROVIDER_ORDER = {
     "AzeriteUI",
     "Dominos",
@@ -51,6 +124,7 @@ addon.ProviderRegistry = {
         color_rgb = {0.71, 0.88, 1.0},
         supported = true,
         defaultOffsets = { xOffset = -22, yOffset = -3, scale = 0.95 },
+        hotkey_update_methods = { "UpdateHotkeys", "SetHotkeys" },
     },
     AzeriteUI = {
         key = "AzeriteUI",
@@ -277,8 +351,8 @@ end
 -- Wrapper to call the correct module's UpdateAllButtons
 function addon:UpdateAllButtons(...)
     if not self:ShouldShowOverlays() or not (self.db and self.db.profile and self.db.profile.enabled) then
-        if self.Display and self.Display.ClearAllOverlays then
-            self.Display:ClearAllOverlays()
+        if self.Display and self.Display.RemoveAllOverlays then
+            self.Display:RemoveAllOverlays()
         end
         return
     end
@@ -534,7 +608,7 @@ end
 
 -- Called when the addon is disabled
 function addon:OnDisable()
-    if self.db and not self.db.profile.enabled then
+    if self.db then
         self:SafeCall("Core", "OnDisable")
         if self.db.profile.debug then
             self:Print("Addon disabled.")
@@ -634,7 +708,11 @@ function AdvancedHotkeyOverlaySystem:SlashHandler(input)
 
     elseif cmd == "toggle" then
         self.db.profile.enabled = not self.db.profile.enabled
-        self.Core:FullUpdate()
+        if self.db.profile.enabled then
+            self.Core:OnEnable()
+        else
+            self.Core:OnDisable()
+        end
         self:Print("Overlay " .. (self.db.profile.enabled and "|cff4A9EFFenabled|r" or "|cffFF6B6Bdisabled|r"))
 
     elseif cmd == "reload" or cmd == "refresh" then
@@ -650,7 +728,7 @@ function AdvancedHotkeyOverlaySystem:SlashHandler(input)
         self:Print(Loc.MSG_OVERLAYS_UPDATED or "|cff4A9EFFOverlays updated|r |cff888888(full update triggered)|r")
 
     elseif cmd == "cleanup" then
-        self.Display:ClearAllOverlays()
+        self.Display:RemoveAllOverlays()
         self:Print(Loc.MSG_OVERLAYS_TEMP_CLEARED or "|cffFFD700Overlays temporarily cleared|r - |cff888888use Smart Refresh or change settings to restore|r")
 
     elseif cmd == "debug" then
@@ -693,7 +771,13 @@ function AdvancedHotkeyOverlaySystem:SlashHandler(input)
         self:Print(Loc.EASTER_EGG_JUNNEZ or "|cffFFD700Junnez is the secret overlord of hotkeys! |cff4A9EFF All your binds are belong to Junnez! |r")
         for i = 1, 3 do
             C_Timer.After(i * 0.5, function()
-                RaidNotice_AddMessage(RaidWarningFrame, (Loc.PRAISE_JUNNEZ or "Praise Junnez!"), ChatTypeInfo["RAID_WARNING"])
+                local message = Loc.PRAISE_JUNNEZ or "Praise Junnez!"
+                local color = ChatTypeInfo["RAID_WARNING"]
+                if RaidWarningUtil and RaidWarningUtil.AddMessage then
+                    RaidWarningUtil.AddMessage(message, color)
+                elseif RaidWarningFrame and RaidWarningFrame.AddMessage then
+                    RaidWarningFrame:AddMessage(message, color)
+                end
             end)
         end
         PlaySound(12867)
@@ -991,9 +1075,10 @@ frame:SetScript("OnEvent", function(_, event, unit)
     if event == "PLAYER_SPECIALIZATION_CHANGED" and unit == "player" then
         local db = addon.db and addon.db.profile
         if db and db.autoSwitchProfile then
-            local spec = GetSpecialization() and GetSpecializationInfo(GetSpecialization())
-            if spec then
-                local specName = select(2, GetSpecializationInfoByID(spec))
+            local specializationAPI = C_SpecializationInfo
+            if specializationAPI and specializationAPI.GetSpecialization and specializationAPI.GetSpecializationInfo then
+                local specIndex = specializationAPI.GetSpecialization()
+                local specName = specIndex and select(2, specializationAPI.GetSpecializationInfo(specIndex))
                 if specName and addon.db then
                     local profileName = UnitName("player") .. "-" .. GetRealmName() .. "-" .. specName
                     addon.db:SetProfile(profileName)
@@ -1086,7 +1171,7 @@ addon._origPrint = addon._origPrint or addon.Print
 function addon:Print(...)
     local msg = ""
     for i = 1, select("#", ...) do
-        msg = msg .. tostring(select(i, ...)) .. " "
+        msg = msg .. self:SafeToString(select(i, ...)) .. " "
     end
     self:LogDebug(msg)
     -- Do NOT call self:_origPrint(msg) or print to avoid chat spam
@@ -1097,11 +1182,14 @@ if not _G._AHOS_OriginalPrint then
     _G._AHOS_OriginalPrint = print
     print = function(...)
         local msg = ""
-        for i = 1, select("#", ...) do
-            msg = msg .. tostring(select(i, ...)) .. " "
+        local count = select("#", ...)
+        local safeArgs = {}
+        for i = 1, count do
+            safeArgs[i] = addon:SafeToString(select(i, ...))
+            msg = msg .. safeArgs[i] .. " "
         end
         if addon and addon.LogDebug then addon:LogDebug(msg) end
-        _G._AHOS_OriginalPrint(...)
+        _G._AHOS_OriginalPrint(unpack(safeArgs, 1, count))
     end
 end
 
