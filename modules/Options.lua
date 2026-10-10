@@ -208,6 +208,10 @@ local function BuildAbbreviationOptions()
         }
         groups[categoryKey] = group
         args["category_" .. categoryKey] = group
+        -- The options window edits these on its keyboard (options/Keyboard.lua);
+        -- the classic window keeps the list.
+        privateScope.PanelMeta = privateScope.PanelMeta or setmetatable({}, { __mode = "k" })
+        privateScope.PanelMeta[group] = { hidden = true }
     end
 
     for definitionIndex, definition in ipairs(definitions) do
@@ -241,6 +245,16 @@ local function isSmartStrataEnabled()
     if not db.display then return false end
     if db.display.smartStrata == nil then return false end
     return db.display.smartStrata and true or false
+end
+
+-- The options window needs one table for as long as it is open: the "changed from
+-- default" marks and the rows it binds are keyed by the option tables themselves.
+-- The classic window keeps rebuilding its own through GetOptions.
+function Options:GetPanelOptions()
+    if not self.panelOptions and addon.db and addon.db.profile then
+        self.panelOptions = self:GetOptions()
+    end
+    return self.panelOptions
 end
 
 function Options:GetOptions()
@@ -303,59 +317,50 @@ function Options:GetOptions()
             end
         end,
         args = {
-            toggles = {
-                type = "group",
-                inline = true,
-                order = 0,
-                name = "",
-                args = {
-                    enable = {
-                        type = "toggle",
-                        name = "|cff3399ff" .. (L.ENABLE_ADDON or "Enable Addon") .. "|r",
-                        desc = L.ENABLE_ADDON_DESC or "Enable or disable the addon.",
-                        order = 1,
-                        width = "third",
-                        get = function() local db = getSafeProfile() return db.enabled end,
-                        set = function(_, val) local db = getSafeProfile() db.enabled = val if val then addon.Core:OnEnable() else addon.Core:OnDisable() end end,
-                    },
-                    autodetect = {
-                        type = "toggle",
-                        name = "|cff3399ff" .. (L.AUTO_DETECT_UI or "Auto-Detect UI") .. "|r",
-                        desc = L.AUTO_DETECT_UI_DESC or "Automatically detect your action bar UI.",
-                        order = 2,
-                        width = "third",
-                        get = function() local db = getSafeProfile() return db.autoDetectUI end,
-                        set = function(_, val) local db = getSafeProfile() db.autoDetectUI = val if addon:IsReady() then addon.Core:FullUpdate() end end,
-                    },
-                    debug = {
-                        type = "toggle",
-                        name = "|cff3399ff" .. (L.DEBUG_MODE or "Debug Mode") .. "|r",
-                        desc = L.DEBUG_MODE_DESC or "Enable verbose debug logging.",
-                        order = 3,
-                        width = "third",
-                        get = function() local db = getSafeProfile() return db.debug end,
-                        set = function(_, val) local db = getSafeProfile() db.debug = val end,
-                    },
-                    lock = {
-                        type = "execute",
-                        name = function() local db = getSafeProfile() return db.display and db.display.locked and (L.UNLOCK_SETTINGS or "Unlock Settings") or (L.LOCK_SETTINGS or "Lock Settings") end,
-                        desc = L.LOCK_SETTINGS_DESC or "Lock or unlock all settings to prevent accidental changes.",
-                        order = 4,
-                        disabled = false, -- Always enabled, even when locked
-                        func = function()
-                            local db = getSafeProfile()
-                            db.display = db.display or {}
-                            db.display.locked = not db.display.locked
-                            addon:Print(db.display.locked and (L.MSG_SETTINGS_LOCKED or "|cffFFD700Settings locked|r - |cff888888protected from changes|r") or (L.MSG_SETTINGS_UNLOCKED or "|cff4A9EFFSettings unlocked|r - |cff888888you can now modify settings|r"))
-                        end,
-                    },
-                },
-            },
             status = {
                 type = "group",
                 name = L.STATUS or "Status",
                 order = 0.5,
                 args = {
+                    toggles = {
+                        type = "group",
+                        inline = true,
+                        order = 0.1,
+                        name = L.QUICK_SWITCHES or "Quick Switches",
+                        args = {
+                            enable = {
+                                type = "toggle",
+                                name = L.ENABLE_ADDON or "Enable Addon",
+                                desc = L.ENABLE_ADDON_DESC or "Enable or disable the addon.",
+                                order = 1,
+                                width = "third",
+                                get = function() local db = getSafeProfile() return db.enabled end,
+                                set = function(_, val) local db = getSafeProfile() db.enabled = val if val then addon.Core:OnEnable() else addon.Core:OnDisable() end end,
+                            },
+                            autodetect = {
+                                type = "toggle",
+                                name = L.AUTO_DETECT_UI or "Auto-Detect UI",
+                                desc = L.AUTO_DETECT_UI_DESC or "Automatically detect your action bar UI.",
+                                order = 2,
+                                width = "third",
+                                get = function() local db = getSafeProfile() return db.autoDetectUI end,
+                                set = function(_, val) local db = getSafeProfile() db.autoDetectUI = val if addon:IsReady() then addon.Core:FullUpdate() end end,
+                            },
+                            lock = {
+                                type = "execute",
+                                name = function() local db = getSafeProfile() return db.display and db.display.locked and (L.UNLOCK_SETTINGS or "Unlock Settings") or (L.LOCK_SETTINGS or "Lock Settings") end,
+                                desc = L.LOCK_SETTINGS_DESC or "Lock or unlock all settings to prevent accidental changes.",
+                                order = 4,
+                                disabled = false, -- Always enabled, even when locked
+                                func = function()
+                                    local db = getSafeProfile()
+                                    db.display = db.display or {}
+                                    db.display.locked = not db.display.locked
+                                    addon:Print(db.display.locked and (L.MSG_SETTINGS_LOCKED or "|cffFFD700Settings locked|r - |cff888888protected from changes|r") or (L.MSG_SETTINGS_UNLOCKED or "|cff4A9EFFSettings unlocked|r - |cff888888you can now modify settings|r"))
+                                end,
+                            },
+                        },
+                    },
                     summary = {
                         type = "description",
                         order = 1,
@@ -398,6 +403,29 @@ function Options:GetOptions()
                                 addon.Core:FullUpdate()
                             end
                         end,
+                    },
+                    minimap = {
+                        type = "group",
+                name = L.MINIMAP_ICON or "Minimap Icon",
+                        order = 10,
+                        inline = true,
+                        args = {
+                            hide = {
+                                type = "toggle",
+                    name = L.HIDE_MINIMAP_ICON or "Hide Minimap Icon",
+                    desc = L.HIDE_MINIMAP_ICON_DESC or "Hide or show the minimap icon.",
+                                get = function()
+                                    local db = getSafeProfile()
+                                    return db.minimap and db.minimap.hide
+                                end,
+                                set = function(_, val)
+                                    local db = getSafeProfile()
+                                    db.minimap = db.minimap or {}
+                                    db.minimap.hide = val
+                                    if addon.SetupMinimapButton then addon:SetupMinimapButton() end
+                                end,
+                            },
+                        },
                     },
                 },
             },
@@ -708,29 +736,6 @@ function Options:GetOptions()
                     },
                 },
             },
-            minimap = {
-                type = "group",
-        name = L.MINIMAP_ICON or "Minimap Icon",
-                order = 4,
-                inline = true,
-                args = {
-                    hide = {
-                        type = "toggle",
-            name = L.HIDE_MINIMAP_ICON or "Hide Minimap Icon",
-            desc = L.HIDE_MINIMAP_ICON_DESC or "Hide or show the minimap icon.",
-                        get = function()
-                            local db = getSafeProfile()
-                            return db.minimap and db.minimap.hide
-                        end,
-                        set = function(_, val)
-                            local db = getSafeProfile()
-                            db.minimap = db.minimap or {}
-                            db.minimap.hide = val
-                            if addon.SetupMinimapButton then addon:SetupMinimapButton() end
-                        end,
-                    },
-                },
-            },
             integration = {
                 type = "group",
         name = L.INTEGRATION_COMPAT or "Compatibility",
@@ -768,6 +773,15 @@ function Options:GetOptions()
                         type = "description",
                         order = 0,
                         name = L.DEBUGGING_INFO or "Use these tools only when troubleshooting. Normal setup should not require them.",
+                    },
+                    debug = {
+                        type = "toggle",
+                        name = L.DEBUG_MODE or "Debug Mode",
+                        desc = L.DEBUG_MODE_DESC or "Enable verbose debug logging.",
+                        order = 0.5,
+                        width = "full",
+                        get = function() local db = getSafeProfile() return db.debug end,
+                        set = function(_, val) local db = getSafeProfile() db.debug = val end,
                     },
                     enableTroubleshooting = {
                         type = "toggle",
@@ -818,24 +832,17 @@ function Options:GetOptions()
                     },
                 },
             },
-            support = {
+            about = {
                 type = "group",
-        name = L.HELP_AND_DEBUGGING or "Support",
-                order = 97,
+        name = L.ABOUT_AND_SUPPORT or "About & Support",
+                order = 98,
                 args = {
                     supportDesc = {
                         type = "description",
             name = (L.HELP_AND_DEBUGGING_TEXT or "When reporting an issue, include your WoW flavor, AHOS version, bar addon, and whether you use skins like Masque.\n\nUseful commands:\n/ahos show\n/ahos reload\n/ahos detectui\n/ahos inspect <ButtonName>\n/ahos debug\n/ahos debugexport [tablepath]\n/ahoslog\n\nIf a third-party bar addon uses its own private binding system and does not expose stable button commands or hotkey update hooks, AHOS should not claim direct support for it.")
                 .. "\n\nVersion: " .. getVersionString(),
-                        order = 1,
+                        order = 2,
                     },
-                },
-            },
-            about = {
-                type = "group",
-        name = L.ABOUT_AND_CREDITS or "About & Credits",
-                order = 98,
-                args = {
                     aboutDesc = {
                         type = "description",
                         order = 1,

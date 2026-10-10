@@ -52,3 +52,12 @@ runs:
       run: |
         $ErrorActionPreference = 'Stop'
         ./.vscode/scripts/lint-lua.ps1
+
+    # Loads AHOS against a mock client and drives the options window, once per
+    # client TOC, so a file missing from one of them fails here and not in game.
+    - name: Test the options window
+      shell: bash
+      run: |
+        for toc in AdvancedHotkeyOverlaySystem_Mainline.toc AdvancedHotkeyOverlaySystem_Camelot.toc AdvancedHotkeyOverlaySystem_Mists.toc AdvancedHotkeyOverlaySystem_Vanilla.toc; do
+          lua5.1 Tools/TestPanel.lua "$toc"
+        done

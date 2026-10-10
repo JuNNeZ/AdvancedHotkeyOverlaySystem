@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.24] - 2026-10-10
+
+### Added (2.5.24)
+
+- A new options window, drawn in AHOS's own keycap art: a rail of pages with their own icons, one search box across every setting, a mark on every setting that differs from its default with a one-click revert, and four themes (Keycap, Keycap Gold, Class Color, Light) with opacity and scale.
+- A live preview at the top of the Display and Keybinds pages: four action buttons labelled exactly as AHOS would label them, with your own bindings for action buttons 1-4.
+- The Abbreviations page is a keyboard instead of 104 text boxes. Keys bound to an action button light up and show the text AHOS draws for them; Shift, Ctrl and Alt latch to show that layer. Clicking a key opens a card with its abbreviation, the command the game runs, any override an addon has put over it, and every action button (with its bar addon, spell and icon) that answers to the key, with a warning when two bar addons claim the same key.
+- Every key can now carry an abbreviation of its own, not only the 104 with a built-in default.
+- ESC > Options > AddOns > Advanced Hotkey Overlay System is now a landing page, as in AzeriteUI JuNNeZ Edition: the logo, the version, what AHOS is drawing on, and buttons into the options window or the classic one. Clients without the canvas Settings API keep the embedded Ace3 page.
+- `/ahos classic` opens the previous Ace3 window, which stays available and shows the same settings.
+- `Tools/TestPanel.lua` drives the options window against a mock client for every client TOC, and runs in CI.
+
+### Changed (2.5.24)
+
+- The Status page is now an overview: the quick switches and the minimap icon moved onto it, Debug Mode moved to Debugging, and Support joined About.
+
+### Fixed (2.5.24)
+
+- AHOS now ships AceDBOptions-3.0 itself. The Profiles page relied on another addon having loaded it, and the whole options table failed to build without one.
+- The minimap icon setting no longer counts as changed on a fresh profile.
+- Fonts shared through LibSharedMedia are only offered when their file actually loads, and a saved font that no longer loads falls back to the game's font instead of leaving the hotkey text blank.
+- Importing a profile string (Profiles > Import Profile Data) and a debug string works again. Both were called with a colon, so they read the addon itself as the text to import and always reported that no string was given.
+
 ## [2.5.23] - 2026-10-10
 
 ### Added (2.5.23)

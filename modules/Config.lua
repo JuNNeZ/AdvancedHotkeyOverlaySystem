@@ -76,6 +76,24 @@ Config._finalized = false
 local DEFAULT_FONT = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 local LibSharedMedia = LibStub and LibStub("LibSharedMedia-3.0", true)
 
+-- Whether the client can load a font file. LibSharedMedia lists whatever other
+-- addons registered, and a path that does not load leaves the hotkey text in its
+-- old font, or with none at all. Each file is tried once on a fresh font object,
+-- which has no font until one loads, so GetFont answers for that file alone.
+local fontLoads, probeCount = {}, 0
+local function FontLoads(path)
+    if type(path) ~= "string" or path == "" then return false end
+    if fontLoads[path] ~= nil then return fontLoads[path] end
+    if not CreateFont then return true end
+    probeCount = probeCount + 1
+    local probe = CreateFont("AHOSFontProbe" .. probeCount)
+    local ok = pcall(probe.SetFont, probe, path, 12, "")
+    local loaded = ok and probe:GetFont() ~= nil
+    fontLoads[path] = loaded and true or false
+    return fontLoads[path]
+end
+Config.FontLoads = FontLoads
+
 function Config:GetAvailableFonts()
     local fonts = {
         ["Default"] = DEFAULT_FONT,
@@ -86,7 +104,7 @@ function Config:GetAvailableFonts()
     }
     if LibSharedMedia then
         for name, path in pairs(LibSharedMedia:HashTable("font")) do
-            fonts[name] = path
+            if FontLoads(path) then fonts[name] = path end
         end
     end
     return fonts
@@ -141,6 +159,7 @@ function Config:GetDefaultProfile()
             outline = true,               -- legacy boolean
             outlineStyle = "OUTLINE",    -- new style flags (NONE, OUTLINE, THICKOUTLINE, MONOCHROME, MONOCHROME,OUTLINE, MONOCHROME,THICKOUTLINE)
         },
+        minimap = { hide = false },
         bars = {},
         performance = {},
         debug = false,

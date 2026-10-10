@@ -86,9 +86,11 @@ Advanced Hotkey Overlay System replaces the default hotkey text on your action b
 - LibSharedMedia-3.0 (included)
 - LibDBIcon-1.0 (included)
 
-## Recent Updates (v2.5.23)
-- Added WoW Forever support (interface 16001), including the Forever builds of Dominos and AzeriteUI JuNNeZ Edition.
-- Fixed Forever being treated as a Classic client by the display and keybind modules.
+## Recent Updates (v2.5.24)
+- New options window in AHOS's own keycap art, with search, changed-from-default marks, themes and a live hotkey preview.
+- Abbreviations as a keyboard: click a key to change its abbreviation and see its binding, spell, bar and any addon conflicts.
+- ESC > Options > AddOns opens a landing page into the new window; /ahos classic keeps the previous one.
+- Fixed profile import, missing AceDBOptions-3.0, and fonts that did not load leaving hotkey text blank.
 
 ---
 

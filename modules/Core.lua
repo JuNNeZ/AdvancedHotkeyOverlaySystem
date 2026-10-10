@@ -235,6 +235,8 @@ function Core:FullUpdate(...)
     end
     if not addon.db.profile.enabled or (addon.ShouldShowOverlays and not addon:ShouldShowOverlays()) then
         addon:SafeCall("Display", "RemoveAllOverlays")
+        -- Turning overlays off is a change the options window should show too.
+        if privateScope.OnOptionsChanged then privateScope.OnOptionsChanged() end
         return
     end
     if addon.db and addon.db.profile and addon.db.profile.debug then
@@ -246,6 +248,8 @@ function Core:FullUpdate(...)
     if reg then reg:NotifyChange(_G.AHOS_OPTIONS_PANEL_NAME or addonName) end
     -- If the handcrafted JUI is open, refresh its current section to reflect latest DB changes
     if addon.RefreshJUI and not addon._suppressJUIRefresh then addon:RefreshJUI() end
+    -- The options window redraws its open page once, on the next frame.
+    if privateScope.OnOptionsChanged then privateScope.OnOptionsChanged() end
 end
 
 -- Add a stub UpdateAllButtons to ensure overlays update and error is gone

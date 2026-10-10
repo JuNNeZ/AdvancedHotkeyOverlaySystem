@@ -1,13 +1,15 @@
 # Advanced Hotkey Overlay System (AHOS)
 
-![Version](https://img.shields.io/badge/version-2.5.23-cyan)
+![Version](https://img.shields.io/badge/version-2.5.24-cyan)
 
 A modular, robust hotkey overlay system for World of Warcraft action bars, with dedicated support for Blizzard bars, AzeriteUI, Bartender4, Dominos, and DiabolicUI.
 
-## Version 2.5.23 Highlights
+## Version 2.5.24 Highlights
 
-- Added WoW Forever support (interface `16001`), including the Forever builds of Dominos and AzeriteUI JuNNeZ Edition.
-- Fixed Forever being treated as a Classic client by the display and keybind modules.
+- A new options window in AHOS's own keycap art: search across every setting, a mark and one-click revert on anything changed from its default, four themes, and a live preview of the hotkey text.
+- The Abbreviations page is a keyboard: click a key to change its abbreviation and see what it is bound to, which spell and bar answer to it, and which addons claim it.
+- ESC > Options > AddOns opens a landing page into the new window; `/ahos classic` keeps the previous Ace3 window.
+- Fixed profile import, missing AceDBOptions-3.0, and fonts that did not load leaving hotkey text blank.
 
 ## Features
 

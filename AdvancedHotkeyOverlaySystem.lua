@@ -402,25 +402,37 @@ local function AHOS_GetVersion()
     return ver or "unknown"
 end
 
--- SAFETY: Update OpenAHOSOptionsPanel to use the plain config category
-_G.OpenAHOSOptionsPanel = function()
+-- The previous Ace3 window. Always reachable through /ahos classic, and what
+-- opens instead when the options window cannot be built.
+function addon:OpenClassicOptions()
     local AceConfigDialog = LibStub("AceConfigDialog-3.0", true)
     local appName = _G.AHOS_OPTIONS_PANEL_NAME
-        -- For now, open the classic Ace options directly (disable custom UIs)
-        if AceConfigDialog then
-            if AceConfigDialog.OpenFrames and AceConfigDialog.OpenFrames[appName] then
-                AceConfigDialog:Close(appName)
-            else
-                AceConfigDialog:Open(appName)
-            end
-            return
+    if AceConfigDialog then
+        if AceConfigDialog.OpenFrames and AceConfigDialog.OpenFrames[appName] then
+            AceConfigDialog:Close(appName)
+        else
+            AceConfigDialog:Open(appName)
         end
-        -- Fallbacks: try new Settings panel, then legacy Interface Options
-        if Settings and Settings.OpenToCategory then Settings.OpenToCategory(appName); return end
-        if InterfaceOptionsFrame_OpenToCategory then
-            InterfaceOptionsFrame_OpenToCategory(appName)
-            InterfaceOptionsFrame_OpenToCategory(appName)
+        return
     end
+    -- Fallbacks: try new Settings panel, then legacy Interface Options
+    if Settings and Settings.OpenToCategory then Settings.OpenToCategory(appName); return end
+    if InterfaceOptionsFrame_OpenToCategory then
+        InterfaceOptionsFrame_OpenToCategory(appName)
+        InterfaceOptionsFrame_OpenToCategory(appName)
+    end
+end
+
+-- The options window (options/Panel.lua), unless the classic one was chosen in it.
+_G.OpenAHOSOptionsPanel = function()
+    local Kit = addonScope.OptionsKit
+    local Panel = Kit and Kit.Panel
+    local settings = Panel and Panel.Settings and Panel.Settings()
+    if Panel and not (settings and settings.classic) then
+        if Panel:IsShown() then Panel:Close(); return end
+        if Panel:Open() then return end
+    end
+    addon:OpenClassicOptions()
 end
 
 -- Addon state
@@ -521,7 +533,13 @@ end
 -- Called when the addon is initialized
 function addon:OnInitialize()
     -- Initialize the database
-    self.db = LibStub("AceDB-3.0"):New("AdvancedHotkeyOverlaySystemDB", self.Config:GetDynamicDefaults(), true)
+    local defaults = self.Config:GetDynamicDefaults()
+    self.db = LibStub("AceDB-3.0"):New("AdvancedHotkeyOverlaySystemDB", defaults, true)
+    -- The options window marks settings that differ from these.
+    if addonScope.P then
+        addonScope.P.DB = self.db
+        addonScope.P.defaults = defaults
+    end
 
     -- Register the options table once (safe lookups to avoid hard error if a user is missing embedded libs)
     local AceConfig = LibStub("AceConfig-3.0", true)
@@ -546,6 +564,9 @@ function addon:OnInitialize()
 
         -- Helper to register our options in the Blizzard panel only once
         local function EnsureBlizOptionsRegistered(name)
+            -- ESC > Options > AddOns gets a landing page into the options window
+            -- (options/Settings.lua); only a client without that API embeds Ace3's page.
+            if addonScope.RegisterSettingsPage and addonScope.RegisterSettingsPage() then return end
             local ACD = LibStub("AceConfigDialog-3.0", true)
             if not ACD then return end
             -- Avoid duplicate categories even if older builds used a versioned title
@@ -712,6 +733,9 @@ function AdvancedHotkeyOverlaySystem:SlashHandler(input)
             print(Loc.OPTIONS_PANEL_NOT_AVAILABLE or "[AHOS] Options panel function not available.")
         end
 
+    elseif cmd == "classic" then
+        self:OpenClassicOptions()
+
     elseif cmd == "lock" then
         self.db.profile.display.locked = true
         self.Core:FullUpdate()
@@ -777,6 +801,7 @@ function AdvancedHotkeyOverlaySystem:SlashHandler(input)
     elseif cmd == "help" then
         self:Print(Loc.SLASH_HEADER or "|cffFFD700Advanced Hotkey Overlay System|r |cff4A9EFF- Commands:|r")
         self:Print(Loc.SLASH_SHOW or "|cffFFD700/ahos show|r - |cff888888Open options panel|r")
+        self:Print(Loc.SLASH_CLASSIC or "|cffFFD700/ahos classic|r - |cff888888Open the classic Ace3 options window|r")
         self:Print(Loc.SLASH_LOCK or "|cffFFD700/ahos lock|r - |cff888888Lock overlay settings|r")
         self:Print(Loc.SLASH_UNLOCK or "|cffFFD700/ahos unlock|r - |cff888888Unlock overlay settings|r")
         self:Print(Loc.SLASH_RESET or "|cffFFD700/ahos reset|r - |cff888888Reset all settings to default|r")
@@ -1031,7 +1056,11 @@ end
 
 -- debugexport handled inside SlashHandler above
 
-function addon.ImportProfileString(val)
+function addon.ImportProfileString(...)
+    -- Called both as addon.ImportProfileString(text) and addon:ImportProfileString(text); with the colon the
+    -- first argument is the addon itself, which used to be read as the string.
+    local val = ...
+    if val == addon then val = select(2, ...) end
     local str = val
     if type(val) == "table" then
         str = val.text or val.value or ""
@@ -1054,7 +1083,11 @@ function addon.ImportProfileString(val)
     end
 end
 
-function addon.DebugImportString(val)
+function addon.DebugImportString(...)
+    -- Called both as addon.DebugImportString(text) and addon:DebugImportString(text); with the colon the
+    -- first argument is the addon itself, which used to be read as the string.
+    local val = ...
+    if val == addon then val = select(2, ...) end
     local str = val
     if type(val) == "table" then
         str = val.text or val.value or ""

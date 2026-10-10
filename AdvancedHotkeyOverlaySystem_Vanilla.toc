@@ -2,7 +2,7 @@
 ## Title: |T626001:16:16:0:0|t |cff00D4AAAdvanced |cffffd700Hotkey |cffffffffOverlay |cffffd700System|r
 ## Notes: |cffffd700Advanced Hotkey Overlay System|r |cff00D4AA- Intelligent UI detection, live updates, and beautiful customization.|r
 ## Author: |cff00D4AAJuNNeZ|r
-## Version: 2.5.23
+## Version: 2.5.24
 ## SavedVariables: AdvancedHotkeyOverlaySystemDB
 ## IconTexture: Interface\AddOns\AdvancedHotkeyOverlaySystem\media\logo.tga
 ## X-Category: Action Bars
@@ -24,6 +24,7 @@ Libs\AceGUI-3.0\AceGUI-3.0.xml
 Libs\AceConfig-3.0\AceConfig-3.0.xml
 Libs\AceConsole-3.0\AceConsole-3.0.xml
 Libs\AceDB-3.0\AceDB-3.0.xml
+Libs\AceDBOptions-3.0\AceDBOptions-3.0.xml
 Libs\AceEvent-3.0\AceEvent-3.0.xml
 Libs\AceTimer-3.0\AceTimer-3.0.xml
 Libs\LibSharedMedia-3.0\lib.xml
@@ -55,4 +56,20 @@ modules\Display.lua
 modules\Performance.lua
 modules\UI.lua
 modules\JUI.lua
+
+# Options window (options/LICENSE)
+options\Bootstrap.lua
+options\Host.lua
+options\Kit.lua
+options\Config.lua
+options\Defaults.lua
+options\Controls.lua
+options\Color.lua
+options\Grid.lua
+options\Renderer.lua
+options\Look.lua
+options\Preview.lua
+options\Keyboard.lua
+options\Panel.lua
+options\Settings.lua
 

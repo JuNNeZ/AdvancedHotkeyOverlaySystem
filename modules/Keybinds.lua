@@ -432,17 +432,34 @@ function Keybinds:GetDefaultAbbreviation(key)
     return abbreviationDefaults[key]
 end
 
+-- Whether `key` is one key a binding can end in (Q, 5, -, NUMPAD3, BUTTON4), as
+-- opposed to a whole binding with its modifiers (CTRL-Q). The keyboard in the
+-- options window lets every such key carry an abbreviation, not only the ones
+-- with a built-in default.
+function Keybinds:IsAbbreviationKey(key)
+    if type(key) ~= "string" or key == "" then return false end
+    if abbreviationDefaults[key] then return true end
+    if #key > 16 or key:find("[%c%s]") then return false end
+    -- a modifier joined to a key is a binding, not a key
+    return not key:find("%u%-.")
+end
+
+-- What a key shows with no abbreviation of the user's own.
+function Keybinds:GetKeyDefault(key)
+    return abbreviationDefaults[key] or key
+end
+
 function Keybinds:GetConfiguredAbbreviation(key)
     return GetConfiguredAbbreviation(key)
 end
 
 function Keybinds:SetCustomAbbreviation(key, value)
-    if type(key) ~= "string" or not abbreviationDefaults[key] then return false end
+    if not self:IsAbbreviationKey(key) then return false end
     local custom = GetCustomAbbreviationTable(true)
     if not custom then return false end
     value = type(value) == "string" and value or ""
     value = value:gsub("[%c]", ""):gsub("^%s+", ""):gsub("%s+$", "")
-    if value == "" or value == abbreviationDefaults[key] then
+    if value == "" or value == (abbreviationDefaults[key] or key) then
         custom[key] = nil
     else
         custom[key] = value
@@ -769,4 +786,97 @@ function Keybinds:OnProfileChanged()
     self:ClearCache()
     -- Queue a full update to reflect any changes in abbreviation settings from the new profile.
     addon:SafeCall("Core", "FullUpdate")
+end
+
+---------------------------------------------------------------------------
+-- What a key does: the options window's keyboard asks this
+---------------------------------------------------------------------------
+local function Readable(value)
+    if value == nil or not addon:IsValueAccessible(value) then return nil end
+    return value
+end
+
+local function SafeCall(fn, ...)
+    if type(fn) ~= "function" then return nil end
+    local ok, a, b, c = pcall(fn, ...)
+    if not ok then return nil end
+    return Readable(a), Readable(b), Readable(c)
+end
+
+-- "ACTIONBUTTON3" -> "Action Button 3", using the game's own binding names.
+function Keybinds:GetCommandLabel(command)
+    if type(command) ~= "string" or command == "" then return nil end
+    local name = rawget(_G, "BINDING_NAME_" .. command)
+    if type(name) == "string" and name ~= "" then return name end
+    local clicked = command:match("^CLICK ([^:]+)")
+    if clicked then return "Click " .. clicked end
+    return command
+end
+
+-- The spell, item or macro on an action slot, with its icon.
+local function DescribeAction(slot)
+    if type(slot) ~= "number" or slot < 1 then return nil end
+    local actionType, id = SafeCall(GetActionInfo, slot)
+    local icon = SafeCall(GetActionTexture, slot)
+    local name
+    if actionType == "spell" and id then
+        name = (C_Spell and C_Spell.GetSpellName and SafeCall(C_Spell.GetSpellName, id))
+            or (GetSpellInfo and SafeCall(GetSpellInfo, id))
+    elseif actionType == "item" and id then
+        name = (C_Item and C_Item.GetItemNameByID and SafeCall(C_Item.GetItemNameByID, id))
+            or (GetItemInfo and SafeCall(GetItemInfo, id))
+    elseif actionType == "macro" then
+        name = SafeCall(GetActionText, slot)
+    end
+    if not name and actionType then name = SafeCall(GetActionText, slot) end
+    if not (name or icon) then return nil end
+    return { type = actionType, name = name, icon = icon }
+end
+
+-- Every tracked button, by the full binding that presses it (SHIFT-Q -> buttons).
+function Keybinds:GetBoundButtons()
+    local map = {}
+    local buttons = addon.Bars and addon.Bars.GetAllButtons and addon.Bars:GetAllButtons() or {}
+    for _, button in ipairs(buttons) do
+        local ok, full = pcall(self.GetFullBindingText, self, button)
+        full = ok and Readable(full) or nil
+        if type(full) == "string" and full ~= "" then
+            map[full] = map[full] or {}
+            table.insert(map[full], button)
+        end
+    end
+    return map
+end
+
+-- Everything known about one full binding: the command the game runs, an
+-- override an addon put on top of it, and the action buttons (from every bar
+-- provider) that show this key.
+function Keybinds:DescribeKey(full, boundButtons)
+    local report = { key = full, buttons = {}, providers = {} }
+    if type(full) ~= "string" or full == "" then return report end
+    report.command = SafeCall(GetBindingAction, full)
+    local active = SafeCall(GetBindingAction, full, true)
+    if active and active ~= "" and active ~= report.command then report.override = active end
+    report.label = self:GetCommandLabel(report.override or report.command)
+
+    local seen = {}
+    for _, button in ipairs((boundButtons or self:GetBoundButtons())[full] or {}) do
+        local name = GetSafeButtonName(button)
+        local provider = GetButtonProvider(name)
+        local slot = addon:GetButtonActionSlot(button)
+        table.insert(report.buttons, {
+            name = name,
+            provider = provider and provider.key or "Blizzard",
+            providerLabel = provider and provider.label or "Blizzard",
+            color = provider and provider.color_hex or "ffffffff",
+            slot = slot,
+            action = DescribeAction(slot),
+        })
+        local key = provider and provider.key or "Blizzard"
+        if not seen[key] then
+            seen[key] = true
+            table.insert(report.providers, provider and provider.label or "Blizzard")
+        end
+    end
+    return report
 end

@@ -1021,6 +1021,11 @@ function Display:StyleOverlay(overlay, parent, text)
                 addon:Print("[AHOS DEBUG] StyleOverlay (configured): font=", fontName, " path=", fontPath, " size=", db.text.fontSize, " outline=", outline)
             end
     setFontResult = overlay.text:SetFont(fontPath, db.text.fontSize, outline)
+        -- A saved font that no longer loads (its addon was removed) must not leave
+        -- the hotkey without a font: that draws nothing at all.
+        if not setFontResult and not overlay.text:GetFont() then
+            setFontResult = overlay.text:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", db.text.fontSize, outline)
+        end
         local r,g,b,a = 1,1,1,1
         if db.text.color and type(db.text.color) == "table" then
             r = db.text.color[1] or r
