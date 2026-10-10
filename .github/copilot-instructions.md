@@ -46,6 +46,7 @@ The `Config` module detects active UI addons (ElvUI, Bartender4, etc.) and appli
 ### TOC Multi-Flavor System
 Three TOC files support different WoW versions:
 - `AdvancedHotkeyOverlaySystem_Mainline.toc` (Retail)
+- `AdvancedHotkeyOverlaySystem_Camelot.toc` (WoW Forever, Mainline engine — keep its file list in sync with Mainline)
 - `AdvancedHotkeyOverlaySystem_Mists.toc` (MoP Classic)  
 - `AdvancedHotkeyOverlaySystem_Vanilla.toc` (Classic Era)
 

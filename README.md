@@ -1,15 +1,13 @@
 # Advanced Hotkey Overlay System (AHOS)
 
-![Version](https://img.shields.io/badge/version-2.5.22-cyan)
+![Version](https://img.shields.io/badge/version-2.5.23-cyan)
 
 A modular, robust hotkey overlay system for World of Warcraft action bars, with dedicated support for Blizzard bars, AzeriteUI, Bartender4, Dominos, and DiabolicUI.
 
-## Version 2.5.22 Highlights
+## Version 2.5.23 Highlights
 
-- Updated the Retail API integration for Midnight 12.1.0 (`120100`).
-- Migrated action-bar, add-on, specialization, and raid-warning calls to their current APIs.
-- Added Retail secret-value guards and switched hotkey refresh hooks to the live action-button mixin methods.
-- Fixed full action-bar invalidations sent as `ACTIONBAR_SLOT_CHANGED` slot `0`.
+- Added WoW Forever support (interface `16001`), including the Forever builds of Dominos and AzeriteUI JuNNeZ Edition.
+- Fixed Forever being treated as a Classic client by the display and keybind modules.
 
 ## Features
 

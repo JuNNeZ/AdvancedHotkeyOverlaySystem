@@ -35,6 +35,27 @@ local function IsAddOnLoadedCompat(name)
     return false
 end
 
+-- WoW Forever (TOC suffix _Camelot, interface 16xxx) runs the Mainline engine and
+-- reports WOW_PROJECT_MAINLINE, but its interface numbers sit below Retail's, so a
+-- plain "build >= 100000" gate would misclassify it as Classic. Ask the selected
+-- TOC first, then fall back to the project ID and the interface range.
+local function DetectClient()
+    local interface = select(4, GetBuildInfo()) or 0
+    local getMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or rawget(_G, "GetAddOnMetadata")
+    local flavor = getMetadata and getMetadata(addonName, "X-Flavor")
+    local pid = rawget(_G, "WOW_PROJECT_ID")
+    local pm = rawget(_G, "WOW_PROJECT_MAINLINE")
+    local mainline
+    if type(pid) == "number" and type(pm) == "number" then
+        mainline = pid == pm
+    else
+        mainline = interface >= 100000
+    end
+    local forever = flavor == "Forever" or (mainline and interface >= 16000 and interface < 17000)
+    return (mainline or forever) and true or false, forever and true or false
+end
+addon.IsMainlineClient, addon.IsForeverClient = DetectClient()
+
 -- Retail 12.x can return values that addon code is not allowed to inspect.
 -- Keep all action-button consumers behind the same access checks so a secret
 -- attribute or frame aspect cannot be compared, converted, or logged.

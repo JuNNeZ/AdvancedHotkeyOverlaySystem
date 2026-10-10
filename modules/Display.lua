@@ -18,8 +18,8 @@ local visibilityRecoveryDelays = { 0, 0.05, 0.2, 0.5, 1.0 }
 local buttonUpdateGeneration = {}
 local overlayEpoch = 0
 local restoringNativeHotkeys = false
--- Simple build gate: Retail Dragonflight+ has build numbers >= 100000
-local isRetail = (select(4, GetBuildInfo()) or 0) >= 100000
+-- Mainline engine: Retail and WoW Forever (see DetectClient in the core file)
+local isRetail = addon.IsMainlineClient
 
 local function GetSafeFrameValue(frame, methodName, ...)
     if not frame then return nil end

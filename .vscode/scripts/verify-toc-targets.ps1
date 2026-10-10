@@ -14,6 +14,12 @@ $expected = @{
         'X-Compatible-With' = '120100'
         'X-Min-Interface' = '110107'
     }
+    'AdvancedHotkeyOverlaySystem_Camelot.toc' = @{
+        'Interface' = '16001'
+        'X-Compatible-With' = '16001'
+        'X-Min-Interface' = '16001'
+        'X-Flavor' = 'Forever'
+    }
     'AdvancedHotkeyOverlaySystem_Mists.toc' = @{
         'Interface' = '50500, 50501, 50503'
         'X-Compatible-With' = '50503'
@@ -44,6 +50,16 @@ foreach ($file in $expected.Keys) {
             throw "$file has invalid '$field'. Expected '$wanted' but found '$actual'"
         }
     }
+}
+
+# Forever runs the Mainline engine, so both TOCs must load the same files.
+function Get-TocFileList([string]$path) {
+    return @(Get-Content -LiteralPath $path | ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith('#') })
+}
+$mainlineFiles = Get-TocFileList (Join-Path $root 'AdvancedHotkeyOverlaySystem_Mainline.toc')
+$foreverFiles = Get-TocFileList (Join-Path $root 'AdvancedHotkeyOverlaySystem_Camelot.toc')
+if (($mainlineFiles -join "`n") -cne ($foreverFiles -join "`n")) {
+    throw 'AdvancedHotkeyOverlaySystem_Camelot.toc file list differs from AdvancedHotkeyOverlaySystem_Mainline.toc'
 }
 
 Write-Host 'TOC target metadata verified'

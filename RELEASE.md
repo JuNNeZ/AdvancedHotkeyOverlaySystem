@@ -26,7 +26,7 @@ Use this checklist to ensure every release is consistent and complete.
 
 ### Notes on packaging
 
-- We ship three flavors: Mainline (Retail), Mists, and Vanilla. Each has its own suffixed TOC.
+- We ship four flavors: Mainline (Retail), Camelot (WoW Forever), Mists, and Vanilla. Each has its own suffixed TOC.
 - The unsuffixed `AdvancedHotkeyOverlaySystem.toc` exists for local development convenience only.
    It is excluded from packaging via `.pkgmeta` and lacks upload target IDs, preventing a duplicate
    Retail upload. If you see multiple identical Retail uploads in a release, ensure both of these

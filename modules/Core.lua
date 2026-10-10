@@ -4,18 +4,8 @@ local addonName, privateScope = ...
 local addon = privateScope.addon
 local Core = addon.Core
 
--- Build gating utility: prefer project ID for accurate flavor detection, fallback to build
-local function IsRetail()
-    local pid = rawget(_G, "WOW_PROJECT_ID")
-    local pm = rawget(_G, "WOW_PROJECT_MAINLINE")
-    if type(pid) == "number" and type(pm) == "number" then
-        return pid == pm
-    end
-    -- Fallback heuristic: Dragonflight+ builds >= 100000
-    local build = select(4, GetBuildInfo()) or 0
-    return build >= 100000
-end
-local isRetail = IsRetail()
+-- Mainline engine: Retail and WoW Forever (see DetectClient in the core file)
+local isRetail = addon.IsMainlineClient
 local eventsRegistered = false
 local keyBoundCallbacksRegistered = false
 

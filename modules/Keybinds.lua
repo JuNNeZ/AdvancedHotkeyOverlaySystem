@@ -72,8 +72,8 @@ local function GetBindingCacheKey(button, provider)
 end
 
 
--- Simple build gate: Retail Dragonflight+ has build numbers >= 100000
-local isRetail = (select(4, GetBuildInfo()) or 0) >= 100000
+-- Mainline engine: Retail and WoW Forever (see DetectClient in the core file)
+local isRetail = addon.IsMainlineClient
 
 local function GetButtonProvider(buttonName)
     return addon and addon.GetProviderForButtonName and addon:GetProviderForButtonName(buttonName) or addon.ProviderRegistry.Blizzard

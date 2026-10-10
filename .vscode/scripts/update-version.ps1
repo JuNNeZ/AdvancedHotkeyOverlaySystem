@@ -34,7 +34,7 @@ $readme = Join-Path $Root 'README.md'
 Update-File $readme {
     param($s)
     $s = [regex]::Replace($s, 'version-[0-9]+\.[0-9]+\.[0-9]+-cyan', "version-$version-cyan")
-    $s = [regex]::Replace($s, '^(##\s+Version\s+)[0-9]+\.[0-9]+\.[0-9]+(\s+Highlights)\s*$', "$1$version$2", 'Multiline')
+    $s = [regex]::Replace($s, '^(##\s+Version\s+)[0-9]+\.[0-9]+\.[0-9]+(\s+Highlights)[ \t]*$', ('${1}' + $version + '${2}'), 'Multiline')
     return $s
 }
 
@@ -42,7 +42,7 @@ Update-File $readme {
 $cf = Join-Path $Root 'CURSEFORGE.md'
 Update-File $cf {
     param($s)
-    $s = [regex]::Replace($s, '^##\s+Recent\s+Updates\s+\(v[0-9]+\.[0-9]+\.[0-9]+\)\s*$', "## Recent Updates (v$version)", 'Multiline')
+    $s = [regex]::Replace($s, '^##\s+Recent\s+Updates\s+\(v[0-9]+\.[0-9]+\.[0-9]+\)[ \t]*$', "## Recent Updates (v$version)", 'Multiline')
     return $s
 }
 

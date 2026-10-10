@@ -81,15 +81,14 @@ Advanced Hotkey Overlay System replaces the default hotkey text on your action b
 
 ## Requirements
 
-- World of Warcraft Retail or Classic (current patches)
+- World of Warcraft Retail, WoW Forever, or Classic (current patches)
 - Ace3 libraries (included)
 - LibSharedMedia-3.0 (included)
 - LibDBIcon-1.0 (included)
 
-## Recent Updates (v2.5.22)
-- Updated Retail compatibility for interface 120100 (12.1.0).
-- Migrated action, specialization, add-on metadata, raid-warning, and portrait calls to current APIs.
-- Reworked hotkey refresh hooks and guarded secret action-button values introduced by Retail 12.x.
+## Recent Updates (v2.5.23)
+- Added WoW Forever support (interface 16001), including the Forever builds of Dominos and AzeriteUI JuNNeZ Edition.
+- Fixed Forever being treated as a Classic client by the display and keybind modules.
 
 ---
 

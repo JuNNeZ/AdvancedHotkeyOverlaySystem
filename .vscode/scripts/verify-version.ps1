@@ -14,6 +14,7 @@ function Get-TocVersion([string]$path) {
 $tocFiles = @(
     'AdvancedHotkeyOverlaySystem.toc',
     'AdvancedHotkeyOverlaySystem_Mainline.toc',
+    'AdvancedHotkeyOverlaySystem_Camelot.toc',
     'AdvancedHotkeyOverlaySystem_Mists.toc',
     'AdvancedHotkeyOverlaySystem_Vanilla.toc'
 ) | ForEach-Object { Join-Path $root $_ }

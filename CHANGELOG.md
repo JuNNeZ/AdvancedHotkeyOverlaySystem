@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.23] - 2026-10-10
+
+### Added (2.5.23)
+
+- WoW Forever support: new `AdvancedHotkeyOverlaySystem_Camelot.toc` (interface `16001`). Works with the Forever builds of Dominos and AzeriteUI JuNNeZ Edition, which keep their Retail folder and button names.
+
+### Fixed (2.5.23)
+
+- Display and keybind modules no longer treat WoW Forever as a Classic client; client detection now honours the TOC flavor and `WOW_PROJECT_ID` before the interface number.
+
 ## [2.5.22] - 2026-08-27
 
 ### Fixed (2.5.22)
