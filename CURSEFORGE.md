@@ -24,6 +24,13 @@ It works on the default Blizzard bars and on AzeriteUI, Bartender4, Dominos, Dia
 
 ![Edit mode: drag the text into place](IMAGE-edit-mode-gif)
 
+## Recent Updates (v3.0.1)
+
+- Empty buttons on Blizzard's extra bars no longer show the main bar's key for their number.
+- Buttons with no key show nothing, not the game's range dot. The new Hide the Range Dot setting hides it even while AHOS is turned off.
+- Key presses on Blizzard's bars flash and pulse the text, and Pulse uses your press colour too.
+- The controllers on the Controller tab are redrawn to follow the real controllers.
+
 ## Supported bar addons
 
 | Bar addon | What AHOS draws on |
