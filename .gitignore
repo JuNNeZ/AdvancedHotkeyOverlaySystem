@@ -5,3 +5,6 @@
 
 AdvancedHotkeyOverlaySystem.code-workspace
 /build/
+
+# Python bytecode from Tools/
+__pycache__/

@@ -6,26 +6,35 @@ Manages keybinding detection, mapping, and abbreviation for overlays.
 --]]
 
 local addonName, privateScope = ...
-local addon = privateScope.addon
+local addon = privateScope.addon --[[@as AHOS]]
+---@class AHOSKeybinds
 local Keybinds = addon.Keybinds
 local GetButtonCommandName
 
 function Keybinds:OnInitialize()
     if addon.db and addon.db.profile and addon.db.profile.debug then
-        addon:Print("Keybinds module initialized.")
+        addon:Print("[AHOS DEBUG] Keybinds module initialized.")
     end
 end
 
 local keybindCache = {}
+-- Which modifier each cached binding carries, under the same keys as keybindCache.
+local modifierCache = {}
+-- The command the last successful FirstBindingKey answered for, so a button's
+-- second key can be looked up on the same command (GetFullBindingText).
+local lastBindingCommand
+local function UsableKey(key)
+    if not addon:IsValueAccessible(key) then return nil end
+    if type(key) == "string" and key ~= "" and key ~= "\0" then return key end
+    return nil
+end
 -- Utility: return the first non-empty keybinding from GetBindingKey (which may return up to two values)
 local function FirstBindingKey(command)
     if not command then return nil end
     local k1, k2 = GetBindingKey(command)
-    if not addon:IsValueAccessible(k1) then k1 = nil end
-    if not addon:IsValueAccessible(k2) then k2 = nil end
-    if k1 and k1 ~= "" and k1 ~= "\0" then return k1 end
-    if k2 and k2 ~= "" and k2 ~= "\0" then return k2 end
-    return nil
+    local key = UsableKey(k1) or UsableKey(k2)
+    if key then lastBindingCommand = command end
+    return key
 end
 
 local function SafeFrameValue(frame, methodName, ...)
@@ -108,7 +117,27 @@ function GetButtonCommandName(button, provider)
     return nil
 end
 
-local function ResolveProviderExplicitBinding(buttonName, provider)
+-- The keys a bar addon keeps on the button itself (Neuron: ":Q:SHIFT-E:" in
+-- button.keys.hotKeys), for addons that bind with override bindings.
+local function ProviderBoundKeys(button, provider)
+    local path = provider and provider.bound_keys_path
+    if not (button and path) then return nil end
+    local value = button
+    for _, field in ipairs(path) do
+        value = SafeObjectValue(value, field)
+        if value == nil then return nil end
+    end
+    if type(value) ~= "string" then return nil end
+    local keys = {}
+    for key in value:gmatch("[^:]+") do
+        if UsableKey(key) then keys[#keys + 1] = key end
+    end
+    return #keys > 0 and keys or nil
+end
+
+local function ResolveProviderExplicitBinding(buttonName, provider, button)
+    local bound = ProviderBoundKeys(button, provider)
+    if bound then return bound[1] end
     if not buttonName or not provider or not provider.binding_rules then return nil end
     for _, rule in ipairs(provider.binding_rules) do
         if buttonName:match(rule.matcher) then
@@ -134,11 +163,11 @@ end
 -- Get the on-screen hotkey text from a button's FontString before we hide it
 local function IsFallbackHotkeyGlyph(text)
     if not text or text == "" then return false end
-    return text == "●" or text == "\226\151\136" or text == "\u{25CF}" -- bullet
-        or text == "■" or text == "\u{25A0}" -- black square
-        or text == "□" or text == "\u{25A1}" -- white square
-        or text == "◼" or text == "\u{25FC}" -- black medium square
-        or text == "◻" or text == "\u{25FB}" -- white medium square
+    return text == "●" or text == "\226\151\136" -- bullet
+        or text == "■" -- black square
+        or text == "□" -- white square
+        or text == "◼" -- black medium square
+        or text == "◻" -- white medium square
         or text == "�"
 end
 
@@ -399,6 +428,24 @@ local abbreviationDefaults = {}
 for _, definition in ipairs(abbreviationDefinitions) do
     abbreviationDefaults[definition.key] = definition.default
 end
+-- The game names an accented or ringed letter key as it types it, in lower case
+-- (å, ø, ö, é); on a button it reads better in capitals, as the key is printed.
+-- Cyrillic letters (a Russian or Ukrainian board) come the same way.
+local CAPITAL_LETTERS = {
+    ["å"] = "Å", ["æ"] = "Æ", ["ø"] = "Ø", ["ä"] = "Ä", ["ö"] = "Ö", ["ü"] = "Ü",
+    ["é"] = "É", ["è"] = "È", ["ç"] = "Ç", ["à"] = "À", ["ù"] = "Ù",
+}
+do
+    local UTF8_CHAR = "[%z\1-\127\194-\244][\128-\191]*"
+    local lower, upper = {}, {}
+    for c in ("абвгдеёжзийклмнопрстуфхцчшщъыьэюяіїєґ"):gmatch(UTF8_CHAR) do lower[#lower + 1] = c end
+    for c in ("АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯІЇЄҐ"):gmatch(UTF8_CHAR) do upper[#upper + 1] = c end
+    for i, c in ipairs(lower) do CAPITAL_LETTERS[c] = upper[i] end
+end
+Keybinds.CapitalLetters = CAPITAL_LETTERS
+for lower, upper in pairs(CAPITAL_LETTERS) do
+    abbreviationDefaults[lower] = upper
+end
 
 local function GetCustomAbbreviationTable(create)
     local text = addon.db and addon.db.profile and addon.db.profile.text
@@ -453,6 +500,9 @@ function Keybinds:GetConfiguredAbbreviation(key)
     return GetConfiguredAbbreviation(key)
 end
 
+---@param key string
+---@param value string "" restores the default
+---@return boolean
 function Keybinds:SetCustomAbbreviation(key, value)
     if not self:IsAbbreviationKey(key) then return false end
     local custom = GetCustomAbbreviationTable(true)
@@ -510,8 +560,10 @@ end
 
 function Keybinds:ClearCache()
     wipe(keybindCache)
+    wipe(modifierCache)
 end
 
+---@param buttonOrName Button|string
 function Keybinds:ClearButtonCache(buttonOrName)
     local buttonName = buttonOrName
     if buttonOrName and type(buttonOrName) ~= "string" then
@@ -523,10 +575,13 @@ function Keybinds:ClearButtonCache(buttonOrName)
     for cacheKey in pairs(keybindCache) do
         if cacheKey == buttonName or cacheKey:sub(1, #prefix) == prefix then
             keybindCache[cacheKey] = nil
+            modifierCache[cacheKey] = nil
         end
     end
 end
 
+---@param button Button
+---@return string|nil text what AHOS draws for its key, "" when unbound
 function Keybinds:GetBinding(button)
     if not button then return nil end
     local buttonName = GetSafeButtonName(button)
@@ -545,19 +600,210 @@ function Keybinds:GetBinding(button)
 
     if not fullKey or fullKey == "" then
         keybindCache[cacheKey] = ""
+        modifierCache[cacheKey] = false
         return ""
     end
     -- Always abbreviate (yields Dominos-like labels such as ACS1, B4)
     local abbreviatedKey = self:Abbreviate(fullKey)
+    -- Both keys, when the button has two and the profile asks for them.
+    local text = addon.db and addon.db.profile and addon.db.profile.text
+    if text and text.showAllBindings then
+        local second = self:GetSecondBindingText(button)
+        if second then
+            local sep = type(text.bindingSeparator) == "string" and text.bindingSeparator or "/"
+            abbreviatedKey = abbreviatedKey .. sep .. self:Abbreviate(second)
+        end
+    end
     keybindCache[cacheKey] = abbreviatedKey
+    modifierCache[cacheKey] = self:GetModifierKind(fullKey) or false
     return abbreviatedKey
 end
 
+-- "shift", "ctrl" or "alt" for a binding with that one modifier, "multi" for more
+-- than one, and nil for none.
+---@param key string
+---@return "shift"|"ctrl"|"alt"|"multi"|nil
+function Keybinds:GetModifierKind(key)
+    if type(key) ~= "string" or key == "" or not addon:IsValueAccessible(key) then return nil end
+    local found, count = nil, 0
+    local rest = key
+    while true do
+        local modifier, remainder = rest:match("^(%u+)%-(.+)$")
+        if modifier ~= "ALT" and modifier ~= "CTRL" and modifier ~= "SHIFT" then break end
+        found, count = modifier:lower(), count + 1
+        rest = remainder
+    end
+    if count > 1 then return "multi" end
+    return found
+end
+
+local function ModifierColorSettings()
+    local text = addon.db and addon.db.profile and addon.db.profile.text
+    local settings = text and text.modifierColors
+    if type(settings) == "table" and settings.enabled then return settings end
+end
+
+-- The colour for a full binding ("SHIFT-Q"), or nil when it has no modifier or the
+-- option is off.
+---@param key string
+---@return AHOSColor|nil
+function Keybinds:GetModifierColor(key)
+    local settings = ModifierColorSettings()
+    if not settings then return nil end
+    local kind = self:GetModifierKind(key)
+    local color = kind and settings[kind]
+    if type(color) == "table" then return color end
+end
+
+-- The same for a button, read from what GetBinding cached for it.
+---@param button Button
+---@return AHOSColor|nil
+function Keybinds:GetButtonModifierColor(button)
+    local settings = ModifierColorSettings()
+    if not settings or not button then return nil end
+    local buttonName = GetSafeButtonName(button)
+    if not buttonName then return nil end
+    local cacheKey = GetBindingCacheKey(button, GetButtonProvider(buttonName))
+    if modifierCache[cacheKey] == nil then self:GetBinding(button) end
+    local kind = modifierCache[cacheKey]
+    local color = kind and settings[kind]
+    if type(color) == "table" then return color end
+end
+
+-- A gamepad button (PAD1, PADLTRIGGER). The client knows for sure where it can say.
+local function IsGamePadKey(key)
+    if type(key) ~= "string" or key == "" then return false end
+    if IsBindingForGamePad then
+        local ok, isPad = pcall(IsBindingForGamePad, key)
+        if ok and addon:IsValueAccessible(isPad) then return isPad and true or false end
+    end
+    return key:find("^PAD") ~= nil
+end
+Keybinds.IsGamePadKey = IsGamePadKey
+
+-- The client's own glyph for a gamepad button, as texture markup sized to the text:
+-- GetBindingText(key, 1) answers "|A:Gamepad_Ltr_A_32:14:14|a" in the label style of
+-- the controller in use (the approach LibActionButton-1.0-GE takes). Nil where the
+-- client has no glyph for it, or the option is off.
+-- The client carries every controller's glyphs as global strings, one set per
+-- label style (SharedConstants.lua, SetGamepadBindingStrings): KEY_ABBR_PAD1_LTR
+-- is Xbox's A (Gamepad_Ltr_A_32), _SHP PlayStation's cross, _REV Nintendo's B,
+-- and no suffix the generic set. A style missing a glyph falls back the way the
+-- client does: Nintendo to the letters, then to the generic one.
+local GLYPH_STYLES = {
+    xbox = { "_LTR", "" },
+    ps = { "_SHP", "" },
+    switch = { "_REV", "_LTR", "" },
+    generic = { "" },
+}
+Keybinds.GamePadStyles = { "auto", "xbox", "ps", "switch", "generic" }
+
+local function Markup(value)
+    if type(value) ~= "string" or not addon:IsValueAccessible(value) then return nil end
+    if value:find("|A:", 1, true) or value:find("|T", 1, true) then return value end
+end
+
+-- The glyph for gamepad button `token` in `style` ("auto" is the controller the
+-- game sees, else the letters), as texture markup `size` pixels high. Nil when
+-- the client has none.
+---@param token string PAD1, PADLTRIGGER, ...
+---@param style? string
+---@param size? number
+---@return string|nil markup
+function Keybinds:GetGamePadGlyph(token, style, size)
+    if type(token) ~= "string" or token == "" then return nil end
+    local markup
+    if style == nil or style == "auto" then
+        if GetBindingText then
+            local ok, text = pcall(GetBindingText, token, 1)
+            markup = ok and Markup(text) or nil
+        end
+        style = "xbox"
+    end
+    if not markup then
+        for _, suffix in ipairs(GLYPH_STYLES[style] or GLYPH_STYLES.xbox) do
+            markup = Markup(rawget(_G, "KEY_ABBR_" .. token .. suffix))
+            if markup then break end
+        end
+    end
+    if not markup then return nil end
+    size = math.floor(tonumber(size) or 14)
+    return (markup:gsub("(|A:[^:|]+):%d+:%d+", "%1:" .. size .. ":" .. size))
+end
+
+-- The glyph style the profile draws gamepad buttons in.
+function Keybinds:GetGamePadStyle()
+    local text = addon.db and addon.db.profile and addon.db.profile.text
+    local style = text and text.gamepadIconStyle
+    return GLYPH_STYLES[style] and style or "auto"
+end
+
+local function GamePadGlyph(base, size)
+    local text = addon.db.profile.text
+    if text.gamepadIcons == false or not IsGamePadKey(base) then return nil end
+    return Keybinds:GetGamePadGlyph(base, Keybinds:GetGamePadStyle(), size)
+end
+
+-- Mouse buttons and the wheel as small icons (media/glyphs, white, tinted to the
+-- text's colour through the markup). Side buttons carry their number after the icon.
+local GLYPH_PATH = "Interface\\AddOns\\" .. addonName .. "\\media\\glyphs\\"
+local MOUSE_ICONS = {
+    BUTTON1 = "mouse-left", BUTTON2 = "mouse-right", BUTTON3 = "mouse-middle",
+    MOUSEWHEELUP = "mouse-wheelup", MOUSEWHEELDOWN = "mouse-wheeldown",
+}
+Keybinds.MouseIcons = MOUSE_ICONS
+
+---@param key string BUTTON1..BUTTON31, MOUSEWHEELUP, MOUSEWHEELDOWN
+---@param size? number
+---@param color? AHOSColor
+---@return string|nil markup
+function Keybinds:GetMouseIcon(key, size, color)
+    if type(key) ~= "string" then return nil end
+    local file = MOUSE_ICONS[key]
+    local number
+    if not file then
+        number = key:match("^BUTTON(%d+)$")
+        if not number then return nil end
+        file = "mouse-side"
+    end
+    size = math.floor(tonumber(size) or 14)
+    local r, g, b = 255, 255, 255
+    if type(color) == "table" then
+        r = math.floor((color[1] or 1) * 255 + .5)
+        g = math.floor((color[2] or 1) * 255 + .5)
+        b = math.floor((color[3] or 1) * 255 + .5)
+    end
+    local markup = string.format("|T%s%s:%d:%d:0:0:64:64:0:64:0:64:%d:%d:%d|t", GLYPH_PATH, file, size, size, r, g, b)
+    return markup .. (number or "")
+end
+
+local function MouseIcon(base, fullKey)
+    local text = addon.db.profile.text
+    if not text.mouseIcons then return nil end
+    local color = Keybinds:GetModifierColor(fullKey) or text.color
+    return Keybinds:GetMouseIcon(base, text.fontSize, color)
+end
+
+---@param key string a full binding, "CTRL-SHIFT-F"
+---@return string
 function Keybinds:Abbreviate(key)
     if not addon:IsValueAccessible(key) or not key or key == "" then return "" end
     if not addon.db.profile.text.abbreviations then return key end
 
     local mods, base = normalizeModifiers(key)
+    -- With colour by modifier, the colour can say what the letters said.
+    local colors = addon.db.profile.text.modifierColors
+    if type(colors) == "table" and colors.enabled and colors.hideModifiers then
+        mods = ""
+    end
+
+    -- A gamepad button is drawn as its own glyph, unless you gave it text of your own.
+    local custom = GetCustomAbbreviationTable(false)
+    if not (custom and custom[base]) then
+        local glyph = GamePadGlyph(base, addon.db.profile.text.fontSize) or MouseIcon(base, key)
+        -- markup is never cut short: half an escape sequence draws garbage
+        if glyph then return mods .. glyph end
+    end
 
     -- Abbreviate the base key if a mapping exists.
     base = GetConfiguredAbbreviation(base)
@@ -573,12 +819,16 @@ function Keybinds:Abbreviate(key)
     return result
 end
 
+---@param button Button
+---@return string key the full binding ("SHIFT-Q"), "" when unbound
+---@return string|nil command the binding command it was found on
 function Keybinds:GetFullBindingText(button)
     if not button then return "" end
     local buttonName = GetSafeButtonName(button)
     if not buttonName then return "" end
     local provider = GetButtonProvider(buttonName)
     local key
+    lastBindingCommand = nil
 
     -- Prefer mapping by button name to avoid bar paging mismatches (Classic only)
     if not isRetail then
@@ -592,7 +842,7 @@ function Keybinds:GetFullBindingText(button)
     end
 
     if (not key or key == "") and provider then
-        key = ResolveProviderExplicitBinding(buttonName, provider)
+        key = ResolveProviderExplicitBinding(buttonName, provider, button)
         if addon.db and addon.db.profile and addon.db.profile.debug and key and key ~= "" then
             addon:Print(string.format("[AHOS DEBUG] Provider binding for %s => %s (%s)", tostring(buttonName), tostring(key), tostring(provider.label or provider.key)))
         end
@@ -631,38 +881,6 @@ function Keybinds:GetFullBindingText(button)
         end
     end
 
-    -- If that failed (e.g., no .action property), fall back to legacy UI-specific matching.
-    if not key or key == "" then
-        -- AzeriteUI main bar mapping
-        local azBar, azBtn = buttonName:match("^AzeriteActionBar(%d+)Button(%d+)$")
-        if azBar and azBtn then
-            azBar = tonumber(azBar)
-            azBtn = tonumber(azBtn)
-            local command
-            if azBar == 1 then command = "ACTIONBUTTON" .. azBtn
-            elseif azBar == 2 then command = "MULTIACTIONBAR1BUTTON" .. azBtn
-            elseif azBar == 3 then command = "MULTIACTIONBAR2BUTTON" .. azBtn
-            elseif azBar == 4 then command = "MULTIACTIONBAR3BUTTON" .. azBtn
-            elseif azBar == 5 then command = "MULTIACTIONBAR4BUTTON" .. azBtn
-            elseif azBar == 6 then command = "MULTIACTIONBAR5BUTTON" .. azBtn
-            elseif azBar == 7 then command = "MULTIACTIONBAR6BUTTON" .. azBtn
-            elseif azBar == 8 then command = "MULTIACTIONBAR7BUTTON" .. azBtn
-            end
-            if command then key = FirstBindingKey(command) end
-        end
-
-        -- AzeriteUI stance bar mapping
-        local stanceBtn = buttonName:match("^AzeriteStanceBarButton(%d+)$")
-        if stanceBtn then
-            key = FirstBindingKey("SHAPESHIFTBUTTON" .. stanceBtn)
-        end
-
-        local petBtn = buttonName:match("^AzeritePetBarButton(%d+)$")
-        if petBtn then
-            key = FirstBindingKey("BONUSACTIONBUTTON" .. petBtn)
-        end
-    end
-
     -- Final fallback: try the button's global name. This works for some buttons like StanceButton1.
     if not key or key == "" then
         key = FirstBindingKey(buttonName)
@@ -695,6 +913,7 @@ function Keybinds:GetFullBindingText(button)
                 addon:Print(string.format("[AHOS DEBUG] Visual label fallback for %s => %s", tostring(buttonName), tostring(visual)))
             end
             key = visual
+            lastBindingCommand = nil
         end
     end
 
@@ -704,7 +923,31 @@ function Keybinds:GetFullBindingText(button)
         return ""
     end
 
-    return key
+    -- The command the key was found on, for the button's second key.
+    return key, lastBindingCommand
+end
+
+-- The other key that presses this button, when it has two: the second key on the
+-- same command, or the second in a bar addon's own list. Nil when there is none.
+---@param button Button
+---@return string|nil key
+function Keybinds:GetSecondBindingText(button)
+    local first, command = self:GetFullBindingText(button)
+    if not first or first == "" then return nil end
+    local name = GetSafeButtonName(button)
+    local bound = name and ProviderBoundKeys(button, GetButtonProvider(name))
+    if bound then
+        for _, key in ipairs(bound) do
+            if key ~= first then return key end
+        end
+        return nil
+    end
+    if not command then return nil end
+    local k1, k2 = GetBindingKey(command)
+    for _, key in ipairs({ UsableKey(k1) or false, UsableKey(k2) or false }) do
+        if key and key ~= first then return key end
+    end
+    return nil
 end
 
 function Keybinds:GetButtonDebugInfo(button)
@@ -879,4 +1122,92 @@ function Keybinds:DescribeKey(full, boundButtons)
         end
     end
     return report
+end
+
+-- Everything the inspector shows for one action button: who drew it, what it runs,
+-- what is on it, the key that presses it and the text AHOS draws for that.
+---@param button Button
+---@return AHOSButtonInfo|nil
+function Keybinds:DescribeButton(button)
+    local name = GetSafeButtonName(button)
+    if not name then return nil end
+    local provider = GetButtonProvider(name)
+    local slot = addon:GetButtonActionSlot(button)
+    local okKey, full = pcall(self.GetFullBindingText, self, button)
+    full = okKey and Readable(full) or ""
+    local okShown, shown = pcall(self.GetBinding, self, button)
+    local _, barLabel = nil, nil
+    if addon.Bars and addon.Bars.GetBarInfo then _, barLabel = addon.Bars:GetBarInfo(name) end
+    return {
+        name = name,
+        provider = provider and provider.key or "Blizzard",
+        providerLabel = provider and provider.label or "Blizzard",
+        color = provider and provider.color_hex or "ffffffff",
+        bar = barLabel,
+        command = GetButtonCommandName(button, provider) or GetBindingCommandFromButtonName(name),
+        slot = slot,
+        action = DescribeAction(slot),
+        key = full,
+        shown = okShown and Readable(shown) or "",
+    }
+end
+
+---------------------------------------------------------------------------
+-- Binding from the options window's keyboard
+---------------------------------------------------------------------------
+-- Every command a tracked action button answers to, once each, as
+-- { command, label } in bar order: what a key can be bound to from its card.
+function Keybinds:GetBindableCommands()
+    local list, seen = {}, {}
+    local buttons = addon.Bars and addon.Bars.GetAllButtons and addon.Bars:GetAllButtons() or {}
+    for _, button in ipairs(buttons) do
+        local name = GetSafeButtonName(button)
+        if name then
+            local provider = GetButtonProvider(name)
+            local command = GetButtonCommandName(button, provider) or GetBindingCommandFromButtonName(name)
+            if type(command) == "string" and command ~= "" and not seen[command] then
+                seen[command] = true
+                local _, bar = nil, nil
+                if addon.Bars.GetBarInfo then _, bar = addon.Bars:GetBarInfo(name) end
+                local commandLabel = self:GetCommandLabel(command) or command
+                list[#list + 1] = {
+                    command = command,
+                    bar = bar or "",
+                    index = tonumber(name:match("(%d+)$")) or 0,
+                    label = (bar and (bar .. "  ·  ") or "") .. commandLabel,
+                }
+            end
+        end
+    end
+    table.sort(list, function(a, b)
+        if a.bar ~= b.bar then return a.bar < b.bar end
+        if a.index ~= b.index then return a.index < b.index end
+        return a.command < b.command
+    end)
+    return list
+end
+
+-- Binds `key` (a full binding, "SHIFT-Q") to `command`, or clears it when `command`
+-- is nil, and saves the binding set. Returns false and a reason when it cannot:
+-- bindings cannot change in combat.
+---@param key string
+---@param command? string nil clears the key
+---@return boolean ok
+---@return string|nil reason
+function Keybinds:SetKeyBinding(key, command)
+    if type(key) ~= "string" or key == "" then return false, "no key" end
+    if InCombatLockdown and InCombatLockdown() then
+        return false, (addon.L and addon.L.BIND_IN_COMBAT) or "Key bindings cannot change in combat."
+    end
+    if not SetBinding then return false, "no binding API" end
+    local ok, result
+    if command then
+        ok, result = pcall(SetBinding, key, command)
+    else
+        ok, result = pcall(SetBinding, key)
+    end
+    if not ok or result == false then return false, (addon.L and addon.L.BIND_FAILED) or "The game refused that binding." end
+    if SaveBindings and GetCurrentBindingSet then pcall(SaveBindings, GetCurrentBindingSet()) end
+    self:ClearCache()
+    return true
 end

@@ -6,7 +6,8 @@ This module handles the minimap icon for the Advanced Hotkey Overlay System addo
 --]]
 
 local addonName, privateScope = ...
-local addon = privateScope.addon
+local addon = privateScope.addon --[[@as AHOS]]
+---@class AHOSUI
 local UI = addon.UI
 
 local ldb = LibStub and LibStub("LibDataBroker-1.1", true)
@@ -20,16 +21,15 @@ function UI:OnEnable()
         self._loginRegistered = true
         UI:RegisterEvent("PLAYER_LOGIN", function()
             if addon.db and addon.db.profile and addon.db.profile.debug then
-                addon:Print("[AHOS] PLAYER_LOGIN: Ensuring minimap icon...")
+                addon:Print("[AHOS DEBUG] PLAYER_LOGIN: Ensuring minimap icon...")
             end
             -- Show colored version string using TOC metadata
             local version = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(addonName, "Version"))
                 or (GetAddOnMetadata and GetAddOnMetadata(addonName, "Version")) or "unknown"
             local displayName = (L.ADDON_NAME or "Advanced Hotkey Overlay System")
             local msg = "|cff00D4AA" .. displayName .. "|r v.|cff00ffff" .. tostring(version) .. "|r |cffffffff" .. (L.ENABLED or "enabled.") .. "|r"
-            if not (addon.db and addon.db.profile and addon.db.profile.debug) then
-                addon:Print(msg)
-            end
+            -- in the log, not the chat: a line at every login is noise
+            addon:LogDebug(msg)
             addon:SafeCall("UI", "EnsureMinimapIcon")
         end)
     end

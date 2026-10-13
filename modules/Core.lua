@@ -1,7 +1,8 @@
 ---@diagnostic disable: undefined-global
 -- modules/Core.lua
 local addonName, privateScope = ...
-local addon = privateScope.addon
+local addon = privateScope.addon --[[@as AHOS]]
+---@class AHOSCore
 local Core = addon.Core
 
 -- Mainline engine: Retail and WoW Forever (see DetectClient in the core file)
@@ -9,15 +10,48 @@ local isRetail = addon.IsMainlineClient
 local eventsRegistered = false
 local keyBoundCallbacksRegistered = false
 
-function Core:HandleBarStateChanged(eventName)
-    if addon.db and addon.db.profile and addon.db.profile.debug then
-        addon:Print("[AHOS DEBUG] Bar state event: " .. tostring(eventName) .. " -> scheduling overlay refresh passes.")
+-- Bars, bindings and skins settle over about a second after a state change: bar
+-- addons page late, and other addons write the native hotkey text after us. So a
+-- change is followed by a few more passes. They are one series, though: an event
+-- that arrives while a series is running starts it again instead of adding a second
+-- one, so a burst of events (combat start fires several) costs one series. And a
+-- follow-up pass only runs while the bars are still changing: once a pass finds the
+-- same buttons shown and drawn as the one before it, the rest are dropped.
+local REFRESH_PASSES = { 0.2, 0.5, 1.0 }
+local refreshTimers = {}
+local refreshSignature
+
+local function CancelRefreshPasses(core)
+    for i = #refreshTimers, 1, -1 do
+        if core.CancelTimer then pcall(core.CancelTimer, core, refreshTimers[i], true) end
+        refreshTimers[i] = nil
     end
+end
+
+---@param reason string for the debug log
+function Core:ScheduleRefreshPasses(reason)
+    if addon.db and addon.db.profile and addon.db.profile.debug then
+        addon:Print("[AHOS DEBUG] " .. tostring(reason) .. " -> overlay refresh passes.")
+    end
+    CancelRefreshPasses(self)
+    refreshSignature = nil
     self:FullUpdate()
-    self:ScheduleTimer(function() self:FullUpdate() end, 0.05)
-    self:ScheduleTimer(function() self:FullUpdate() end, 0.2)
-    self:ScheduleTimer(function() self:FullUpdate() end, 0.5)
-    self:ScheduleTimer(function() self:FullUpdate() end, 1.0)
+    for index, delay in ipairs(REFRESH_PASSES) do
+        refreshTimers[#refreshTimers + 1] = self:ScheduleTimer(function()
+            local signature = addon.Display and addon.Display.GetStateSignature and addon.Display:GetStateSignature()
+            -- The first follow-up always runs; later ones only while something moved.
+            if index > 1 and signature and signature == refreshSignature then
+                CancelRefreshPasses(self)
+                return
+            end
+            refreshSignature = signature
+            self:FullUpdate()
+        end, delay)
+    end
+end
+
+function Core:HandleBarStateChanged(eventName)
+    self:ScheduleRefreshPasses("Bar state event: " .. tostring(eventName))
 end
 
 function Core:OnInitialize()
@@ -31,7 +65,7 @@ function Core:OnInitialize()
     -- Do not set up options here; let the main file handle options
     -- Only print debug info
     if addon.db and addon.db.profile and addon.db.profile.debug then
-        addon:Print("Core initialized, waiting for PLAYER_ENTERING_WORLD.")
+        addon:Print("[AHOS DEBUG] Core initialized, waiting for PLAYER_ENTERING_WORLD.")
     end
 end
 
@@ -53,6 +87,7 @@ function Core:OnDisable()
     if addon.Performance and addon.Performance.CancelPendingUpdates then
         addon.Performance:CancelPendingUpdates()
     end
+    CancelRefreshPasses(self)
     if self.CancelAllTimers then
         pcall(self.CancelAllTimers, self)
     end
@@ -67,7 +102,6 @@ function Core:RegisterEvents()
     if addon.db and addon.db.profile and addon.db.profile.debug then
         addon:Print("[AHOS DEBUG] Core:RegisterEvents called.")
     end
-    self:RegisterEvent("PLAYER_LOGIN", "OnPlayerLogin")
     self:RegisterEvent("PLAYER_ENTERING_WORLD", function(...)
         if addon.db and addon.db.profile and addon.db.profile.debug then
             addon:Print("[AHOS DEBUG] RegisterEvents: PLAYER_ENTERING_WORLD event fired.")
@@ -94,11 +128,8 @@ function Core:RegisterEvents()
         if addon.Keybinds and addon.Keybinds.ClearCache then
             addon.Keybinds:ClearCache()
         end
-    -- Run multiple delayed updates to override late hotkey text writes by Dominos/Blizzard
-    self:FullUpdate()
-    self:ScheduleTimer(function() self:FullUpdate() end, 0.2)
-    self:ScheduleTimer(function() self:FullUpdate() end, 0.5)
-    self:ScheduleTimer(function() self:FullUpdate() end, 1.0)
+        -- Follow-up passes override late hotkey text writes by Dominos/Blizzard
+        self:ScheduleRefreshPasses("UPDATE_BINDINGS")
     end)
     -- Retail 12.0.1 no longer exposes PLAYER_BINDING_CHANGED; rely on UPDATE_BINDINGS.
     if addon.db and addon.db.profile and addon.db.profile.debug and isRetail then
@@ -131,49 +162,61 @@ function Core:RegisterEvents()
     self:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", "FullUpdate")
 
     if addon.db.profile.debug then
-        addon:Print("Core enabled and events registered.")
+        addon:Print("[AHOS DEBUG] Core enabled and events registered.")
     end
 
-    -- Optional: listen for LibKeyBound callbacks if library is present (used by Dominos/Bartender keybind mode)
-    local ok, KeyBound = pcall(LibStub, "LibKeyBound-1.0")
-    if not keyBoundCallbacksRegistered and ok and KeyBound and KeyBound.RegisterCallback then
-        keyBoundCallbacksRegistered = true
-        KeyBound.RegisterCallback(self, "LIBKEYBOUND_ENABLED", function()
-            if addon.db and addon.db.profile and addon.db.profile.debug then
-                addon:Print("[AHOS DEBUG] LibKeyBound: enabled; suppressing native hotkeys during binding.")
-            end
-            self:FullUpdate()
-        end)
-        KeyBound.RegisterCallback(self, "LIBKEYBOUND_DISABLED", function()
-            if addon.db and addon.db.profile and addon.db.profile.debug then
-                addon:Print("[AHOS DEBUG] LibKeyBound: disabled; re-applying overlay suppression.")
-            end
-            -- Run a few delayed passes just like UPDATE_BINDINGS
-            if addon.Keybinds and addon.Keybinds.ClearCache then
-                addon.Keybinds:ClearCache()
-            end
-            self:FullUpdate()
-            self:ScheduleTimer(function() self:FullUpdate() end, 0.2)
-            self:ScheduleTimer(function() self:FullUpdate() end, 0.5)
-            self:ScheduleTimer(function() self:FullUpdate() end, 1.0)
-        end)
-    end
+    -- LibKeyBound comes with the bar addon that uses it, and may load after AHOS
+    -- (on demand, or a bar addon enabled later): try now, and again as addons load.
+    self:HookKeyBound()
+    self:RegisterEvent("ADDON_LOADED", function() self:HookKeyBound() end)
+end
+
+-- Dominos', Bartender4's and LUI's keybind mode. A key bound in it fires
+-- UPDATE_BINDINGS like any other; when the mode ends, the bars settle with passes.
+---@return boolean hooked
+function Core:HookKeyBound()
+    if keyBoundCallbacksRegistered then return true end
+    local KeyBound = LibStub and LibStub("LibKeyBound-1.0", true)
+    if not (KeyBound and KeyBound.RegisterCallback) then return false end
+    keyBoundCallbacksRegistered = true
+    KeyBound.RegisterCallback(self, "LIBKEYBOUND_ENABLED", function()
+        if addon.db and addon.db.profile and addon.db.profile.debug then
+            addon:Print("[AHOS DEBUG] LibKeyBound: enabled; suppressing native hotkeys during binding.")
+        end
+        self:FullUpdate()
+    end)
+    KeyBound.RegisterCallback(self, "LIBKEYBOUND_DISABLED", function()
+        if addon.db and addon.db.profile and addon.db.profile.debug then
+            addon:Print("[AHOS DEBUG] LibKeyBound: disabled; re-applying overlay suppression.")
+        end
+        -- Run a few delayed passes just like UPDATE_BINDINGS
+        if addon.Keybinds and addon.Keybinds.ClearCache then
+            addon.Keybinds:ClearCache()
+        end
+        self:ScheduleRefreshPasses("LIBKEYBOUND_DISABLED")
+    end)
+    return true
+end
+
+---@return boolean
+function Core:IsKeyBoundHooked()
+    return keyBoundCallbacksRegistered
 end
 
 function Core:UnregisterEvents()
     self:UnregisterAllEvents()
     eventsRegistered = false
     if addon.db.profile.debug then
-        addon:Print("Core disabled, events unregistered, overlays cleared.")
+        addon:Print("[AHOS DEBUG] Core disabled, events unregistered, overlays cleared.")
     end
 end
 
 function Core:OnProfileChanged(event, db, newProfileKey)
     if addon.db and addon.db.profile and addon.db.profile.debug then
         if newProfileKey then
-            addon:Print("Profile changed to '" .. tostring(newProfileKey) .. "'. Reloading.")
+            addon:Print("[AHOS DEBUG] Profile changed to '" .. tostring(newProfileKey) .. "'. Reloading.")
         else
-            addon:Print("Profile changed. Reloading.")
+            addon:Print("[AHOS DEBUG] Profile changed. Reloading.")
         end
     end
     if addon.db and addon.db.profile and addon.db.profile.enabled then
@@ -181,19 +224,6 @@ function Core:OnProfileChanged(event, db, newProfileKey)
         self:FullUpdate()
     else
         self:OnDisable()
-    end
-end
-
-function Core:OnPlayerLogin()
-    addon:SafeCall("Config", "DetectUI")
-    if addon.db and addon.db.profile and addon.db.profile.enabled then
-        self:RegisterEvents()
-        self:FullUpdate()
-    else
-        self:OnDisable()
-    end
-    if addon.db.profile.debug then
-        addon:Print("PLAYER_LOGIN: UI detected as '" .. ((addon.GetDetectedProviderText and addon:GetDetectedProviderText()) or addon.detectedUI or "None") .. "'. Full update triggered.")
     end
 end
 
@@ -208,10 +238,12 @@ function Core:HandlePlayerEnteringWorld(...)
     self:ScheduleTimer(function() self:FullUpdate() end, 1)
     self:ScheduleTimer(function() self:FullUpdate() end, 3)
     if addon.db and addon.db.profile and addon.db.profile.debug then
-        addon:Print("PLAYER_ENTERING_WORLD: Addon is now ready. Scheduled full update (1s and 3s).")
+        addon:Print("[AHOS DEBUG] PLAYER_ENTERING_WORLD: Addon is now ready. Scheduled full update (1s and 3s).")
     end
 end
 
+---@param event string
+---@param slot number 0 means every slot
 function Core:UpdateSpecificButton(_, slot)
     if not addon.db.profile.enabled then return end
     -- Retail uses slot 0 to signal that every action slot changed.
@@ -219,8 +251,8 @@ function Core:UpdateSpecificButton(_, slot)
         addon.Performance:QueueFullUpdate()
         return
     end
-    local button = addon.Bars:GetButtonBySlot(slot)
-    if button then
+    -- Two bar addons can show the same slot; both need the update.
+    for _, button in ipairs(addon.Bars:GetButtonsBySlot(slot)) do
         addon.Performance:QueueButtonUpdate(button)
     end
 end
@@ -243,80 +275,7 @@ function Core:FullUpdate(...)
         addon:Print("[AHOS DEBUG] Core:FullUpdate proceeding to Performance:QueueFullUpdate")
     end
     addon:SafeCall("Performance", "QueueFullUpdate")
-    -- Also notify AceConfig to refresh all open option UIs (JUI/Pretty/Ace windows)
-    local reg = LibStub and LibStub("AceConfigRegistry-3.0", true)
-    if reg then reg:NotifyChange(_G.AHOS_OPTIONS_PANEL_NAME or addonName) end
-    -- If the handcrafted JUI is open, refresh its current section to reflect latest DB changes
-    if addon.RefreshJUI and not addon._suppressJUIRefresh then addon:RefreshJUI() end
     -- The options window redraws its open page once, on the next frame.
     if privateScope.OnOptionsChanged then privateScope.OnOptionsChanged() end
 end
 
--- Add a stub UpdateAllButtons to ensure overlays update and error is gone
-function Core:UpdateAllButtons(...)
-    -- Call Bars and Display overlay updates if they exist
-    if addon.Bars and type(addon.Bars.UpdateAllButtons) == "function" then
-        addon.Bars:UpdateAllButtons(...)
-    end
-    if addon.Display and type(addon.Display.UpdateAllButtons) == "function" then
-        addon.Display:UpdateAllButtons(...)
-    end
-    -- You can add additional overlay update logic here if needed
-    if addon.db and addon.db.profile and addon.db.profile.debug then
-        addon:Print("[AHOS DEBUG] Core:UpdateAllButtons called.")
-    end
-end
-
-function Core:ChatCommand(input)
-    local args = {}
-    for arg in string.gmatch(input, "[^%s]+") do
-        table.insert(args, arg)
-    end
-
-    if #args == 0 then
-        LibStub("AceConfigDialog-3.0"):Open(addonName)
-    elseif args[1] == "refresh" then
-        self:FullUpdate()
-        addon:Print((addon.L and addon.L.MSG_OVERLAYS_RELOADED) or "Overlays refreshed.")
-    elseif args[1] == "debug" then
-        addon.db.profile.debug = not addon.db.profile.debug
-        local L = addon.L or {}
-        addon:Print((L.DEBUG_MODE_LABEL or "Debug mode ") .. (addon.db.profile.debug and (L.DEBUG_ENABLED or "enabled") or (L.DEBUG_DISABLED or "disabled")) .. ".")
-    elseif args[1] == "detect" then
-        addon.Config:DetectUI()
-        local L = addon.L or {}
-        addon:Print((L.MSG_CURRENT_DETECTED_UI or "Current detected UI: ") .. ((addon.GetDetectedProviderText and addon:GetDetectedProviderText()) or addon.detectedUI or (L.UNKNOWN or "Unknown")))
-        self:FullUpdate()
-    elseif args[1] == "inspect" and args[2] then
-        local buttonName = string.upper(args[2])
-        local button = _G[buttonName]
-        if button then
-            local info = addon.Keybinds:GetButtonDebugInfo(button)
-            addon:Print(info)
-        else
-            local L = addon.L or {}
-            addon:Print((L.BUTTON_NOT_FOUND_PREFIX or "Button not found: ") .. tostring(args[2]))
-        end
-    elseif args[1] == "dumphotkey" and args[2] then
-        local buttonName = string.upper(args[2])
-        local button = _G[buttonName]
-        if button and addon.Display and addon.Display.DumpHotkeyRegions then
-            addon.Display:DumpHotkeyRegions(button)
-        else
-            local L = addon.L or {}
-            addon:Print((L.BUTTON_NOT_FOUND_PREFIX or "Button not found: ") .. tostring(args[2]) .. (L.DISPLAY_MISSING_SUFFIX or " or Display missing."))
-        end
-    elseif args[1] == "dumplayers" and args[2] then
-        local buttonName = string.upper(args[2])
-        local button = _G[buttonName]
-        if button and addon.Display and addon.Display.DumpButtonLayers then
-            addon.Display:DumpButtonLayers(button)
-        else
-            local L = addon.L or {}
-            addon:Print((L.BUTTON_NOT_FOUND_PREFIX or "Button not found: ") .. tostring(args[2]) .. (L.DISPLAY_MISSING_SUFFIX or " or Display missing."))
-        end
-    else
-        local L = addon.L or {}
-        addon:Print(L.USAGE_AHOS or "Usage: /ahos [refresh|debug|detect|inspect <ButtonName>|dumphotkey <ButtonName>|dumplayers <ButtonName>]")
-    end
-end

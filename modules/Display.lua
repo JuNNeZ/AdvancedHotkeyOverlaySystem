@@ -1,275 +1,25 @@
 ---@diagnostic disable: undefined-global
--- modules/Display.lua
+-- modules/Display.lua - the overlay update flow.
+--
+-- Which buttons get an overlay, which keep or get back their own label, and the
+-- bookkeeping around that: updates (all or one), releasing a button, putting every
+-- label back. How an overlay looks is DisplayStyle.lua's; the buttons' own labels
+-- are DisplayNative.lua's; shared state and helpers are DisplayShared.lua's.
 local addonName, privateScope = ...
-local addon = privateScope.addon
+local addon = privateScope.addon --[[@as AHOS]]
+---@class AHOSDisplay
 local Display = addon.Display
-
-local overlayPool = {}
-local activeOverlays = {}
-local originalHotkeyTexts = {} -- Store original Blizzard hotkey text by button name
-local squelchedByButton = {}    -- Track buttons currently squelched
-local hookedHotkeyRegions = {}   -- Track fontstrings we have hooksecurefunc'ed
-local guardSetText = setmetatable({}, { __mode = "k" }) -- Re-entrancy guard per FontString
-local nativeRewriteButtons = {}  -- Per-button flag when we actively rewrite native FS
-local providerHotkeyHooks = setmetatable({}, { __mode = "k" })
-local providerHotkeyRefreshPending = setmetatable({}, { __mode = "k" })
-local buttonVisibilityHooks = setmetatable({}, { __mode = "k" })
-local visibilityRecoveryDelays = { 0, 0.05, 0.2, 0.5, 1.0 }
-local buttonUpdateGeneration = {}
-local overlayEpoch = 0
-local restoringNativeHotkeys = false
--- Mainline engine: Retail and WoW Forever (see DetectClient in the core file)
-local isRetail = addon.IsMainlineClient
-
-local function GetSafeFrameValue(frame, methodName, ...)
-    if not frame then return nil end
-    local methodOk, method = pcall(function() return frame[methodName] end)
-    if not methodOk or type(method) ~= "function" then return nil end
-    local ok, value = pcall(method, frame, ...)
-    if ok and addon:IsValueAccessible(value) then return value end
-    return nil
-end
-
-local function GetSafeName(object)
-    local name = GetSafeFrameValue(object, "GetName")
-    return type(name) == "string" and name ~= "" and name or nil
-end
-
-local function GetSafeText(fontString)
-    local text = GetSafeFrameValue(fontString, "GetText")
-    return type(text) == "string" and text or nil
-end
-
-local function GetSafeObjects(frame, methodName)
-    if not frame then return {} end
-    local methodOk, method = pcall(function() return frame[methodName] end)
-    if not methodOk or type(method) ~= "function" then return {} end
-    local values = { pcall(method, frame) }
-    local ok = table.remove(values, 1)
-    if not ok then return {} end
-
-    local accessible = {}
-    for _, value in ipairs(values) do
-        if addon:IsValueAccessible(value) then
-            accessible[#accessible + 1] = value
-        end
-    end
-    return accessible
-end
-
-local function GetSafeNumber(frame, methodName, fallback)
-    local value = GetSafeFrameValue(frame, methodName)
-    return type(value) == "number" and value or (fallback or 0)
-end
-
-local function IsOverlayRenderingEnabled()
-    local profile = addon and addon.db and addon.db.profile
-    if not profile or not profile.enabled then return false end
-    if addon.ShouldShowOverlays and not addon:ShouldShowOverlays() then return false end
-    return true
-end
-
-local function RefreshNativeHotkey(button)
-    if not button then return false end
-    local name = GetSafeName(button)
-    local provider = name and addon.GetProviderForButtonName and addon:GetProviderForButtonName(name)
-    local methodNames = provider and provider.hotkey_update_methods
-    if not methodNames then
-        methodNames = provider and provider.hotkey_update_method and { provider.hotkey_update_method }
-            or { "UpdateHotkeys", "SetHotkeys" }
-    end
-
-    for _, methodName in ipairs(methodNames) do
-        local methodOk, method = pcall(function() return button[methodName] end)
-        if methodOk and type(method) == "function" then
-            local ok = pcall(method, button)
-            if ok then return true end
-        end
-    end
-    return false
-end
-
-local strataOrder = {
-    BACKGROUND = 1,
-    LOW = 2,
-    MEDIUM = 3,
-    HIGH = 4,
-    DIALOG = 5,
-    FULLSCREEN = 6,
-    FULLSCREEN_DIALOG = 7,
-    TOOLTIP = 8,
-}
-
-local function NormalizeStrata(strata, fallback)
-    local value = type(strata) == "string" and string.upper(strata) or nil
-    if value and strataOrder[value] then
-        return value
-    end
-    local fallbackValue = type(fallback) == "string" and string.upper(fallback) or "MEDIUM"
-    if strataOrder[fallbackValue] then
-        return fallbackValue
-    end
-    return "MEDIUM"
-end
-
-local function GetStrataRank(strata)
-    return strataOrder[NormalizeStrata(strata, "MEDIUM")] or strataOrder.MEDIUM
-end
-
--- Whether we should reuse the native hotkey FontString (rewrite its text)
--- instead of drawing our own overlay text. Default: true (auto-skins with Dominos/Masque).
-function Display:UseNativeRewrite()
-    local db = addon and addon.db and addon.db.profile
-    local v = db and db.display and db.display.nativeRewrite
-    -- Default OFF to honor AHOS positioning/reskin settings
-    if v == nil then return false end
-    return v and true or false
-end
-
-function Display:UseSmartStrata()
-    local db = addon and addon.db and addon.db.profile
-    local v = db and db.display and db.display.smartStrata
-    if v == nil then return false end
-    return v and true or false
-end
-
--- Per-button policy: force rewrite for Dominos buttons by default for reliability
-function Display:ShouldRewriteForButton(button)
-    if not button or not button.GetName then return self:UseNativeRewrite() end
-    local name = GetSafeName(button) or ""
-    local db = addon and addon.db and addon.db.profile
-    local provider = addon and addon.GetProviderForButtonName and addon:GetProviderForButtonName(name)
-    local rewriteSetting = provider and provider.rewrite_setting
-    if rewriteSetting then
-        local providerPref = db and db.display and db.display[rewriteSetting]
-        if providerPref == nil then return false end
-        return providerPref and true or false
-    end
-    return self:UseNativeRewrite()
-end
-
--- Apply the native hotkey FontString's styling to our overlay text, if available.
--- Returns true if native style was applied; false otherwise.
-function Display:ApplyNativeHotkeyStyle(button, overlay)
-    if not button or not overlay or not overlay.text then return false end
-    local regions = self:GetHotkeyRegions(button)
-    local fs = regions and regions[1]
-    -- If no obvious hotkey region matched, emit a brief diagnostic for Dominos buttons
-    if not fs and addon.db and addon.db.profile and addon.db.profile.debug then
-        local bn = GetSafeName(button) or addon:SafeToString(button)
-        if bn and bn:find("DominosActionButton") then
-            local countFS, samples = 0, {}
-            if button.GetRegions then
-                for _, r in ipairs(GetSafeObjects(button, "GetRegions")) do
-                    if r and r.GetObjectType and r:GetObjectType() == "FontString" then
-                        countFS = countFS + 1
-                        if #samples < 4 then table.insert(samples, GetSafeName(r) or "<anon>") end
-                    end
-                end
-            end
-            addon:Print(string.format("[AHOS DEBUG] No native hotkey FS detected on %s (FontStrings=%d) samples=%s", bn, countFS, table.concat(samples, ", ")))
-        end
-    end
-    if not fs or not fs.GetFont then return false end
-    -- Align draw layer to native to integrate with skin
-    if fs.GetDrawLayer and overlay.text.SetDrawLayer then
-        local layer, sub = fs:GetDrawLayer()
-        overlay.text:SetDrawLayer(layer or "OVERLAY", (sub or 0) + 1)
-    end
-    local fontPath, nativeSize, fontFlags = fs:GetFont()
-    local dbSize = (addon and addon.db and addon.db.profile and addon.db.profile.text and addon.db.profile.text.fontSize) or nativeSize
-    if fontPath and dbSize then
-        overlay.text:SetFont(fontPath, dbSize, fontFlags)
-    else
-        return false
-    end
-    if fs.GetTextColor then
-        local r,g,b,a = fs:GetTextColor()
-        -- Dominos/Masque may hide the native FS by setting alpha to 0; ensure our overlay stays visible
-        local dbp = addon and addon.db and addon.db.profile
-        local aOverride = (dbp and dbp.text and type(dbp.text.color) == "table" and dbp.text.color[4]) or 1
-        overlay.text:SetTextColor(r or 1, g or 1, b or 1, aOverride)
-    end
-    if fs.GetShadowColor and fs.GetShadowOffset then
-        local sr,sg,sb,sa = fs:GetShadowColor()
-        local sx, sy = fs:GetShadowOffset()
-        if sr and sg and sb then overlay.text:SetShadowColor(sr,sg,sb,sa or 1) end
-        if sx and sy then overlay.text:SetShadowOffset(sx, sy) end
-    end
-    -- Mirror justification
-    if fs.GetJustifyH then
-        local h = fs:GetJustifyH()
-        if h and overlay.text.SetJustifyH then overlay.text:SetJustifyH(h) end
-    end
-    if fs.GetJustifyV then
-        local v = fs:GetJustifyV()
-        if v and overlay.text.SetJustifyV then overlay.text:SetJustifyV(v) end
-    end
-    -- Mirror first anchor point; allow anchoring relative to the same frame for pixel-perfect match
-    overlay.text:ClearAllPoints()
-    if fs.GetPoint and fs.GetNumPoints and GetSafeNumber(fs, "GetNumPoints", 0) > 0 then
-        local ok, p, _, rp, x, y = pcall(fs.GetPoint, fs, 1)
-        if ok and addon:IsValueAccessible(p) and addon:IsValueAccessible(rp)
-            and addon:IsValueAccessible(x) and addon:IsValueAccessible(y) then
-            overlay.text:SetPoint(p or "TOPRIGHT", overlay, rp or p or "TOPRIGHT", x or 0, y or 0)
-        else
-            overlay.text:SetPoint("TOPRIGHT", overlay, "TOPRIGHT", 0, 0)
-        end
-    else
-        overlay.text:SetPoint("TOPRIGHT", overlay, "TOPRIGHT", 0, 0)
-    end
-    if addon.db and addon.db.profile and addon.db.profile.debug then
-        local fp, fsiz, fflags = fs:GetFont()
-        local p, rel, rp, x, y = "TOPRIGHT", overlay, "TOPRIGHT", 0, 0
-        if fs.GetPoint then
-            local ok, safeP, safeRel, safeRP, safeX, safeY = pcall(fs.GetPoint, fs, 1)
-            if ok then p, rel, rp, x, y = safeP, safeRel, safeRP, safeX, safeY end
-        end
-        addon:Print(string.format("[AHOS DEBUG] ApplyNativeHotkeyStyle: %s font=%s size=%s flags=%s point=%s x=%.1f y=%.1f",
-            GetSafeName(button) or "<secret>", tostring(fp), tostring(fsiz), tostring(fflags), addon:SafeToString(p, "TOPRIGHT"),
-            (addon:IsValueAccessible(x) and tonumber(x)) or 0, (addon:IsValueAccessible(y) and tonumber(y)) or 0))
-    end
-    return true
-end
-
-local function GetOverlayFromPool(parent)
-    local overlay = table.remove(overlayPool)
-    if not overlay then
-        overlay = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-        overlay.text = overlay:CreateFontString(nil, "OVERLAY")
-        overlay:SetFrameLevel(GetSafeNumber(parent, "GetFrameLevel", 0) + 5)
-    if overlay.EnableMouse then overlay:EnableMouse(false) end
-    end
-    overlay._ahosInPool = nil
-    overlay:SetParent(parent)
-    overlay:Show()
-    return overlay
-end
-
-local function ReleaseOverlayToPool(overlay)
-    if not overlay or overlay._ahosInPool then return end
-    overlay._ahosInPool = true
-    -- Drop the label so a reused frame can never flash the previous button's bind.
-    if overlay.text and overlay.text.SetText then overlay.text:SetText("") end
-    overlay:Hide()
-    overlay:ClearAllPoints()
-    overlay:SetParent(UIParent) -- Reparent to avoid being destroyed with parent
-    table.insert(overlayPool, overlay)
-end
-
-local function RemoveOverlayFromPool(overlay)
-    if not overlay or not overlay._ahosInPool then return end
-    for index = #overlayPool, 1, -1 do
-        if overlayPool[index] == overlay then
-            table.remove(overlayPool, index)
-            break
-        end
-    end
-    overlay._ahosInPool = nil
-end
+local S = privateScope.DisplayShared
+local activeOverlays, originalHotkeyTexts, squelchedByButton, nativeRewriteButtons = S.activeOverlays, S.originalHotkeyTexts, S.squelchedByButton, S.nativeRewriteButtons
+local providerHotkeyRefreshPending, buttonVisibilityHooks, visibilityRecoveryDelays, buttonUpdateGeneration = S.providerHotkeyRefreshPending, S.buttonVisibilityHooks, S.visibilityRecoveryDelays, S.buttonUpdateGeneration
+local isRetail, GetSafeFrameValue, GetSafeName, GetSafeText = S.isRetail, S.GetSafeFrameValue, S.GetSafeName, S.GetSafeText
+local GetSafeObjects, IsOverlayRenderingEnabled, RefreshNativeHotkey, NativeHotkeyRegion = S.GetSafeObjects, S.IsOverlayRenderingEnabled, S.RefreshNativeHotkey, S.NativeHotkeyRegion
+local IsFallbackHotkeyGlyph, DerivedNativeText, GetOverlayFromPool, ReleaseOverlayToPool = S.IsFallbackHotkeyGlyph, S.DerivedNativeText, S.GetOverlayFromPool, S.ReleaseOverlayToPool
+local RemoveOverlayFromPool, PlainText, NativeText, IsTopRightAnchor = S.RemoveOverlayFromPool, S.PlainText, S.NativeText, S.IsTopRightAnchor
+local DeepCollectHotkeyFontStrings = S.DeepCollectHotkeyFontStrings
 
 function Display:ClearAllOverlays()
-    overlayEpoch = overlayEpoch + 1
+    S.overlayEpoch = S.overlayEpoch + 1
     for _, overlay in pairs(activeOverlays) do
         ReleaseOverlayToPool(overlay)
     end
@@ -277,23 +27,12 @@ function Display:ClearAllOverlays()
     wipe(nativeRewriteButtons)
     wipe(squelchedByButton)
     wipe(buttonUpdateGeneration)
+    self:ClearReleased()
     wipe(providerHotkeyRefreshPending)
     if addon:IsReady() and addon.db and addon.db.profile and addon.db.profile.debug then
-        addon:Print("All overlays cleared and returned to pool.")
+        addon:Print("[AHOS DEBUG] All overlays cleared and returned to pool.")
     end
     -- Do NOT wipe originalHotkeyTexts here!
-end
-
--- Helper: Returns true if the text is a Blizzard fallback glyph for unbound keys
-local function IsFallbackHotkeyGlyph(text)
-    if not addon:IsValueAccessible(text) or not text or text == "" then return false end
-    -- Common placeholders across locales/skins: bullet, squares, replacement char
-    return text == "●" or text == "\226\151\136" or text == "\u{25CF}" -- bullet
-        or text == "■" or text == "\u{25A0}" -- black square
-        or text == "□" or text == "\u{25A1}" -- white square
-        or text == "◼" or text == "\u{25FC}" -- black medium square
-        or text == "◻" or text == "\u{25FB}" -- white medium square
-        or text == "�" -- replacement character
 end
 
 function Display:EnsureButtonVisibilityHook(button)
@@ -308,10 +47,10 @@ function Display:EnsureButtonVisibilityHook(button)
         -- OnShow can fire before the button becomes effectively visible, so keep retrying
         -- until the parent bar has actually finished restoring.
         if addon.Core and addon.Core.ScheduleTimer and addon.Display and addon.Display.UpdateOverlayForButton then
-            local scheduledEpoch = overlayEpoch
+            local scheduledEpoch = S.overlayEpoch
             for _, delay in ipairs(visibilityRecoveryDelays) do
                 addon.Core:ScheduleTimer(function()
-                    if scheduledEpoch ~= overlayEpoch or not IsOverlayRenderingEnabled() then return end
+                    if scheduledEpoch ~= S.overlayEpoch or not IsOverlayRenderingEnabled() then return end
                     if not self or not addon:IsFrameShownSafe(self) then return end
                     if addon.Performance and addon.Performance.QueueButtonUpdate then
                         addon.Performance:QueueButtonUpdate(self)
@@ -329,51 +68,6 @@ function Display:EnsureButtonVisibilityHook(button)
     end)
 end
 
--- Taint-safe anchor check used by hotkey region heuristics.
--- Some protected regions can return secure/secret strings for points.
-local function IsTopRightAnchor(region)
-    if not region or not region.GetPoint then return false end
-    local ok, p1, _, p2 = pcall(region.GetPoint, region, 1)
-    if not ok then return false end
-    if not addon:IsValueAccessible(p1) or not addon:IsValueAccessible(p2) then return false end
-    return p1 == "TOPRIGHT" or p2 == "TOPRIGHT"
-end
-
--- Recursively scan a frame and its children for FontStrings that likely represent hotkey labels.
--- This helps when UIs (e.g., AzeriteUI) wrap the hotkey text in a nested container such as
--- ButtonName.TextOverlayContainer.
-local function DeepCollectHotkeyFontStrings(frame, button, out, depth, maxDepth)
-    if not frame or not frame.GetObjectType then return end
-    if depth > (maxDepth or 3) then return end
-    -- Collect any FontString children that look like hotkey/keybind text
-    if frame.GetRegions then
-        for _, region in ipairs(GetSafeObjects(frame, "GetRegions")) do
-            if region and region.GetObjectType and region:GetObjectType() == "FontString" then
-                local rname = GetSafeName(region) or ""
-                local match = (rname ~= "" and (rname:find("HotKey") or rname:find("Keybind") or rname:find("Hotkey")))
-                if not match then
-                    -- Heuristics: top-right anchored, small-ish font size, short text
-                    if IsTopRightAnchor(region) then
-                        match = true
-                    end
-                end
-                if match then table.insert(out, region) end
-            end
-        end
-    end
-    -- Recurse into child frames (TextOverlayContainer, OverlayFrame, etc.)
-    if frame.GetChildren then
-        for _, child in ipairs(GetSafeObjects(frame, "GetChildren")) do
-            if child and child ~= frame and child.GetObjectType then
-                local ctype = child:GetObjectType()
-                if ctype == "Frame" or ctype == "Button" or ctype == "Region" then
-                    DeepCollectHotkeyFontStrings(child, button, out, depth + 1, maxDepth)
-                end
-            end
-        end
-    end
-end
-
 function Display:UpdateAllOverlays()
     if not addon:IsReady() then
         if addon.db and addon.db.profile and addon.db.profile.debug then
@@ -386,7 +80,7 @@ function Display:UpdateAllOverlays()
         return
     end
 
-    local buttons = addon.Bars:GetAllButtons()
+    local buttons = addon.Bars:GetAllButtons(true)
     if not buttons or #buttons == 0 then
         if addon.db and addon.db.profile and addon.db.profile.debug then
             addon:Print("[AHOS DEBUG] Display:UpdateAllOverlays: No buttons found; preserving existing overlays for the next scan.")
@@ -401,14 +95,14 @@ function Display:UpdateAllOverlays()
         for _, button in ipairs(buttons) do
             local buttonName = GetSafeName(button)
             if buttonName then
-                local hotkeyTextRegion = _G[buttonName .. "HotKey"]
+                local hotkeyTextRegion = NativeHotkeyRegion(button, buttonName)
                 if hotkeyTextRegion then
                     RefreshNativeHotkey(button)
                     local blizzText = GetSafeText(hotkeyTextRegion)
                     -- Native rewrite / auto-fallback may have written our own label here.
                     -- Recapturing it would make the abbreviation permanent, so skip it.
                     local ourText = addon.Keybinds and addon.Keybinds.GetBinding and addon.Keybinds:GetBinding(button)
-                    if blizzText and blizzText ~= "" and blizzText ~= ourText and not IsFallbackHotkeyGlyph(blizzText) then
+                    if blizzText and blizzText ~= "" and PlainText(blizzText) ~= ourText and not IsFallbackHotkeyGlyph(blizzText) then
                         originalHotkeyTexts[buttonName] = blizzText
                         if addon.db and addon.db.profile and addon.db.profile.debug then
                             addon:Print("[AHOS DEBUG] Recaptured original Blizzard hotkey for " .. buttonName .. ": '" .. tostring(blizzText) .. "'")
@@ -444,12 +138,102 @@ function Display:UpdateAllOverlays()
         buttonUpdateGeneration[buttonName] = nil
     end
     if addon.db and addon.db.profile and addon.db.profile.debug then
-        addon:Print("Updated all overlays for " .. #buttons .. " buttons.")
+        addon:Print("[AHOS DEBUG] Updated all overlays for " .. #buttons .. " buttons.")
     end
+end
+
+-- Takes AHOS off one button: no overlay, no rewrite, the native label shown with
+-- its own text.
+local releasedButtons = {}
+
+---@param button Button
+function Display:ReleaseButton(button)
+    local buttonName = GetSafeName(button)
+    if not buttonName or releasedButtons[buttonName] then return end
+    releasedButtons[buttonName] = true
+    if activeOverlays[buttonName] then
+        ReleaseOverlayToPool(activeOverlays[buttonName])
+        activeOverlays[buttonName] = nil
+    end
+    nativeRewriteButtons[buttonName] = nil
+    self:SquelchHotkeyRegions(button, false)
+    local hotkeyTextRegion = NativeHotkeyRegion(button, buttonName)
+    if not hotkeyTextRegion then return end
+    if addon.Visibility and addon.Visibility.RestoreNative then addon.Visibility:RestoreNative(hotkeyTextRegion) end
+    local refreshed = RefreshNativeHotkey(button)
+    local current = GetSafeText(hotkeyTextRegion)
+    if refreshed and current and current ~= "" and not IsFallbackHotkeyGlyph(current) then
+        if not addon:IsFrameShownSafe(hotkeyTextRegion) then hotkeyTextRegion:Show() end
+        return
+    end
+    -- The button would not redraw its own label: LibActionButton's UpdateHotkeys
+    -- (AzeriteUI, Bartender4) is not a method on the button, and AHOS may never
+    -- have seen an original to put back. Ask the button what it shows instead,
+    -- then the text saved before AHOS drew, then the game's own short key text.
+    local text
+    local getHotkey = GetSafeFrameValue(button, "GetHotkey")
+    if type(getHotkey) == "string" and getHotkey ~= "" and not IsFallbackHotkeyGlyph(getHotkey) then text = getHotkey end
+    local orig = originalHotkeyTexts[buttonName]
+    if not text and orig and not IsFallbackHotkeyGlyph(orig) then text = orig end
+    if not text then text = DerivedNativeText(button) end
+    if text then
+        hotkeyTextRegion:SetText(text)
+        if not addon:IsFrameShownSafe(hotkeyTextRegion) then hotkeyTextRegion:Show() end
+    end
+end
+
+-- A released button is left alone until AHOS takes it back (or every button is
+-- reset), so its native label is refreshed once, not on every pass.
+function Display:ClearReleased(buttonName)
+    if buttonName then releasedButtons[buttonName] = nil else wipe(releasedButtons) end
+end
+
+-- What AHOS is doing on one button, for the inspector: "overlay", "native" (its
+-- own label rewritten), "released" (a bar left alone), or "none".
+---@param buttonName string
+---@return "overlay"|"native"|"released"|"ignored"|"none"
+function Display:GetButtonState(buttonName)
+    if not buttonName then return "none" end
+    if releasedButtons[buttonName] then
+        return addon.Bars.IsButtonIgnored and addon.Bars:IsButtonIgnored(buttonName) and "ignored" or "released"
+    end
+    if nativeRewriteButtons[buttonName] then return "native" end
+    local overlay = activeOverlays[buttonName]
+    if overlay and addon:IsFrameShownSafe(overlay) then return "overlay" end
+    return "none"
+end
+
+-- How many buttons carry AHOS text right now: as an overlay, and as rewritten
+-- native labels.
+---@return number drawn
+---@return number native
+function Display:GetOverlayCounts()
+    local drawn, native = 0, 0
+    for _, overlay in pairs(activeOverlays) do
+        if addon:IsFrameShownSafe(overlay) then drawn = drawn + 1 end
+    end
+    for _ in pairs(nativeRewriteButtons) do native = native + 1 end
+    return drawn, native
+end
+
+-- How many tracked buttons are shown and how many overlays are drawn. Two refresh
+-- passes that see the same answer mean the bars have settled (Core.ScheduleRefreshPasses).
+function Display:GetStateSignature()
+    local shown, drawn = 0, 0
+    for _, button in ipairs(addon.Bars:GetAllButtons()) do
+        if addon:IsFrameVisibleSafe(button) then shown = shown + 1 end
+    end
+    for _, overlay in pairs(activeOverlays) do
+        if addon:IsFrameShownSafe(overlay) then drawn = drawn + 1 end
+    end
+    return shown .. ":" .. drawn
 end
 
 -- Keep the last known-good overlay if a protected/third-party button throws
 -- halfway through an update. A later event can retry without leaving the bind blank.
+---@param button Button
+---@return boolean ok
+---@return any err
 function Display:SafeUpdateOverlayForButton(button)
     local buttonName = GetSafeName(button)
     if not buttonName then return false, "button name unavailable" end
@@ -484,6 +268,7 @@ function Display:SafeUpdateOverlayForButton(button)
     return false, err
 end
 
+---@param button Button
 function Display:UpdateOverlayForButton(button)
     local buttonName = GetSafeName(button)
     if not button or not buttonName or not addon:IsReady() then
@@ -504,9 +289,18 @@ function Display:UpdateOverlayForButton(button)
     end
     if not addon:IsFrameVisibleSafe(button) then return end
 
+    -- A bar set to keep its own hotkey text, or a single button told the same:
+    -- AHOS steps back and gives it its label.
+    if (addon.Bars.IsBarHidden and addon.Bars:IsBarHidden(buttonName))
+        or (addon.Bars.IsButtonIgnored and addon.Bars:IsButtonIgnored(buttonName)) then
+        self:ReleaseButton(button)
+        return
+    end
+    self:ClearReleased(buttonName)
+
     buttonUpdateGeneration[buttonName] = (buttonUpdateGeneration[buttonName] or 0) + 1
     local updateGeneration = buttonUpdateGeneration[buttonName]
-    local updateEpoch = overlayEpoch
+    local updateEpoch = S.overlayEpoch
 
     local displaySettings = addon.db and addon.db.profile and addon.db.profile.display
     local autoFallbackEnabled = not displaySettings or displaySettings.autoNativeFallback ~= false
@@ -543,7 +337,7 @@ function Display:UpdateOverlayForButton(button)
                 self:SquelchHotkeyRegions(button, hideOrig and true or false)
                 -- As a hard fallback on Classic, directly blank the primary hotkey region for Blizzard buttons
                 if hideOrig and not isRetail then
-                    local hk = button.HotKey or _G[buttonName .. "HotKey"]
+                    local hk = NativeHotkeyRegion(button, buttonName)
                     if hk and hk.SetText then hk:SetText("") end
                 end
             if addon.db and addon.db.profile and addon.db.profile.debug then
@@ -554,7 +348,7 @@ function Display:UpdateOverlayForButton(button)
     end
 
     -- Manage original hotkey text (save, hide, or restore)
-    local hotkeyTextRegion = button.HotKey or _G[buttonName .. "HotKey"]
+    local hotkeyTextRegion = NativeHotkeyRegion(button, buttonName)
     -- Dominos/Masque/Classic may use unnamed FontStrings; scan heuristically
     if not hotkeyTextRegion and button.GetRegions then
         local candidates = {}
@@ -598,7 +392,7 @@ function Display:UpdateOverlayForButton(button)
         end
         local overlayAbbrev = addon.Keybinds:GetBinding(button)
         -- Only save the original ONCE, before any overlays or hiding, and only if it's not blank/null/overlay/fallback glyph
-        if originalHotkeyTexts[buttonName] == nil and currentText ~= "" and currentText ~= "\0" and currentText ~= overlayAbbrev and not IsFallbackHotkeyGlyph(currentText) then
+        if originalHotkeyTexts[buttonName] == nil and currentText ~= "" and currentText ~= "\0" and PlainText(currentText) ~= overlayAbbrev and not IsFallbackHotkeyGlyph(currentText) then
             originalHotkeyTexts[buttonName] = currentText
             if addon.db and addon.db.profile and addon.db.profile.debug then
                 addon:Print("[AHOS DEBUG] Saved original hotkey text for " .. buttonName .. ": '" .. tostring(currentText) .. "'")
@@ -624,6 +418,10 @@ function Display:UpdateOverlayForButton(button)
                     local newText = GetSafeText(hotkeyTextRegion)
                     if newText and newText ~= "" and not IsFallbackHotkeyGlyph(newText) then
                         originalHotkeyTexts[buttonName] = newText
+                    else
+                        -- The first login can find the label never filled in.
+                        local derived = DerivedNativeText(button)
+                        if derived then hotkeyTextRegion:SetText(derived) end
                     end
                 end
                 if not addon:IsFrameShownSafe(hotkeyTextRegion) then
@@ -640,7 +438,7 @@ function Display:UpdateOverlayForButton(button)
         end
         nativeRewriteButtons[buttonName] = nil
         -- Restore or repopulate Blizzard hotkey if overlays are off or no overlay is shown
-        local hotkeyTextRegion = button.HotKey or _G[buttonName .. "HotKey"]
+        local hotkeyTextRegion = NativeHotkeyRegion(button, buttonName)
         if not hotkeyTextRegion and button.GetRegions then
             for _, region in ipairs(GetSafeObjects(button, "GetRegions")) do
                 if region and region.GetObjectType and region:GetObjectType() == "FontString" then
@@ -736,8 +534,9 @@ function Display:UpdateOverlayForButton(button)
             activeOverlays[buttonName] = nil
         end
         nativeRewriteButtons[buttonName] = "configured"
-        hotkeyTextRegion:SetText(overlayText)
+        hotkeyTextRegion:SetText(NativeText(button, overlayText))
         if not addon:IsFrameShownSafe(hotkeyTextRegion) then hotkeyTextRegion:Show() end
+        if addon.Visibility and addon.Visibility.TrackNative then addon.Visibility:TrackNative(hotkeyTextRegion, button) end
         if addon.db and addon.db.profile and addon.db.profile.debug then
             addon:Print(string.format("[AHOS DEBUG] NativeRewrite applied for %s => '%s'", tostring(buttonName), tostring(overlayText)))
         end
@@ -765,11 +564,12 @@ function Display:UpdateOverlayForButton(button)
     if autoFallback == nil then autoFallback = true end
     if autoFallback and addon.Core and addon.Core.ScheduleTimer then
         addon.Core:ScheduleTimer(function()
-            if updateEpoch ~= overlayEpoch or buttonUpdateGeneration[buttonName] ~= updateGeneration then return end
+            if updateEpoch ~= S.overlayEpoch or buttonUpdateGeneration[buttonName] ~= updateGeneration then return end
             if activeOverlays[buttonName] ~= overlay or not IsOverlayRenderingEnabled() then return end
-            -- Alpha zero and combat hiding are deliberate user choices, not skin failures.
+            -- Alpha zero is a deliberate user choice, not a skin failure; so is text
+            -- the visibility rules faded out.
             if db and db.display and (tonumber(db.display.alpha) or 1) <= 0 then return end
-            if db and db.performance and db.performance.hideInCombat and InCombatLockdown and InCombatLockdown() then return end
+            if overlay._ahosFaded then return end
 
             -- Re-evaluate visibility a moment later
             local hidden = (not addon:IsFrameVisibleSafe(overlay)) or (not addon:IsFrameVisibleSafe(overlay.text))
@@ -777,7 +577,7 @@ function Display:UpdateOverlayForButton(button)
             local a2 = overlay.text:GetAlpha() or 1
             if hidden or a1 <= 0 or a2 <= 0 then
                 -- Try native button HotKey first; otherwise deep-scan to find a nested FS
-                local hk = button.HotKey or _G[buttonName .. "HotKey"]
+                local hk = NativeHotkeyRegion(button, buttonName)
                 if not hk then
                     local found = {}
                     DeepCollectHotkeyFontStrings(button, button, found, 1, 4)
@@ -786,7 +586,7 @@ function Display:UpdateOverlayForButton(button)
                 if hk and hk.SetText then
                     self:SquelchHotkeyRegions(button, false)
                     nativeRewriteButtons[buttonName] = "fallback"
-                    hk:SetText(overlayText)
+                    hk:SetText(NativeText(button, overlayText))
                     if addon.db and addon.db.profile and addon.db.profile.debug then
                         addon:Print(string.format("[AHOS DEBUG] AutoFallback: rewrote native FS for %s", tostring(buttonName)))
                     end
@@ -802,389 +602,16 @@ function Display:UpdateOverlayForButton(button)
     end
 end
 
--- Helper to find all hotkey/keybind fontstrings on a button
-function Display:GetHotkeyRegions(button)
-    local regions = {}
-    if not button or not button.GetName then return regions end
-    local buttonName = GetSafeName(button)
-    if not buttonName then return regions end
-    local r = button.HotKey or _G[buttonName .. "HotKey"]
-    if r and r.GetObjectType and r:GetObjectType() == "FontString" then
-        table.insert(regions, r)
-    end
-    if button.GetRegions then
-        for _, region in ipairs(GetSafeObjects(button, "GetRegions")) do
-            if region and region.GetObjectType and region:GetObjectType() == "FontString" then
-                local rname = GetSafeName(region) or ""
-                local match = (rname ~= "" and (rname:find("HotKey") or rname:find("Keybind") or rname:find("Hotkey")))
-                if not match then
-                    if IsTopRightAnchor(region) then
-                        match = true
-                    end
-                end
-                if match then table.insert(regions, region) end
-            end
-        end
-    end
-    -- Deep scan children (covers AzeriteUI, ElvUI, etc.)
-    DeepCollectHotkeyFontStrings(button, button, regions, 1, 4)
-    return regions
-end
-
--- Debug helper: dump all detected hotkey regions for a button
-function Display:DumpHotkeyRegions(button)
-    if not button or not button.GetName then return addon:Print("[AHOS] Dump: invalid button") end
-    local name = GetSafeName(button)
-    if not name then return addon:Print("[AHOS] Dump: inaccessible button") end
-    local list = self:GetHotkeyRegions(button)
-    addon:Print(string.format("[AHOS DEBUG] DumpHotkeyRegions for %s: %d candidates", name, #list))
-    for i, fs in ipairs(list) do
-        local fname = GetSafeName(fs) or "<anon>"
-        local layer, sub = "OVERLAY", 0
-        if fs.GetDrawLayer then layer, sub = fs:GetDrawLayer() end
-        local text = GetSafeText(fs) or "<secret>"
-        local shown = addon:IsFrameShownSafe(fs)
-        local a = fs.GetAlpha and fs:GetAlpha() or 1
-        local font, size, flags = nil, nil, nil
-        if fs.GetFont then font, size, flags = fs:GetFont() end
-        local p1, r, p2, x, y = nil, nil, nil, 0, 0
-        if fs.GetPoint then
-            local ok, point, relativeTo, relativePoint, offsetX, offsetY = pcall(fs.GetPoint, fs, 1)
-            if ok then
-                p1, r, p2 = point, relativeTo, relativePoint
-                x = addon:IsValueAccessible(offsetX) and offsetX or 0
-                y = addon:IsValueAccessible(offsetY) and offsetY or 0
-            end
-        end
-        addon:Print(string.format("  #%d name=%s layer=%s(%s) shown=%s alpha=%.2f font=%s size=%s flags=%s point=%s/%s (%.0f,%.0f) text='%s'", i, fname, tostring(layer), tostring(sub), tostring(shown), a, tostring(font), tostring(size), tostring(flags), addon:SafeToString(p1, "?"), addon:SafeToString(p2, "?"), (addon:IsValueAccessible(x) and tonumber(x)) or 0, (addon:IsValueAccessible(y) and tonumber(y)) or 0, text))
-    end
-end
-
--- Debug helper: dump child frames and their strata/levels (useful for nested overlay containers like AzeriteUI)
-function Display:DumpButtonLayers(button)
-    if not button or not button.GetName then return addon:Print("[AHOS] DumpLayers: invalid button") end
-    local name = GetSafeName(button)
-    if not name then return addon:Print("[AHOS] DumpLayers: inaccessible button") end
-    addon:Print(string.format("[AHOS DEBUG] DumpButtonLayers for %s: strata=%s level=%d", name, tostring(button:GetFrameStrata()), GetSafeNumber(button, "GetFrameLevel", 0)))
-    if not button.GetChildren then return end
-    local children = GetSafeObjects(button, "GetChildren")
-    table.sort(children, function(a,b) return GetSafeNumber(a, "GetFrameLevel", 0) < GetSafeNumber(b, "GetFrameLevel", 0) end)
-    for _, child in ipairs(children) do
-        local cname = GetSafeName(child) or "<anon>"
-        addon:Print(string.format("  child=%s strata=%s level=%d visible=%s", cname, tostring(child:GetFrameStrata()), GetSafeNumber(child, "GetFrameLevel", 0), tostring(addon:IsFrameVisibleSafe(child))))
-    end
-end
-
--- Squelch/restore all hotkey fontstrings for a button using alpha to defeat late SetText calls
-function Display:SquelchHotkeyRegions(button, squelch)
-    if not button then return end
-    local name = GetSafeName(button) or addon:SafeToString(button)
-    local list = self:GetHotkeyRegions(button)
-    -- When using native rewrite mode or per-button rewrite, do not suppress
-    if self:ShouldRewriteForButton(button) or nativeRewriteButtons[name] then
-        squelchedByButton[name] = nil
-        return
-    end
-    if squelch then
-        for _, fs in ipairs(list) do
-            -- Install one-time hooks to keep this region suppressed against future updates
-            if fs and not hookedHotkeyRegions[fs] and type(hooksecurefunc) == "function" then
-                hookedHotkeyRegions[fs] = true
-                fs._ahosButton = name
-                pcall(hooksecurefunc, fs, "Show", function(self)
-                    local db = addon and addon.db and addon.db.profile
-                    if not db or not (db.display and db.display.hideOriginal) then return end
-                    if not IsOverlayRenderingEnabled() then return end
-                    local btnName = rawget(self, "_ahosButton")
-                    if not btnName or not squelchedByButton[btnName] then return end
-                    if nativeRewriteButtons[btnName] or Display:UseNativeRewrite() then return end
-                    -- Determine if we should suppress: on Retail, suppress if overlay active OR current text is a fallback glyph.
-                    -- On Classic, suppress whenever hideOriginal is enabled.
-                    local suppress
-                    if isRetail then
-                        local overlayActive = (btnName and activeOverlays and activeOverlays[btnName] ~= nil) or false
-                        local t = GetSafeText(self) or ""
-                        local isFallback = IsFallbackHotkeyGlyph(t)
-                        suppress = overlayActive or isFallback
-                    else
-                        suppress = true
-                    end
-                    if not suppress then return end
-                    if self.SetText then
-                        local t = GetSafeText(self)
-                        if t and t ~= "" and not guardSetText[self] then
-                            guardSetText[self] = true
-                            self:SetText("")
-                            guardSetText[self] = nil
-                        end
-                    end
-                end)
-                -- Guarded SetText hook to blank any non-empty text set later by Dominos/Blizzard
-                pcall(hooksecurefunc, fs, "SetText", function(self, newText)
-                    local db = addon and addon.db and addon.db.profile
-                    if not db or not (db.display and db.display.hideOriginal) then return end
-                    if not IsOverlayRenderingEnabled() then return end
-                    local btnName = rawget(self, "_ahosButton")
-                    if not btnName or not squelchedByButton[btnName] then return end
-                    if nativeRewriteButtons[btnName] or Display:UseNativeRewrite() then return end
-                    -- Determine suppression logic (Retail vs Classic)
-                    local suppress
-                    if isRetail then
-                        local overlayActive = (btnName and activeOverlays and activeOverlays[btnName] ~= nil) or false
-                        local isFallback = IsFallbackHotkeyGlyph(newText)
-                        suppress = overlayActive or isFallback
-                    else
-                        suppress = true
-                    end
-                    if not suppress then return end
-                    if addon:IsValueAccessible(newText) and newText and newText ~= "" and not guardSetText[self] and self.SetText then
-                        guardSetText[self] = true
-                        self:SetText("")
-                        guardSetText[self] = nil
-                    end
-                end)
-            end
-            -- Apply immediate blanking only when suppression condition applies
-            local doInitialBlank = true
-            if isRetail then
-                local overlayActive = (activeOverlays and activeOverlays[name] ~= nil) or false
-                local current = GetSafeText(fs) or ""
-                local isFallback = IsFallbackHotkeyGlyph(current)
-                doInitialBlank = overlayActive or isFallback
-            end
-            if doInitialBlank and fs.SetText and not guardSetText[fs] then
-                guardSetText[fs] = true
-                fs:SetText("")
-                guardSetText[fs] = nil
-            end
-        end
-        squelchedByButton[name] = true
-    else
-        if squelchedByButton[name] then
-            squelchedByButton[name] = nil
-        end
-    end
-end
-
-function Display:StyleOverlay(overlay, parent, text)
-    if not addon:IsReady() then return end
-    if not addon.db or not addon.db.profile then return end
-    if not addon:IsValueAccessible(text) then return end
-    local db = addon.db.profile
-    local smartStrata = self:UseSmartStrata()
-
-    -- Sizing and Positioning
-    overlay:SetAllPoints(parent)
-
-    -- Decide whether to mirror native hotkey style (Dominos/Masque) or use configured style
-    -- Opt-in to mirror native style; default is to use configured AHOS styling
-    local followNative = (db.display and db.display.followNativeHotkeyStyle == true)
-    local usedNative = false
-    if followNative then
-        local ok, applied = pcall(self.ApplyNativeHotkeyStyle, self, parent, overlay)
-        usedNative = ok and applied == true
-        if not ok and addon.db and addon.db.profile and addon.db.profile.debug then
-            addon:Print("[AHOS DEBUG] Native hotkey style unavailable for " .. (GetSafeName(parent) or "<inaccessible>") .. ": " .. addon:SafeToString(applied, "unknown error"))
-        end
-    end
-
-    local setFontResult = true
-    if not usedNative then
-        -- Text Styling (configured)
-        local fontName = db.text.font or "Default"
-        local fontPath = addon.Config and addon.Config.GetFontPath and addon.Config:GetFontPath(fontName) or "Fonts\\FRIZQT__.TTF"
-        -- Outline/flags: prefer outlineStyle; fallback to legacy boolean
-        local outline = ""
-        if db.text.outlineStyle and db.text.outlineStyle ~= "" then
-            outline = db.text.outlineStyle
-        elseif db.text.outline ~= nil then
-            outline = db.text.outline and "OUTLINE" or "NONE"
-        end
-    if outline == "NONE" then outline = "" end
-    -- Normalize alias flags
-    if outline == "MONOCHROMEOUTLINE" then outline = "MONOCHROME,OUTLINE" end
-    if outline == "MONOCHROMETHICKOUTLINE" then outline = "MONOCHROME,THICKOUTLINE" end
-        -- Check font existence if using LibSharedMedia
-        local fontExists = true
-        local LibSharedMedia = LibStub and LibStub("LibSharedMedia-3.0", true)
-        if LibSharedMedia and fontName and fontName ~= "Default" then
-            local fetched = LibSharedMedia:Fetch("font", fontName, true)
-            fontExists = fetched and true or false
-            if addon.db and addon.db.profile and addon.db.profile.debug then
-                addon:Print("[AHOS DEBUG] LibSharedMedia:Fetch font '", fontName, "' existence:", tostring(fontExists), " path:", tostring(fetched))
-            end
-            if fontExists then
-                fontPath = fetched
-            end
-        end
-            if addon.db and addon.db.profile and addon.db.profile.debug then
-                addon:Print("[AHOS DEBUG] StyleOverlay (configured): font=", fontName, " path=", fontPath, " size=", db.text.fontSize, " outline=", outline)
-            end
-    setFontResult = overlay.text:SetFont(fontPath, db.text.fontSize, outline)
-        -- A saved font that no longer loads (its addon was removed) must not leave
-        -- the hotkey without a font: that draws nothing at all.
-        if not setFontResult and not overlay.text:GetFont() then
-            setFontResult = overlay.text:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", db.text.fontSize, outline)
-        end
-        local r,g,b,a = 1,1,1,1
-        if db.text.color and type(db.text.color) == "table" then
-            r = db.text.color[1] or r
-            g = db.text.color[2] or g
-            b = db.text.color[3] or b
-            a = db.text.color[4] or a
-        end
-        overlay.text:SetTextColor(r,g,b,a)
-        -- Reset justification that may have been inherited while native mirroring was enabled.
-        if overlay.text.SetJustifyH then overlay.text:SetJustifyH("CENTER") end
-        if overlay.text.SetJustifyV then overlay.text:SetJustifyV("MIDDLE") end
-        -- Shadow settings
-        if db.text.shadowEnabled then
-            overlay.text:SetShadowColor(0, 0, 0, 1)
-            overlay.text:SetShadowOffset(unpack(db.text.shadowOffset))
-        else
-            overlay.text:SetShadowColor(0, 0, 0, 0)
-        end
-        -- Text Anchoring (configured)
-        overlay.text:ClearAllPoints()
-        overlay.text:SetPoint(db.display.anchor, overlay, db.display.anchor, db.display.xOffset, db.display.yOffset)
-        -- Ensure overlay text draws above most skin layers
-        if overlay.text.SetDrawLayer then
-            overlay.text:SetDrawLayer("OVERLAY", 7)
-        end
-    end
-
-    overlay.text:SetText(text)
-
-    -- Force refresh: hide and show the FontString
-    overlay.text:Hide()
-    overlay.text:Show()
-
-    if addon.db and addon.db.profile and addon.db.profile.debug then
-        local layer = overlay.text.GetDrawLayer and select(1, overlay.text:GetDrawLayer()) or "OVERLAY"
-        addon:Print("[AHOS DEBUG] StyleOverlay: usedNative=", tostring(usedNative), " setFont=", tostring(setFontResult), " layer=", tostring(layer), " overlay.text:IsShown()=", tostring(overlay.text:IsShown()), ", overlay:IsShown()=", tostring(overlay:IsShown()))
-    end
-
-    -- If we used native styling, we've already mirrored shadow/anchor
-
-    -- Backdrop/Border
-    if db.display.border ~= "none" then
-        overlay:SetBackdrop({
-            bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-            edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-            tile = true, tileSize = 16, edgeSize = db.display.borderSize,
-            insets = { left = 0, right = 0, top = 0, bottom = 0 }
-        })
-        overlay:SetBackdropColor(0,0,0,0) -- Transparent background
-        overlay:SetBackdropBorderColor(unpack(db.display.borderColor))
-    else
-        overlay:SetBackdrop(nil)
-    end
-
-    -- Overall Alpha and Scale
-    overlay:SetAlpha(db.display.alpha)
-    overlay:SetScale(db.display.scale)
-
-    -- Frame layering: default to parent-based strata/level to avoid leaking above unrelated UI.
-    local configuredStrata = NormalizeStrata(db.display and db.display.strata, "HIGH")
-    local parentStrata = NormalizeStrata(parent and parent.GetFrameStrata and parent:GetFrameStrata(), configuredStrata)
-    local targetStrata = smartStrata and parentStrata or configuredStrata
-    overlay:SetFrameStrata(targetStrata)
-
-    local configuredLevel = tonumber(db.display and db.display.frameLevel) or 10
-    if configuredLevel < 1 then configuredLevel = 1 end
-    local parentLevel = GetSafeNumber(parent, "GetFrameLevel", 0)
-    local frameLevel
-    if smartStrata then
-        frameLevel = parentLevel + 1
-    else
-        frameLevel = math.max(configuredLevel, parentLevel + 1)
-    end
-    overlay:SetFrameLevel(frameLevel)
-
-    -- If the bar skin adds a nested text container (e.g., AzeriteUI TextOverlayContainer), ensure we sit above it
-    if parent and parent.GetChildren then
-        local maxChildLevel, maxChildStrata
-        for _, child in ipairs(GetSafeObjects(parent, "GetChildren")) do
-            local cname = GetSafeName(child) or ""
-            if cname and (cname:find("TextOverlay") or cname:find("OverlayFrame")) then
-                local cl = GetSafeNumber(child, "GetFrameLevel", 0)
-                if (not maxChildLevel) or cl > maxChildLevel then
-                    maxChildLevel = cl
-                    maxChildStrata = child.GetFrameStrata and child:GetFrameStrata() or nil
-                end
-            end
-        end
-        if maxChildLevel and overlay:GetFrameLevel() <= maxChildLevel then
-            overlay:SetFrameLevel(maxChildLevel + 1)
-            if not smartStrata and maxChildStrata and GetStrataRank(maxChildStrata) > GetStrataRank(overlay:GetFrameStrata()) then
-                overlay:SetFrameStrata(NormalizeStrata(maxChildStrata, targetStrata))
-            end
-        end
-    end
-
-    -- Debug output for troubleshooting overlays
-    if addon.db and addon.db.profile and addon.db.profile.debug then
-        addon:Print("[AHOS DEBUG] StyleOverlay: parent=" .. (GetSafeName(parent) or "nil") .. ", strata=" .. tostring(overlay:GetFrameStrata()) .. ", frameLevel=" .. tostring(overlay:GetFrameLevel()) .. ", text='" .. addon:SafeToString(text) .. "', usedNative=" .. tostring(usedNative) .. ", smartStrata=" .. tostring(smartStrata) .. ", alpha=" .. tostring(db.display.alpha) .. ", scale=" .. tostring(db.display.scale))
-    end
-end
-
-function Display:SetOverlaysVisibility(visible)
-    if visible and not IsOverlayRenderingEnabled() then return end
-    for _, overlay in pairs(activeOverlays) do
-        if visible then
-            overlay:Show()
-        else
-            overlay:Hide()
-        end
-    end
-end
-
-function Display:OnCombatStart()
-    if addon:IsReady() and addon.db and addon.db.profile and addon.db.profile.performance and addon.db.profile.performance.hideInCombat then
-        self:SetOverlaysVisibility(false)
-    end
-end
-
-function Display:OnCombatEnd()
-    if addon:IsReady() and addon.db and addon.db.profile and addon.db.profile.performance and addon.db.profile.performance.hideInCombat then
-        self:SetOverlaysVisibility(true)
-    end
+-- Every overlay AHOS is drawing, by button name (for the visibility rules and the editor).
+---@return table<string, AHOSOverlay>
+function Display:GetActiveOverlays()
+    return activeOverlays
 end
 
 -- Called on profile change to re-apply all settings
 function Display:OnProfileChanged()
     if addon.Keybinds and addon.Keybinds.ClearCache then addon.Keybinds:ClearCache() end
     addon:SafeCall("Display", "UpdateAllOverlays")
-end
-
--- Add a helper to restyle all overlays (font, color, etc.)
-function Display:UpdateAllOverlayStyles()
-    if not IsOverlayRenderingEnabled() then
-        self:RemoveAllOverlays()
-        return
-    end
-    for buttonName, overlay in pairs(activeOverlays) do
-        local button = GetSafeFrameValue(overlay, "GetParent") or _G[buttonName]
-        if button and overlay then
-            local bindingOk, overlayText = pcall(addon.Keybinds.GetBinding, addon.Keybinds, button)
-            if not bindingOk or not overlayText or overlayText == "" then
-                -- A transiently inaccessible binding must not erase an overlay that is
-                -- already visible; preserve its current text while changing only style.
-                overlayText = GetSafeText(overlay.text)
-            end
-            if overlayText and overlayText ~= "" then
-                local ok, err = pcall(self.StyleOverlay, self, overlay, button, overlayText)
-                if not ok and addon.db and addon.db.profile and addon.db.profile.debug then
-                    addon:Print("[AHOS DEBUG] Could not restyle " .. buttonName .. ": " .. addon:SafeToString(err, "unknown error"))
-                end
-            end
-        end
-    end
-end
-
-function Display:UpdateAllButtons()
-    -- Alias for UpdateAllOverlays to ensure overlays are updated on all events
-    return self:UpdateAllOverlays()
 end
 
 function Display:RemoveAllOverlays()
@@ -1233,14 +660,14 @@ function Display:RemoveAllOverlays()
     end
     self:ClearAllOverlays()
 
-    restoringNativeHotkeys = true
+    S.restoringNativeHotkeys = true
     for _, button in ipairs(buttons) do
         local ok, err = pcall(function()
             local buttonName = GetSafeName(button)
             if not buttonName then return end
             self:SquelchHotkeyRegions(button, false)
             local refreshed = RefreshNativeHotkey(button)
-            local hotkeyTextRegion = _G[buttonName .. "HotKey"]
+            local hotkeyTextRegion = NativeHotkeyRegion(button, buttonName)
             if not hotkeyTextRegion then
                 hotkeyTextRegion = self:GetHotkeyRegions(button)[1]
             end
@@ -1257,6 +684,15 @@ function Display:RemoveAllOverlays()
                 if addon.db and addon.db.profile and addon.db.profile.debug then
                     addon:Print("[AHOS DEBUG] Suppressed fallback glyph for " .. buttonName)
                 end
+            elseif needsFallback and hotkeyTextRegion and orig == nil then
+                -- Nothing was ever captured (AHOS drew before the bar filled its
+                -- label on the first login): write what the label would say.
+                local derived = DerivedNativeText(button)
+                if derived then hotkeyTextRegion:SetText(derived) end
+            end
+            -- A label faded by the visibility rules gets its own alpha back.
+            if hotkeyTextRegion and addon.Visibility and addon.Visibility.RestoreNative then
+                addon.Visibility:RestoreNative(hotkeyTextRegion)
             end
             if hotkeyTextRegion and not addon:IsFrameShownSafe(hotkeyTextRegion) then
                 hotkeyTextRegion:Show()
@@ -1266,65 +702,9 @@ function Display:RemoveAllOverlays()
             addon:Print("[AHOS DEBUG] Native hotkey restore failed: " .. addon:SafeToString(err, "unknown error"))
         end
     end
-    restoringNativeHotkeys = false
+    S.restoringNativeHotkeys = false
     if addon.db and addon.db.profile and addon.db.profile.debug then
         addon:Print("[AHOS DEBUG] All overlays removed and original keybinds restored.")
-    end
-end
-
--- Retail 12.1 updates Blizzard hotkeys through ActionBarActionButtonMixin:UpdateHotkeys;
--- the old global ActionButton_UpdateHotkeys hook no longer exists. Hook the actual
--- button method instead, which also works for supported third-party providers.
-function Display:EnsureButtonHotkeyHook(btn)
-    if not btn or type(hooksecurefunc) ~= "function" then return end
-    local name = GetSafeName(btn)
-    if not name then return end
-
-    local provider = addon and addon.GetProviderForButtonName and addon:GetProviderForButtonName(name)
-    if not provider then return end
-
-    local methodNames = provider.hotkey_update_methods
-    if not methodNames then
-        methodNames = provider.hotkey_update_method and { provider.hotkey_update_method } or {}
-    end
-
-    local hookedMethods = providerHotkeyHooks[btn]
-    if not hookedMethods then
-        hookedMethods = {}
-        providerHotkeyHooks[btn] = hookedMethods
-    end
-
-    for _, methodName in ipairs(methodNames) do
-        local method
-        local readable = pcall(function() method = btn[methodName] end)
-        if readable and not hookedMethods[methodName] and type(method) == "function" then
-            local ok = pcall(hooksecurefunc, btn, methodName, function(self)
-                if providerHotkeyRefreshPending[self] then return end
-                if not addon or not addon.Core or not addon.Core.ScheduleTimer then return end
-                if restoringNativeHotkeys or not IsOverlayRenderingEnabled() then return end
-                providerHotkeyRefreshPending[self] = true
-                local scheduledEpoch = overlayEpoch
-                addon.Core:ScheduleTimer(function()
-                    if scheduledEpoch ~= overlayEpoch or not IsOverlayRenderingEnabled() then
-                        providerHotkeyRefreshPending[self] = nil
-                        return
-                    end
-                    if addon.Display and addon.Display.UpdateOverlayForButton then
-                        local updated, err
-                        if addon.Display.SafeUpdateOverlayForButton then
-                            updated, err = addon.Display:SafeUpdateOverlayForButton(self)
-                        else
-                            updated, err = pcall(addon.Display.UpdateOverlayForButton, addon.Display, self)
-                        end
-                        if not updated and addon.db and addon.db.profile and addon.db.profile.debug then
-                            addon:Print("[AHOS DEBUG] Deferred hotkey refresh failed: " .. addon:SafeToString(err, "unknown error"))
-                        end
-                    end
-                    providerHotkeyRefreshPending[self] = nil
-                end, 0)
-            end)
-            if ok then hookedMethods[methodName] = true end
-        end
     end
 end
 
@@ -1337,15 +717,13 @@ function Display:OnEnable()
             self:EnsureButtonHotkeyHook(btn)
         end
     end
-    -- As a safety net, after multi-bar updates, run an overlay refresh shortly after
+    -- As a safety net, after multi-bar updates, run an overlay refresh. Through
+    -- Core:FullUpdate, which batches: Blizzard calls this several times in a row.
     if type(hooksecurefunc) == "function" and type(MultiActionBar_Update) == "function" then
         hooksecurefunc("MultiActionBar_Update", function()
-            if not addon or not addon.Core or not addon.Core.ScheduleTimer then return end
-            addon.Core:ScheduleTimer(function()
-                if addon.Display and addon.Display.UpdateAllOverlays then
-                    addon.Display:UpdateAllOverlays()
-                end
-            end, 0.05)
+            if addon and addon.Core and addon.Core.FullUpdate and addon:IsReady() then
+                addon.Core:FullUpdate()
+            end
         end)
     end
 end

@@ -1,15 +1,17 @@
 # Advanced Hotkey Overlay System (AHOS)
 
-![Version](https://img.shields.io/badge/version-2.5.24-cyan)
+![Version](https://img.shields.io/badge/version-2.6.0-cyan)
 
-A modular, robust hotkey overlay system for World of Warcraft action bars, with dedicated support for Blizzard bars, AzeriteUI, Bartender4, Dominos, and DiabolicUI.
+A modular, robust hotkey overlay system for World of Warcraft action bars, with dedicated support for Blizzard bars, AzeriteUI, Bartender4, Dominos, DiabolicUI, LUI and Neuron.
 
-## Version 2.5.24 Highlights
+## Version 2.6.0 Highlights
 
-- A new options window in AHOS's own keycap art: search across every setting, a mark and one-click revert on anything changed from its default, four themes, and a live preview of the hotkey text.
-- The Abbreviations page is a keyboard: click a key to change its abbreviation and see what it is bound to, which spell and bar answer to it, and which addons claim it.
-- ESC > Options > AddOns opens a landing page into the new window; `/ahos classic` keeps the previous Ace3 window.
-- Fixed profile import, missing AceDBOptions-3.0, and fonts that did not load leaving hotkey text blank.
+- When the hotkey text shows: fade it out of combat, show it only on mouseover per bar or while a modifier is held, or write a Lua condition of your own. A different colour and size in combat, and a flash or pulse when you press a button.
+- `/ahos edit`: drag the hotkey text into place on your own bars; Shift-drag moves one bar. Bars can also have a place of their own.
+- Presets and Tank, Healer and Damage templates, snapshots with `/ahos rollback`, `/ahos profile <name>`, and switching profile by specialization or talent loadout.
+- Shadow colour, glow and a background plate; mouse button icons; both keys on a button with two; Follow Masque Skin.
+- LUI and Neuron support; Russian, Ukrainian, Korean and Taiwanese keyboards, with their letters drawn in the game's own fonts on any client.
+- Sharp new switches and sliders, Keycap Gold as the default theme, and the classic Ace3 window removed.
 
 ## Features
 

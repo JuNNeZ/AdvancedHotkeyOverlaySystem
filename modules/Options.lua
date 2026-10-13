@@ -1,9 +1,11 @@
 -- modules/Options.lua
 ---@diagnostic disable: undefined-global
 local addonName, privateScope = ...
-local addon = privateScope.addon
+local addon = privateScope.addon --[[@as AHOS]]
 local L = addon.L or {}
+---@class AHOSOptions
 local Options = addon.Options
+local Groups
 
 Options.selectedProfile = nil
 
@@ -38,7 +40,7 @@ end
 
 local function getLoadedProviderNotes()
     local notes = {}
-    for _, key in ipairs({ "Dominos", "Bartender4", "DiabolicUI3" }) do
+    for _, key in ipairs({ "Dominos", "Bartender4", "DiabolicUI3", "LUI", "Neuron" }) do
         local provider = addon and addon.GetProviderInfo and addon:GetProviderInfo(key)
         if provider and provider.compatibility_note and isProviderLoaded(key) then
             notes[#notes + 1] = "- " .. provider.compatibility_note
@@ -58,7 +60,7 @@ local function getDiagnosticsSummary()
 
     local parts = { "Detected buttons: " .. tostring(diagnostics.total or 0) }
     local providerParts = {}
-    for _, key in ipairs({ "Blizzard", "AzeriteUI", "Dominos", "Bartender4", "DiabolicUI3" }) do
+    for _, key in ipairs({ "Blizzard", "AzeriteUI", "Dominos", "Bartender4", "DiabolicUI3", "LUI", "Neuron" }) do
         local count = diagnostics.providers and diagnostics.providers[key]
         if count and count > 0 then
             providerParts[#providerParts + 1] = string.format("%s %d", getDisplayUIName(key), count)
@@ -80,6 +82,8 @@ local function getSupportBlurb()
         "- Dominos",
         "- Bartender4",
         "- DiabolicUI",
+        "- LUI",
+        "- Neuron",
         "",
         "Conflict-aware handling:",
         "- ElvUI",
@@ -109,6 +113,77 @@ local function RefreshOverlayStyles()
     end
 end
 
+local OUTLINE_ALIASES = {
+    MONOCHROMEOUTLINE = "MONOCHROME,OUTLINE",
+    MONOCHROMETHICKOUTLINE = "MONOCHROME,THICKOUTLINE",
+}
+
+-- profile.text.modifierColors, made if an old profile has none.
+local function getModifierColors()
+    local db = getSafeProfile()
+    if type(db.text) ~= "table" then return {} end
+    if type(db.text.modifierColors) ~= "table" then db.text.modifierColors = {} end
+    return db.text.modifierColors
+end
+
+local function modifierColorOption(kind, order, name)
+    return {
+        type = "color",
+        name = name,
+        desc = L.MODIFIER_COLOR_DESC or "The text colour for bindings with this modifier.",
+        order = order,
+        hasAlpha = false,
+        disabled = function() return not getModifierColors().enabled end,
+        get = function()
+            local color = getModifierColors()[kind]
+            if type(color) == "table" then return color[1], color[2], color[3] end
+        end,
+        set = function(_, r, g, b)
+            getModifierColors()[kind] = { r, g, b }
+            RefreshOverlayStyles()
+        end,
+    }
+end
+
+-- profile.<section>.<name> as a table, made if an old profile has none.
+local function getSub(section, name)
+    local db = getSafeProfile()
+    if type(db[section]) ~= "table" then return {} end
+    if type(db[section][name]) ~= "table" then db[section][name] = {} end
+    return db[section][name]
+end
+
+local function getVisibility()
+    local db = getSafeProfile()
+    if type(db.visibility) ~= "table" then db.visibility = {} end
+    return db.visibility
+end
+
+local function RefreshVisibility()
+    if addon.Visibility and addon.Visibility.OnSettingsChanged then addon.Visibility:OnSettingsChanged() end
+    RefreshOverlayStyles()
+end
+
+-- A colour option on a table at `get()`'s key `key`.
+local function colorOption(order, name, desc, getTable, key, hasAlpha, disabled, after)
+    return {
+        type = "color",
+        name = name,
+        desc = desc,
+        order = order,
+        hasAlpha = hasAlpha and true or false,
+        disabled = disabled,
+        get = function()
+            local color = getTable()[key]
+            if type(color) == "table" then return color[1], color[2], color[3], color[4] end
+        end,
+        set = function(_, r, g, b, a)
+            getTable()[key] = hasAlpha and { r, g, b, a } or { r, g, b }
+            ;(after or RefreshOverlayStyles)()
+        end,
+    }
+end
+
 local function RefreshAbbreviations()
     if addon.Keybinds and addon.Keybinds.ClearCache then
         addon.Keybinds:ClearCache()
@@ -116,128 +191,6 @@ local function RefreshAbbreviations()
     if addon.IsReady and addon:IsReady() and addon.Core and addon.Core.FullUpdate then
         addon.Core:FullUpdate()
     end
-    local registry = LibStub and LibStub("AceConfigRegistry-3.0", true)
-    if registry then registry:NotifyChange(_G.AHOS_OPTIONS_PANEL_NAME or addonName) end
-end
-
-local function BuildAbbreviationOptions()
-    local args = {
-        intro = {
-            type = "description",
-            name = L.CUSTOM_ABBREVIATIONS_DESC or "Choose the text AHOS uses for every supported modifier and key. Values are saved per profile; clearing a field restores its default.",
-            order = 1,
-            width = "full",
-        },
-        enabled = {
-            type = "toggle",
-            name = L.ABBREVIATIONS or "Enable Abbreviations",
-            desc = L.ABBREVIATIONS_DESC or "Use abbreviated keybind text.",
-            order = 2,
-            width = "half",
-            get = function() local db = getSafeProfile() return db.text and db.text.abbreviations end,
-            set = function(_, value)
-                local db = getSafeProfile()
-                if db.text then db.text.abbreviations = value; RefreshAbbreviations() end
-            end,
-        },
-        maxLength = {
-            type = "range",
-            name = L.MAX_LENGTH or "Max Length",
-            desc = L.MAX_LENGTH_DESC or "Maximum length of the final abbreviated hotkey.",
-            order = 3,
-            min = 1, max = 24, step = 1,
-            width = "half",
-            get = function() local db = getSafeProfile() return db.text and db.text.maxLength or 6 end,
-            set = function(_, value)
-                local db = getSafeProfile()
-                if db.text then db.text.maxLength = value; RefreshAbbreviations() end
-            end,
-        },
-        modSeparator = {
-            type = "input",
-            name = L.MOD_SEPARATOR or "Modifier Separator",
-            desc = L.MOD_SEPARATOR_DESC or "Text inserted between multiple modifiers.",
-            order = 4,
-            width = "half",
-            get = function() local db = getSafeProfile() return db.text and db.text.modSeparator or "" end,
-            set = function(_, value)
-                local db = getSafeProfile()
-                if db.text then db.text.modSeparator = value or ""; RefreshAbbreviations() end
-            end,
-        },
-        preview = {
-            type = "description",
-            name = function()
-                local sample = addon.Keybinds and addon.Keybinds.Abbreviate
-                    and addon.Keybinds:Abbreviate("CTRL-SHIFT-MOUSEBUTTON4") or "CSB4"
-                return (L.ABBREVIATION_PREVIEW or "Preview") .. ": |cffffffff" .. tostring(sample) .. "|r"
-            end,
-            order = 5,
-            width = "half",
-        },
-        reset = {
-            type = "execute",
-            name = L.RESET_ABBREVIATIONS or "Reset All Abbreviations",
-            desc = L.RESET_ABBREVIATIONS_DESC or "Restore every abbreviation to its built-in default.",
-            order = 6,
-            width = "full",
-            confirm = true,
-            confirmText = L.RESET_ABBREVIATIONS_CONFIRM or "Reset every custom abbreviation in this profile?",
-            func = function()
-                if addon.Keybinds and addon.Keybinds.ResetCustomAbbreviations then
-                    addon.Keybinds:ResetCustomAbbreviations()
-                    RefreshAbbreviations()
-                end
-            end,
-        },
-    }
-
-    local categories = addon.Keybinds and addon.Keybinds.GetAbbreviationCategories
-        and addon.Keybinds:GetAbbreviationCategories() or {}
-    local definitions = addon.Keybinds and addon.Keybinds.GetAbbreviationDefinitions
-        and addon.Keybinds:GetAbbreviationDefinitions() or {}
-    local groups = {}
-    for categoryIndex, category in ipairs(categories) do
-        local categoryKey = category.key
-        local group = {
-            type = "group",
-            name = category.label,
-            inline = true,
-            order = 10 + categoryIndex,
-            args = {},
-        }
-        groups[categoryKey] = group
-        args["category_" .. categoryKey] = group
-        -- The options window edits these on its keyboard (options/Keyboard.lua);
-        -- the classic window keeps the list.
-        privateScope.PanelMeta = privateScope.PanelMeta or setmetatable({}, { __mode = "k" })
-        privateScope.PanelMeta[group] = { hidden = true }
-    end
-
-    for definitionIndex, definition in ipairs(definitions) do
-        local key = definition.key
-        local label = definition.label
-        local defaultValue = definition.default
-        local group = groups[definition.category]
-        if group then
-            group.args["key_" .. key] = {
-                type = "input",
-                name = label,
-                desc = string.format((L.ABBREVIATION_ENTRY_DESC or "Binding token: %s\nDefault: %s\nClear the field to restore the default."), key, defaultValue),
-                order = definitionIndex,
-                width = "half",
-                get = function()
-                    return addon.Keybinds:GetConfiguredAbbreviation(key)
-                end,
-                set = function(_, value)
-                    addon.Keybinds:SetCustomAbbreviation(key, value)
-                    RefreshAbbreviations()
-                end,
-            }
-        end
-    end
-
-    return args
 end
 
 local function isSmartStrataEnabled()
@@ -247,19 +200,63 @@ local function isSmartStrataEnabled()
     return db.display.smartStrata and true or false
 end
 
+-- The pages are built by modules/Options*.lua into Options.Groups; the helpers
+-- they share are here.
+Options.Groups = Options.Groups or {}
+Options.Helpers = {
+    getVersionString = getVersionString,
+    getDisplayUIName = getDisplayUIName,
+    getDetectedUIName = getDetectedUIName,
+    getDetectedUIText = getDetectedUIText,
+    isProviderLoaded = isProviderLoaded,
+    getLoadedProviderNotes = getLoadedProviderNotes,
+    getDiagnosticsSummary = getDiagnosticsSummary,
+    getSupportBlurb = getSupportBlurb,
+    getSafeProfile = getSafeProfile,
+    isLocked = isLocked,
+    RefreshOverlayStyles = RefreshOverlayStyles,
+    OUTLINE_ALIASES = OUTLINE_ALIASES,
+    getModifierColors = getModifierColors,
+    modifierColorOption = modifierColorOption,
+    getSub = getSub,
+    getVisibility = getVisibility,
+    RefreshVisibility = RefreshVisibility,
+    colorOption = colorOption,
+    RefreshAbbreviations = RefreshAbbreviations,
+    isSmartStrataEnabled = isSmartStrataEnabled,
+}
+
 -- The options window needs one table for as long as it is open: the "changed from
 -- default" marks and the rows it binds are keyed by the option tables themselves.
--- The classic window keeps rebuilding its own through GetOptions.
+-- GetOptions builds a fresh one each time it is called.
 function Options:GetPanelOptions()
     if not self.panelOptions and addon.db and addon.db.profile then
         self.panelOptions = self:GetOptions()
+        local args = self.panelOptions.args or {}
+        local font = args.text and args.text.args and args.text.args.font
+        local anchor = args.display and args.display.args and args.display.args.anchor
+        privateScope.PanelMeta = privateScope.PanelMeta or setmetatable({}, { __mode = "k" })
+        if font then
+            -- The window draws each font's name in that font.
+            privateScope.PanelMeta[font] = {
+                rowFont = function(name)
+                    return addon.Config and addon.Config.GetFontPath and addon.Config:GetFontPath(name)
+                end,
+            }
+        end
+        if anchor then
+            -- and the anchor point as a 3x3 grid on a button.
+            privateScope.PanelMeta[anchor] = { anchorGrid = true }
+        end
+        local barAnchor = args.bars and args.bars.args and args.bars.args.anchor
+        if barAnchor then privateScope.PanelMeta[barAnchor] = { anchorGrid = true } end
     end
     return self.panelOptions
 end
 
 function Options:GetOptions()
+    Groups = Options.Groups
     -- If the database isn't ready, provide a placeholder options table.
-    local db_check = getSafeProfile()
     if not addon.db or not addon.db.profile then
     return {
             type = "group",
@@ -317,550 +314,16 @@ function Options:GetOptions()
             end
         end,
         args = {
-            status = {
-                type = "group",
-                name = L.STATUS or "Status",
-                order = 0.5,
-                args = {
-                    toggles = {
-                        type = "group",
-                        inline = true,
-                        order = 0.1,
-                        name = L.QUICK_SWITCHES or "Quick Switches",
-                        args = {
-                            enable = {
-                                type = "toggle",
-                                name = L.ENABLE_ADDON or "Enable Addon",
-                                desc = L.ENABLE_ADDON_DESC or "Enable or disable the addon.",
-                                order = 1,
-                                width = "third",
-                                get = function() local db = getSafeProfile() return db.enabled end,
-                                set = function(_, val) local db = getSafeProfile() db.enabled = val if val then addon.Core:OnEnable() else addon.Core:OnDisable() end end,
-                            },
-                            autodetect = {
-                                type = "toggle",
-                                name = L.AUTO_DETECT_UI or "Auto-Detect UI",
-                                desc = L.AUTO_DETECT_UI_DESC or "Automatically detect your action bar UI.",
-                                order = 2,
-                                width = "third",
-                                get = function() local db = getSafeProfile() return db.autoDetectUI end,
-                                set = function(_, val) local db = getSafeProfile() db.autoDetectUI = val if addon:IsReady() then addon.Core:FullUpdate() end end,
-                            },
-                            lock = {
-                                type = "execute",
-                                name = function() local db = getSafeProfile() return db.display and db.display.locked and (L.UNLOCK_SETTINGS or "Unlock Settings") or (L.LOCK_SETTINGS or "Lock Settings") end,
-                                desc = L.LOCK_SETTINGS_DESC or "Lock or unlock all settings to prevent accidental changes.",
-                                order = 4,
-                                disabled = false, -- Always enabled, even when locked
-                                func = function()
-                                    local db = getSafeProfile()
-                                    db.display = db.display or {}
-                                    db.display.locked = not db.display.locked
-                                    addon:Print(db.display.locked and (L.MSG_SETTINGS_LOCKED or "|cffFFD700Settings locked|r - |cff888888protected from changes|r") or (L.MSG_SETTINGS_UNLOCKED or "|cff4A9EFFSettings unlocked|r - |cff888888you can now modify settings|r"))
-                                end,
-                            },
-                        },
-                    },
-                    summary = {
-                        type = "description",
-                        order = 1,
-                        name = function()
-                            local db = getSafeProfile()
-                            local enabled = db.enabled and "Enabled" or "Disabled"
-                            local mode = (db.display and db.display.nativeRewrite) and "Native text rewrite" or "Overlay"
-                            return table.concat({
-                                "Version: " .. getVersionString(),
-                                "Detected provider: " .. getDetectedUIText(),
-                                "Render mode: " .. mode,
-                                "Addon state: " .. enabled,
-                                getDiagnosticsSummary(),
-                            }, "\n")
-                        end,
-                    },
-                    refresh = {
-                        type = "execute",
-                        name = L.REFRESH_OVERLAYS or "Refresh Overlays",
-                        desc = L.REFRESH_OVERLAYS_DESC or "Run a full overlay refresh now.",
-                        order = 2,
-                        width = "full",
-                        func = function()
-                            if addon and addon.Core and addon.Core.FullUpdate then
-                                addon.Core:FullUpdate()
-                            end
-                        end,
-                    },
-                    detect = {
-                        type = "execute",
-                        name = L.DETECT_UI_NOW or "Re-Detect UI Now",
-                        desc = L.DETECT_UI_NOW_DESC or "Run UI detection again and refresh overlays.",
-                        order = 3,
-                        width = "full",
-                        func = function()
-                            if addon and addon.DetectUI then
-                                addon:DetectUI()
-                            end
-                            if addon and addon.Core and addon.Core.FullUpdate then
-                                addon.Core:FullUpdate()
-                            end
-                        end,
-                    },
-                    minimap = {
-                        type = "group",
-                name = L.MINIMAP_ICON or "Minimap Icon",
-                        order = 10,
-                        inline = true,
-                        args = {
-                            hide = {
-                                type = "toggle",
-                    name = L.HIDE_MINIMAP_ICON or "Hide Minimap Icon",
-                    desc = L.HIDE_MINIMAP_ICON_DESC or "Hide or show the minimap icon.",
-                                get = function()
-                                    local db = getSafeProfile()
-                                    return db.minimap and db.minimap.hide
-                                end,
-                                set = function(_, val)
-                                    local db = getSafeProfile()
-                                    db.minimap = db.minimap or {}
-                                    db.minimap.hide = val
-                                    if addon.SetupMinimapButton then addon:SetupMinimapButton() end
-                                end,
-                            },
-                        },
-                    },
-                },
-            },
-            display = {
-                type = "group",
-                name = L.DISPLAY or "Display",
-                order = 1,
-                args = {
-                    modeHeader = {
-                        type = "description",
-                        name = L.RENDER_MODE_INFO or "Choose whether AHOS draws its own overlay text or rewrites the button's native hotkey text.",
-                        order = 0.4,
-                    },
-                    nativeRewrite = {
-                        type = "toggle",
-                        name = L.USE_NATIVE_REWRITE or "Use Native Text",
-                        desc = L.USE_NATIVE_REWRITE_DESC or "Rewrite the button's native hotkey text instead of drawing a separate overlay.",
-                        order = 0.5,
-                        width = "full",
-                        get = function() local db = getSafeProfile() return db.display and db.display.nativeRewrite end,
-                        set = function(_, val) local db = getSafeProfile() if db.display then db.display.nativeRewrite = val; addon.Core:FullUpdate() end end,
-                    },
-                    dominosRewrite = {
-                        type = "toggle",
-                        name = L.DOMINOS_USE_NATIVE or "Dominos: Use Native Text",
-                        desc = L.DOMINOS_USE_NATIVE_DESC or "For Dominos buttons, rewrite the native hotkey text (overlay is default).",
-                        order = 0.6,
-                        width = "full",
-                        hidden = function() return not isProviderLoaded("Dominos") end,
-                        get = function() local db = getSafeProfile() return db.display and db.display.dominosRewrite end,
-                        set = function(_, val) local db = getSafeProfile() if db.display then db.display.dominosRewrite = val; addon.Core:FullUpdate() end end,
-                    },
-                    autoNativeFallback = {
-                        type = "toggle",
-                        name = L.AUTO_NATIVE_FALLBACK or "Auto Fallback to Native",
-                        desc = L.AUTO_NATIVE_FALLBACK_DESC or "If an overlay appears hidden by a skin, automatically rewrite the native hotkey for that button.",
-                        order = 0.7,
-                        width = "full",
-                        get = function() local db = getSafeProfile() return db.display and db.display.autoNativeFallback end,
-                        set = function(_, val) local db = getSafeProfile() if db.display then db.display.autoNativeFallback = val; addon.Core:FullUpdate() end end,
-                    },
-                    hideOriginal = {
-                        type = "toggle",
-                        name = L.HIDE_ORIGINAL or "Hide Original Hotkey Text",
-                        desc = L.HIDE_ORIGINAL_DESC or "Hides the default hotkey text on action buttons.",
-                        order = 1,
-                        get = function()
-                            local db = getSafeProfile()
-                            return db.display and db.display.hideOriginal
-                        end,
-                        set = function(info, val)
-                            local db = getSafeProfile()
-                            if db.display then
-                                db.display.hideOriginal = val
-                                addon.Core:FullUpdate()
-                            end
-                        end,
-                    },
-                    anchor = {
-                        type = "select",
-                        name = L.ANCHOR_POINT or "Anchor Point",
-                        desc = L.ANCHOR_POINT_DESC or "The point on the button where the text is anchored.",
-                        order = 2,
-                        values = { TOPLEFT = "TOPLEFT", TOP = "TOP", TOPRIGHT = "TOPRIGHT", LEFT = "LEFT", CENTER = "CENTER", RIGHT = "RIGHT", BOTTOMLEFT = "BOTTOMLEFT", BOTTOM = "BOTTOM", BOTTOMRIGHT = "BOTTOMRIGHT" },
-                        get = function() local db = getSafeProfile() return db.display and db.display.anchor end,
-                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.anchor = val; RefreshOverlayStyles() end end,
-                    },
-                    xOffset = {
-                        type = "range",
-                        name = L.X_OFFSET or "X Offset",
-                        desc = L.X_OFFSET_DESC or "Horizontal offset from the anchor point.",
-                        order = 3,
-                        min = -50, max = 50, step = 1,
-                        get = function() local db = getSafeProfile() return db.display and db.display.xOffset end,
-                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.xOffset = val; RefreshOverlayStyles() end end,
-                    },
-                    yOffset = {
-                        type = "range",
-                        name = L.Y_OFFSET or "Y Offset",
-                        desc = L.Y_OFFSET_DESC or "Vertical offset from the anchor point.",
-                        order = 4,
-                        min = -50, max = 50, step = 1,
-                        get = function() local db = getSafeProfile() return db.display and db.display.yOffset end,
-                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.yOffset = val; RefreshOverlayStyles() end end,
-                    },
-                    scale = {
-                        type = "range",
-                        name = L.SCALE or "Scale",
-                        desc = L.SCALE_DESC or "The scale of the overlay text.",
-                        order = 5,
-                        min = 0.1, max = 2, step = 0.05,
-                        get = function() local db = getSafeProfile() return db.display and db.display.scale end,
-                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.scale = val; RefreshOverlayStyles() end end,
-                    },
-                    alpha = {
-                        type = "range",
-                        name = L.ALPHA or "Alpha",
-                        desc = L.ALPHA_DESC or "The transparency of the overlay text.",
-                        order = 6,
-                        min = 0, max = 1, step = 0.05,
-                        get = function() local db = getSafeProfile() return db.display and db.display.alpha end,
-                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.alpha = val; RefreshOverlayStyles() end end,
-                    },
-                    smartStrata = {
-                        type = "toggle",
-                        name = L.SMART_STRATA or "Smart Frame Layering",
-                        desc = L.SMART_STRATA_DESC or "Keeps overlays on the same strata as their parent buttons to avoid overlapping unrelated UI (for example bags). Disable to use manual strata and frame level overrides.",
-                        order = 7,
-                        width = "full",
-                        get = isSmartStrataEnabled,
-                        set = function(_, val)
-                            local db = getSafeProfile()
-                            if db.display then
-                                db.display.smartStrata = val and true or false
-                                RefreshOverlayStyles()
-                            end
-                        end,
-                    },
-                    strata = {
-                        type = "select",
-                        name = L.OVERLAY_STRATA or "Overlay Frame Strata",
-                        desc = L.OVERLAY_STRATA_DESC or "Manual override: sets the drawing layer for overlays when Smart Frame Layering is disabled.",
-                        order = 8,
-                        values = {
-                            BACKGROUND = "Background",
-                            LOW = "Low",
-                            MEDIUM = "Medium",
-                            HIGH = "High",
-                            DIALOG = "Dialog",
-                            TOOLTIP = "Tooltip",
-                        },
-                        disabled = isSmartStrataEnabled,
-                        get = function() local db = getSafeProfile() return db.display and db.display.strata or "HIGH" end,
-                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.strata = val; RefreshOverlayStyles() end end,
-                    },
-                    frameLevel = {
-                        type = "range",
-                        name = L.OVERLAY_LEVEL or "Overlay Frame Level",
-                        desc = L.OVERLAY_LEVEL_DESC or "Manual override: fine-tune overlay stacking within the chosen strata when Smart Frame Layering is disabled.",
-                        order = 9,
-                        min = 1, max = 128, step = 1,
-                        disabled = isSmartStrataEnabled,
-                        get = function() local db = getSafeProfile() return db.display and db.display.frameLevel or 10 end,
-                        set = function(info, val) local db = getSafeProfile() if db.display then db.display.frameLevel = val; RefreshOverlayStyles() end end,
-                    },
-                    followNativeHotkeyStyle = {
-                        type = "toggle",
-                        name = L.MIRROR_NATIVE_STYLE or "Mirror Native Hotkey Style",
-                        desc = L.MIRROR_NATIVE_STYLE_DESC or "Overlay text will mirror the native hotkey font, color, and position when available.",
-                        order = 10,
-                        width = "full",
-                        get = function() local db = getSafeProfile() return db.display and db.display.followNativeHotkeyStyle end,
-                        set = function(_, val)
-                            local db = getSafeProfile()
-                            if not db.display then return end
-                            db.display.followNativeHotkeyStyle = val
-                            -- This only changes appearance. Restyle active overlays in place so
-                            -- native labels are never left blank by an unnecessary full rebuild.
-                            RefreshOverlayStyles()
-                        end,
-                    },
-                },
-            },
-            text = {
-                type = "group",
-                name = L.KEYBINDS or "Keybinds",
-                order = 2,
-                args = {
-                    font = {
-                        type = "select",
-                        name = L.FONT or "Font",
-                        desc = L.FONT_DESC or "The font for the overlay text.",
-                        order = 1,
-                        values = function()
-                            if addon.Config and addon.Config.GetFontList then
-                                local list = addon.Config:GetFontList()
-                                local out = {}
-                                for _, name in ipairs(list) do
-                                    out[name] = name
-                                end
-                                return out
-                            end
-                            return { ["Default"] = "Default" }
-                        end,
-                        get = function() local db = getSafeProfile() return db.text and db.text.font end,
-                        set = function(info, val) local db = getSafeProfile() if db.text then db.text.font = val; RefreshOverlayStyles() end end,
-                    },
-                    fontSize = {
-                        type = "range",
-                        name = L.FONT_SIZE or "Font Size",
-                        desc = L.FONT_SIZE_DESC or "The size of the font.",
-                        order = 2,
-                        min = 6, max = 48, step = 1,
-                        get = function() local db = getSafeProfile() return db.text and db.text.fontSize end,
-                        set = function(info, val) local db = getSafeProfile() if db.text then db.text.fontSize = val; RefreshOverlayStyles() end end,
-                    },
-                    color = {
-                        type = "color",
-                        name = L.FONT_COLOR or "Font Color",
-                        desc = L.FONT_COLOR_DESC or "The color of the font.",
-                        order = 3,
-                        hasAlpha = false,
-                        get = function() local db = getSafeProfile() if db.text and db.text.color then return unpack(db.text.color) end end,
-                        set = function(info, r, g, b) local db = getSafeProfile() if db.text then db.text.color = {r, g, b}; RefreshOverlayStyles() end end,
-                    },
-                    outlineStyle = {
-                        type = "select",
-                        name = L.FONT_OUTLINE or "Font Outline",
-                        desc = L.FONT_OUTLINE_DESC or "Choose font outline and monochrome options.",
-                        order = 4,
-                        values = {
-                            ["NONE"] = "None",
-                            ["OUTLINE"] = "Outline",
-                            ["THICKOUTLINE"] = "Thick Outline",
-                            ["MONOCHROME"] = "Monochrome",
-                            ["MONOCHROME,OUTLINE"] = "Monochrome + Outline",
-                            ["MONOCHROME,THICKOUTLINE"] = "Monochrome + Thick Outline",
-                            ["MONOCHROMEOUTLINE"] = "MonochromeOutline (alias)",
-                            ["MONOCHROMETHICKOUTLINE"] = "MonochromeThickOutline (alias)",
-                        },
-                        get = function()
-                            local db = getSafeProfile()
-                            if db.text then
-                                if db.text.outlineStyle and db.text.outlineStyle ~= "" then
-                                    return db.text.outlineStyle
-                                end
-                                -- Legacy fallback: boolean outline => OUTLINE/NONE
-                                if db.text.outline ~= nil then
-                                    return db.text.outline and "OUTLINE" or "NONE"
-                                end
-                            end
-                            return "OUTLINE"
-                        end,
-                        set = function(_, val)
-                            local db = getSafeProfile()
-                            if db.text then
-                                db.text.outlineStyle = val
-                                -- keep legacy key for backward compat off by default
-                                db.text.outline = (val == "OUTLINE" or val == "THICKOUTLINE" or val:find("OUTLINE", 1, true) ~= nil)
-                                RefreshOverlayStyles()
-                            end
-                        end,
-                    },
-                },
-            },
-            abbreviations = {
-                type = "group",
-                name = L.CUSTOM_ABBREVIATIONS or "Abbreviations",
-                order = 2.5,
-                args = BuildAbbreviationOptions(),
-            },
-            profiles = {
-                type = "group",
-        name = L.PROFILES or "Profiles Management",
-                order = 3,
-                args = {
-                    aceProfiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(addon.db),
-                    profileTools = {
-                        type = "group",
-            name = L.PROFILE_MANAGEMENT or "Profile Tools",
-                        order = 2,
-                        args = {
-                            currentProfile = {
-                                type = "description",
-                                name = function()
-                                    if addon.db and addon.db:GetCurrentProfile() then
-                    return (L.CURRENT_PROFILE_LABEL or "|cff4A9EFFCurrent Profile:|r ") .. "|cffffd700" .. addon.db:GetCurrentProfile() .. "|r"
-                                    else
-                    return (L.CURRENT_PROFILE_LABEL or "|cff4A9EFFCurrent Profile:|r ") .. "|cffffd700" .. (L.UNKNOWN or "Unknown") .. "|r"
-                                    end
-                                end,
-                                order = 0.5,
-                                width = "full",
-                            },
-                            profileInfo = {
-                                type = "description",
-                                order = 1,
-                                name = "Use the Ace3 profile controls above for switching, copying, and resetting profiles.",
-                            },
-                            exportProfile = {
-                                type = "execute",
-                name = L.EXPORT_PROFILE or "Export Current Profile",
-                desc = L.EXPORT_PROFILE_DESC or "Export the current profile for support or backup.",
-                                order = 2,
-                                func = function()
-                                    if addon.DebugExportTable and addon.db and addon.db.profile then
-                                        addon:DebugExportTable(addon.db.profile)
-                                    end
-                                end,
-                            },
-                            importProfile = {
-                                type = "input",
-                name = L.IMPORT_PROFILE_DATA or "Import Profile Data",
-                desc = L.IMPORT_PROFILE_DATA_DESC or "Paste a profile export string here to import settings.",
-                                order = 3,
-                                get = function() return "" end,
-                                set = function(_, val) if addon.ImportProfileString then addon:ImportProfileString(val) else addon:Print(L.IMPORT_NOT_IMPLEMENTED or "Import feature not yet implemented.") end end,
-                            },
-                            autoSwitch = {
-                                type = "toggle",
-                name = L.AUTO_SWITCH_PROFILE or "Auto-Switch Profile by Spec",
-                desc = L.AUTO_SWITCH_PROFILE_DESC or "Automatically switch profiles when changing specialization.",
-                                order = 4,
-                                get = function() local db = getSafeProfile() return db.autoSwitchProfile end,
-                                set = function(_, val) local db = getSafeProfile() db.autoSwitchProfile = val end,
-                            },
-                        },
-                    },
-                },
-            },
-            integration = {
-                type = "group",
-        name = L.INTEGRATION_COMPAT or "Compatibility",
-                order = 5,
-                args = {
-                    summary = {
-                        type = "description",
-                        order = 0,
-                        name = function()
-                            return getSupportBlurb()
-                        end,
-                    },
-                    elvui = {
-                        type = "toggle",
-            name = L.ENABLE_ELVUI_COMPAT or "ElvUI Compatibility",
-            desc = L.ENABLE_ELVUI_COMPAT_DESC or "Force overlays even if ElvUI is loaded (may cause conflicts).",
-                        order = 1,
-                        width = "full",
-                        get = function() local db = getSafeProfile() return db.forceOverlaysWithElvUI end,
-                        set = function(_, val) local db = getSafeProfile() db.forceOverlaysWithElvUI = val; addon.Core:FullUpdate() end,
-                    },
-                    dominosHint = {
-                        type = "description",
-                        order = 2,
-                        name = L.DOMINOS_COMPAT_NOTE or "Dominos is supported directly. If a skin hides overlays on some bars, try 'Dominos: Use Native Text' in Display.",
-                    },
-                },
-            },
-            debug = {
-                type = "group",
-        name = L.DEBUGGING or "Debugging",
-                order = 6,
-                args = {
-                    info = {
-                        type = "description",
-                        order = 0,
-                        name = L.DEBUGGING_INFO or "Use these tools only when troubleshooting. Normal setup should not require them.",
-                    },
-                    debug = {
-                        type = "toggle",
-                        name = L.DEBUG_MODE or "Debug Mode",
-                        desc = L.DEBUG_MODE_DESC or "Enable verbose debug logging.",
-                        order = 0.5,
-                        width = "full",
-                        get = function() local db = getSafeProfile() return db.debug end,
-                        set = function(_, val) local db = getSafeProfile() db.debug = val end,
-                    },
-                    enableTroubleshooting = {
-                        type = "toggle",
-                        name = L.ENABLE_TROUBLESHOOTING_TOOLS or "Enable Troubleshooting Tools",
-                        desc = L.ENABLE_TROUBLESHOOTING_TOOLS_DESC or "Show import/export and profiling tools used for support and debugging.",
-                        order = 1,
-                        width = "full",
-                        get = function() local db = getSafeProfile() return db.troubleshootingTools end,
-                        set = function(_, val) local db = getSafeProfile() db.troubleshootingTools = val end,
-                    },
-                    debugExport = {
-                        type = "execute",
-            name = L.EXPORT_DEBUG_DATA or "Export Debug Data",
-            desc = L.EXPORT_DEBUG_DATA_DESC or "Export current settings or table for debugging.",
-                        order = 2,
-                        hidden = function() local db = getSafeProfile() return not db.troubleshootingTools end,
-            func = function() if addon.DebugExportTable then addon:DebugExportTable(addon.db and addon.db.profile) else addon:Print(L.DEBUG_EXPORT_NOT_AVAILABLE or "Debug export not available.") end end,
-                    },
-                    debugImport = {
-                        type = "input",
-            name = L.IMPORT_DEBUG_DATA or "Import Debug Data",
-            desc = L.IMPORT_DEBUG_DATA_DESC or "Paste a debug export string to import settings or data.",
-                        order = 3,
-                        hidden = function() local db = getSafeProfile() return not db.troubleshootingTools end,
-                        get = function() return "" end,
-            set = function(_, val) if addon.DebugImportString then addon:DebugImportString(val) else addon:Print(L.DEBUG_IMPORT_NOT_IMPLEMENTED or "Debug import not yet implemented.") end end,
-                    },
-                    perfMetrics = {
-                        type = "toggle",
-            name = L.SHOW_PERF_METRICS or "Show Performance Metrics",
-            desc = L.SHOW_PERF_METRICS_DESC or "Show overlay update times and enable performance logging.",
-                        order = 4,
-                        hidden = function() local db = getSafeProfile() return not db.troubleshootingTools end,
-                        get = function() local db = getSafeProfile() return db.showPerfMetrics end,
-                        set = function(_, val) local db = getSafeProfile() db.showPerfMetrics = val end,
-                    },
-                    openLog = {
-                        type = "execute",
-                        name = L.OPEN_DEBUG_LOG or "Open Debug Log",
-                        desc = L.OPEN_DEBUG_LOG_DESC or "Open the in-game debug log window.",
-                        order = 5,
-                        hidden = function() local db = getSafeProfile() return not db.troubleshootingTools end,
-                        func = function()
-                            if addon and addon.ShowDebugLogWindow then
-                                addon:ShowDebugLogWindow()
-                            end
-                        end,
-                    },
-                },
-            },
-            about = {
-                type = "group",
-        name = L.ABOUT_AND_SUPPORT or "About & Support",
-                order = 98,
-                args = {
-                    supportDesc = {
-                        type = "description",
-            name = (L.HELP_AND_DEBUGGING_TEXT or "When reporting an issue, include your WoW flavor, AHOS version, bar addon, and whether you use skins like Masque.\n\nUseful commands:\n/ahos show\n/ahos reload\n/ahos detectui\n/ahos inspect <ButtonName>\n/ahos debug\n/ahos debugexport [tablepath]\n/ahoslog\n\nIf a third-party bar addon uses its own private binding system and does not expose stable button commands or hotkey update hooks, AHOS should not claim direct support for it.")
-                .. "\n\nVersion: " .. getVersionString(),
-                        order = 2,
-                    },
-                    aboutDesc = {
-                        type = "description",
-                        order = 1,
-                        fontSize = "medium",
-            name = L.ABOUT_TEXT or [[
-|cffFFD700Advanced Hotkey Overlay System|r
-
-A modular hotkey overlay system for World of Warcraft action bars with dedicated support for Blizzard, AzeriteUI, Dominos, Bartender4, and DiabolicUI.
-
-|cffFFD700Made by:|r JuNNeZ
-|cffFFD700Libraries:|r Ace3, LibDBIcon-1.0, LibSharedMedia-3.0, LibSerialize, LibDeflate.
-
-For support, please visit the CurseForge or GitHub project pages.
-Thank you for using AHOS!
-            ]]
-                    }
-                }
-            },
+            status = Groups.status(),
+            display = Groups.display(),
+            text = Groups.text(),
+            abbreviations = Groups.abbreviations(),
+            bars = Groups.bars(),
+            profiles = Groups.profiles(),
+            integration = Groups.integration(),
+            inspector = Groups.inspector(),
+            debug = Groups.debug(),
+            about = Groups.about(),
         },
     }
 end

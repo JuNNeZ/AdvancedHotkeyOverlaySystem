@@ -1,227 +1,104 @@
 # AHOS Development Roadmap
 
-**Current Version:** 2.5.6 (November 8, 2025)
+**Current release:** 2.5.24 · **Next release:** everything under `[Unreleased]` in [CHANGELOG.md](CHANGELOG.md)
 
-## Recent Accomplishments ✓
-
-### v2.5.3 - v2.5.6 (November 2025)
-- ✓ Separated debug output (DebugPrint) from user messages
-- ✓ Added 9 easter egg commands with visual effects
-- ✓ Fixed combat lockdown overlay persistence
-- ✓ Fixed dragonriding/vehicle bar transition overlay loss
-- ✓ Optimized overlay lifecycle to prevent unnecessary clearing
+The roadmap written for 2.5.6 (November 2025) is done. This page records where each of its items landed, what was decided against and why, and what is left.
 
 ---
 
-## Immediate Priorities (v2.5.7 - v2.6.0)
+## Done
 
-### 🔴 Critical Bugs
-**Priority: HIGH | Timeline: Next patch**
+### Bugs and performance
 
-1. **Test dragonriding fix thoroughly**
-   - Verify overlays persist across all mount types
-   - Test with different UI addons (ElvUI, Bartender4, Dominos)
-   - Confirm no memory leaks from overlay preservation
-   - Test vehicle UI transitions (tanks, drakes, etc.)
+- ✓ Overlays persist through dragonriding, vehicles, possess and override bars (2.5.5–2.5.6)
+- ✓ Incremental updates: one changed action slot updates only the buttons showing it
+- ✓ Debounced refreshes: a burst of bar events runs one series of passes, and passes stop once the bars settle
+- ✓ Performance profiling: `Tools/TestCore.lua` times a full update over 300+ buttons on every run
+- ✓ LibKeyBound keybind mode is followed even when LibKeyBound loads after AHOS (Known Issue 4)
+- ✓ No blank hotkey text after the first login when AHOS lets go of a button before the bar filled its label (Known Issue 5)
 
-2. **Performance optimization needed**
-   - Current `UpdateAllOverlays()` processes ALL buttons on every bar event
-   - Implement incremental updates for specific buttons only
-   - Add Performance:QueueFullUpdate() debouncing/throttling
-   - Profile overlay creation/update performance with large button sets
+### Bar addons
 
-### 🟡 Quality of Life Improvements
-**Priority: MEDIUM | Timeline: v2.6.0**
+- ✓ Blizzard, AzeriteUI, Dominos, Bartender4, DiabolicUI
+- ✓ LUI (bottom and side bars) and Neuron (action and pet bars, its own key lists)
+- ✓ Dominos (and every scanned addon) past its usual button count
+- ✓ Supported addons documented: [wiki/Supported-Addons.md](wiki/Supported-Addons.md)
+- ✓ Bar addons' own fading (Bartender4, Dominos, ElvUI mouseover) carries the hotkey text with it
 
-1. **Enhanced UI addon detection**
-   - Add support for newer action bar addons (NeuronBars, LUI)
-   - Improve Dominos button detection beyond 200 buttons
-   - Add Plater/TellMeWhen integration for custom bars
-   - Document which addons are officially supported
+### Placement and look
 
-2. **Overlay positioning refinements**
-   - Per-bar anchor/offset customization (not just global)
-   - Interactive overlay positioning mode (drag to adjust)
-   - Visual preview when adjusting position settings
-   - Preset layouts for common UI configurations
+- ✓ Per-bar anchor and offsets (Bars page: A Place of Its Own)
+- ✓ Drag-to-place editor: `/ahos edit` (Shift-drag for one bar, Save as Profile)
+- ✓ Live preview in the options window, and the real bars light up on a change
+- ✓ Presets for common looks (Blizzard Style, Big and Centered, Bottom Corner, Compact)
+- ✓ Mouse button icons, gamepad glyphs for every controller family
+- ✓ Colour by modifier (Shift, Ctrl, Alt, several)
+- ✓ Shadow colour and offset, glow, background plate
+- ✓ Custom fonts through LibSharedMedia
+- ✓ Press animation (flash or pulse)
 
-3. **Keybind display enhancements**
-   - Mouse button icon support (🖱️ visual indicators)
-   - Gamepad button glyph support (Xbox/PS controllers)
-   - Custom color rules per modifier (Shift=blue, Ctrl=red, etc.)
-   - Font shadow/glow effects for better readability
+### When the text shows
 
----
+- ✓ Fade out of combat, with a faded alpha and fade time
+- ✓ Mouseover per bar
+- ✓ Only while a modifier is held
+- ✓ A Lua condition of your own, in a sandbox
+- ✓ A different colour and size in combat
+- ✓ Empty slots show nothing
+- ✓ Leave one button alone (Inspector card, `/ahos ignore`)
+- ✓ Both keys on a button with two (Show Both Keys)
 
-## Short-Term Features (v2.6.x - v2.7.0)
+### Profiles
 
-### 📦 New Functionality
-**Priority: MEDIUM | Timeline: 1-2 months**
+- ✓ Quick switching: `/ahos profile <name>`, `/ahos profiles`
+- ✓ Role templates: Tank, Healer, Damage presets
+- ✓ Snapshots and rollback (`/ahos snapshot`, `/ahos rollback`), taken by themselves before presets, imports, resets and restores
+- ✓ Switching by specialization or by talent loadout, chosen per character
+- ✓ Sharing through export and import strings
 
-1. **Action bar fade system**
-   - Option to fade/hide overlays out of combat
-   - Mouseover show/hide for specific bars
-   - Integrate with ElvUI/Bartender fade settings
-   - Custom fade alpha and duration controls
+### Tooling and docs
 
-2. **Conditional overlay display**
-   - Hide overlays for empty slots (currently just skips creation)
-   - Show only when modifier key held (advanced users)
-   - Per-spec overlay profiles (auto-switch on spec change)
-   - Combat/non-combat different styles
+- ✓ Follow Masque Skin: the overlay reads the skin's own place for the hotkey (`_MSQ_CFG.Skin.HotKey`) and follows a skin change
+- ✓ `modules/Display.lua` split into DisplayShared, Display, DisplayNative and DisplayStyle; `modules/Options.lua` into one file per page
+- ✓ Type annotations for the Lua language server (`types/AHOS.lua` and the public methods); warnings across the workspace down from 962 to about 400, most of them in the bundled libraries and the options window
+- ✓ Russian and Ukrainian (ЙЦУКЕН), Korean (두벌식) and Taiwanese (注音) boards on the Abbreviations page; Cyrillic, Korean and Chinese text drawn in the game's own faces on any client
 
-3. **Improved profile management**
-   - Quick profile switcher slash command
-   - Profile templates (tank, healer, DPS layouts)
-   - Cloud sync via WoW account data (cross-character)
-   - Profile versioning and rollback
+- ✓ Mock WoW client and test suites for the options window, the engine and the translations (`lua Tools/RunTests.lua`), run in CI for every client TOC
+- ✓ Developer guide, module overview and SafeCall in [wiki/Contributing.md](wiki/Contributing.md)
+- ✓ Options split across `options/` files (the window) and `modules/Options.lua` (the table both windows draw)
+- ✓ Translations for German, Spanish, French, Portuguese, Russian, Korean and Chinese
 
-### 🔧 Technical Debt
-**Priority: LOW-MEDIUM | Timeline: Ongoing**
+### Clients
 
-1. **Code modernization**
-   - Refactor large modules (Display.lua is 1200+ lines)
-   - Split Options.lua into separate files per category
-   - Standardize error handling across all modules
-   - Add type annotations for better IDE support
-
-2. **Testing infrastructure**
-   - Create automated test suite for keybind detection
-   - Mock WoW API for unit testing
-   - Add integration tests for UI addon compatibility
-   - Performance benchmarking framework
-
-3. **Documentation improvements**
-   - API documentation for module interactions
-   - Add inline code comments for complex logic
-   - Create developer setup guide
-   - Document SafeCall pattern for contributors
+- ✓ Retail, WoW Forever, Mists of Pandaria Classic, Classic Era (Hardcore and Season of Discovery use Classic Era's bars). Cataclysm Classic has been replaced by Mists Classic.
 
 ---
 
-## Long-Term Vision (v3.0.0+)
+## Decided against
 
-### 🚀 Major Features
-**Priority: LOW | Timeline: 3-6 months**
-
-1. **Multi-language hotkey support**
-   - Non-Latin keyboard layouts (Cyrillic, Asian)
-   - Custom keybind symbols/abbreviations per locale
-   - Unicode glyph support for international players
-
-2. **Advanced customization**
-   - LUA snippet conditions for overlay visibility
-   - Custom font support (SharedMedia integration)
-   - Texture backgrounds for overlays
-   - Animation on button press (flash, pulse effects)
-
-3. **WeakAuras integration**
-   - Export overlay settings as WeakAura
-   - Sync overlay positions with WA custom bars
-   - Conditional display based on WA triggers
-
-4. **Click-through editor mode**
-   - `/ahos edit` - Visual overlay editor
-   - Drag overlays to new positions
-   - Preview different fonts/colors live
-   - Save as new profile
-
-### 🌐 Ecosystem Support
-**Priority: LOW | Timeline: 6+ months**
-
-1. **WoW Classic Hardcore support**
-   - Test compatibility with Classic Era
-   - Add Season of Discovery bar patterns
-   - Ensure no performance impact on lower-end systems
-
-2. **Cataclysm Classic preparation**
-   - Update bar definitions for Cata action bars
-   - Test with Cata talent system changes
-   - Verify combat lockdown behavior
-
-3. **Community features**
-   - Profile sharing via string export/import
-   - Online profile repository (wago.io integration?)
-   - Community-contributed UI presets
-   - Discord bot for profile sharing
+| Item | Why |
+|---|---|
+| Cloud sync of profiles | Profiles are already account-wide (SavedVariables); the game gives addons no other storage. Export strings cover moving between accounts. |
+| Plater integration | Plater draws nameplates, which have no key bindings. |
+| TellMeWhen integration | TellMeWhen's icons are not action buttons and have no bindings to show. |
+| OPie / BindPad integration | Their keys are not on action buttons. AHOS only draws on action buttons. |
+| WeakAuras export and sync | WeakAuras is not an action bar. The Lua condition covers showing text by any state an aura would check. |
+| Online preset repository, Discord bot | Not addon work; export strings can be shared anywhere. |
 
 ---
 
-## Known Issues & Limitations
+## Still open
 
-### 🐛 Tracked Bugs
-1. ~~Overlays disappear during dragonriding mount~~ **FIXED v2.5.6**
-2. ~~Combat mount transitions clear MultiBar overlays~~ **FIXED v2.5.5**
-3. ~~Debug spam in chat window~~ **FIXED v2.5.3**
-4. Some LibKeyBound modes may not trigger overlay updates properly
-5. Original hotkey text capture can fail on first login (requires `/reload`)
-
-### ⚠️ Design Limitations
-1. Cannot modify overlays during combat lockdown (WoW API restriction)
-2. Some custom action bar addons use non-standard button templates
-3. Gamepad/controller detection requires ConsolePort addon
-4. Profile auto-switching only supports spec changes, not talent loadouts
-
-### 📝 Enhancement Requests from Users
-- Better Masque skin integration (outline/border matching)
-- Per-button overlay toggle (disable specific buttons)
-- Overlay stacking for macro conditionals (show all possible binds)
-- Integration with OPie/BindPad custom bindings
+- **In-game verification** of the 2.6 features on every client: the test harness runs against a mock client, not the game.
 
 ---
 
-## Development Principles
+## Development principles
 
-### Code Quality Standards
-- ✓ All Lua files must pass lint (luacheck/lua-language-server)
-- ✓ No nil errors or taint in production
-- ✓ Combat lockdown aware (InCombatLockdown checks)
-- ✓ Backward compatibility with Classic/Vanilla TOC files
-- ✓ SafeCall pattern for inter-module communication
+- All Lua passes `.vscode/scripts/lint-lua.ps1` and `lua Tools/RunTests.lua`
+- No Lua errors or taint; nothing protected is touched in combat
+- Every client TOC loads the same files (Camelot in sync with Mainline)
+- `SafeCall` for cross-module calls during loading
+- Debounce high-frequency events; pool frames
 
-### Performance Guidelines
-- Target: < 1ms frame time impact during overlay updates
-- Maximum 0.5MB memory footprint
-- Debounce high-frequency events (UPDATE_BINDINGS)
-- Use frame pooling to reduce garbage collection
-
-### User Experience Goals
-- Zero configuration for 80% of users (works out of box)
-- Options panel should be intuitive without documentation
-- Debug mode available but hidden from casual users
-- Easter eggs remain hidden unless discovered
-
----
-
-## How to Contribute
-
-1. **Bug Reports:** Open GitHub issue with `/ahos debugexport` output
-2. **Feature Requests:** Discuss in GitHub Discussions first
-3. **Code Contributions:** Follow `.github/copilot-instructions.md` patterns
-4. **Testing:** Report compatibility with different UI addons
-
-### Current Development Needs
-- [ ] Testers for Dominos/Bartender4/LUI configurations
-- [ ] Classic Era overlay pattern contributors
-- [ ] Performance profiling on low-end systems
-- [ ] Localization translators (non-English)
-
----
-
-## Version Numbering
-
-**Format:** `MAJOR.MINOR.PATCH`
-- **MAJOR:** Breaking changes, major rewrites (v3.0.0)
-- **MINOR:** New features, significant improvements (v2.6.0)
-- **PATCH:** Bug fixes, small tweaks (v2.5.7)
-
-**Release Schedule:**
-- Patches: As needed (critical fixes)
-- Minor: Monthly (feature updates)
-- Major: Yearly or WoW expansion cycles
-
----
-
-**Last Updated:** November 8, 2025  
-**Maintainer:** JuNNeZ  
-**License:** All Rights Reserved
+**Maintainer:** JuNNeZ · **License:** All Rights Reserved

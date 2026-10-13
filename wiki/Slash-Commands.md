@@ -52,6 +52,21 @@ Both aliases accept the same sub-commands.
 | `/ahos refresh` | Smart refresh — updates overlay text for all currently tracked buttons without re-creating frames. Faster than `reload`; use this after binding changes. |
 | `/ahos cleanup` | Temporarily hides and clears all overlays without disabling AHOS. Useful for screenshots. Overlays reappear on the next `refresh` or `/reload`. |
 
+### Placement, Profiles and Buttons
+
+| Command | Description |
+|---|---|
+| `/ahos edit` | Edit mode: drag the hotkey text into place on your bars (Shift-drag moves one bar). Run it again, or click **Done**, to finish. |
+| `/ahos profile` | List the profiles, with the current one marked. `/ahos profiles` does the same. |
+| `/ahos profile <name>` | Switch to profile `<name>`. A new name makes it from the current profile first. |
+| `/ahos presets` | List the presets. |
+| `/ahos preset <name>` | Apply a preset (`blizzard`, `centered`, `corner`, `compact`, `tank`, `healer`, `dps`). |
+| `/ahos snapshot [label]` | Save a copy of the current profile to go back to. |
+| `/ahos snapshot list` | List the snapshots, newest first. |
+| `/ahos rollback [n]` | Put back the newest snapshot, or the n-th. `/ahos undo` does the same. |
+| `/ahos ignore <ButtonName>` | Leave one button to its own hotkey text. |
+| `/ahos unignore <ButtonName>` | Draw on that button again. |
+
 ### UI Detection
 
 | Command | Description |

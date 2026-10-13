@@ -66,9 +66,23 @@ end
 
 -- Whether this option's choices read better as a strip of buttons than as a
 -- dropdown. Controls owns the rule; the renderer only has to ask.
+-- true for a strip, "anchor" for the anchor grid, false for a dropdown.
 local WantsStrip = function(option, options, path)
 	local values = Config.GetValues(option, options, path, APP)
+	local meta = Meta(option)
+	if (meta and meta.anchorGrid and type(values) == "table") then return "anchor", values end
 	return Controls.WantsSegmented(values), values
+end
+
+-- Which shape of select a control is, in the same terms.
+local SelectShape = function(control)
+	if (control.anchorGrid) then return "anchor" end
+	return control.segmented and true or false
+end
+
+local CreateSelect = function(content, shape)
+	if (shape == "anchor") then return Controls.CreateAnchorGrid(content) end
+	return shape and Controls.CreateSegmented(content) or Controls.CreateDropdown(content)
 end
 
 --------------------------------------------------------------------------
@@ -233,6 +247,9 @@ local Bind = function(control, option, options, path, page)
 	end
 
 	if (kind == "select") then
+		local meta = Meta(option)
+		control.rowFont = meta and meta.rowFont or nil
+
 		local values = Config.GetValues(option, options, path, APP)
 		local sorting = Config.GetMember("sorting", option, options, path, APP)
 
@@ -397,7 +414,7 @@ Renderer.CreatePage = function(self, content)
 		-- Strips and dropdowns are both `select`, so they pool separately.
 		local poolKey = kind
 		if (kind == "select") then
-			poolKey = wantsStrip and "segmented" or "select"
+			poolKey = (wantsStrip == "anchor" and "anchor") or (wantsStrip and "segmented") or "select"
 		elseif (kind == "input" and wantsStrip) then
 			-- `wantsStrip` carries "this one is multiline" for an input.
 			poolKey = "multiline"
@@ -411,8 +428,7 @@ Renderer.CreatePage = function(self, content)
 		local control = table.remove(pool)
 		if (not control) then
 			if (kind == "select") then
-				control = wantsStrip and Controls.CreateSegmented(content)
-					or Controls.CreateDropdown(content)
+				control = CreateSelect(content, wantsStrip)
 			elseif (kind == "input" and wantsStrip) then
 				control = Controls.CreateMultiline(content)
 			else
@@ -431,7 +447,7 @@ Renderer.CreatePage = function(self, content)
 		control:SetOnRevert(nil)
 		control:SetModified(false)
 
-		local key = control.segmented and "segmented" or control.kind
+		local key = (control.anchorGrid and "anchor") or (control.segmented and "segmented") or control.kind
 		page.pool[key] = page.pool[key] or {}
 		page.pool[key][#page.pool[key] + 1] = control
 	end
@@ -565,9 +581,8 @@ Renderer.CreatePage = function(self, content)
 				-- A control out of the pool may have been built as a dropdown
 				-- when this option wants a strip, or the other way round.
 				if (entry.kind == "select"
-					and (control.segmented and true or false) ~= (wantsStrip and true or false)) then
-					control = wantsStrip and Controls.CreateSegmented(content)
-						or Controls.CreateDropdown(content)
+					and SelectShape(control) ~= ((wantsStrip == "anchor" and "anchor") or (wantsStrip and true or false))) then
+					control = CreateSelect(content, wantsStrip)
 				elseif (entry.kind == "input"
 					and (control.multiline and true or false) ~= (wantsStrip and true or false)) then
 					control = wantsStrip and Controls.CreateMultiline(content)

@@ -16,6 +16,7 @@ local Look = {}
 Kit.Look = Look
 
 local Media = ns.PanelMedia
+Look.Media = Media
 local max, unpack = math.max, unpack
 
 -- Colours that are not part of a theme: the lip under a keycap is always a darker
@@ -26,15 +27,37 @@ Look.LipShade = .55
 ---------------------------------------------------------------------
 -- Fonts
 ---------------------------------------------------------------------
--- The game's own face, so every locale (Cyrillic, Korean, Chinese) renders.
+-- The game's own face, as a font family: the client's Latin face, and the faces
+-- the game ships for Cyrillic, Korean and Chinese on every client, so a Russian key
+-- name or a Hangul legend renders on an English client too (the window's text was
+-- one font file, which on an English client has none of those letters).
+local SCRIPT_FONTS = {
+	{ "russian", "Fonts\\FRIZQT___CYR.TTF" },
+	{ "korean", "Fonts\\2002.TTF" },
+	{ "simplifiedchinese", "Fonts\\ARKai_T.ttf" },
+	{ "traditionalchinese", "Fonts\\blei00d.TTF" },
+}
+Look.ScriptFonts = SCRIPT_FONTS
+
 local fonts = {}
 function Look.Font(size, kind)
 	kind = kind or "body"
 	local key = kind .. size
 	if fonts[key] then return fonts[key] end
-	local font = CreateFont("AHOSLookFont" .. key)
 	local file = GameFontNormal:GetFont()
-	font:SetFont(file, size, "")
+	local font
+	if CreateFontFamily then
+		local members = { { alphabet = "roman", file = file, height = size, flags = "" } }
+		for _, script in ipairs(SCRIPT_FONTS) do
+			members[#members + 1] = { alphabet = script[1], file = script[2], height = size, flags = "" }
+		end
+		local ok, family = pcall(CreateFontFamily, "AHOSLookFont" .. key, members)
+		if ok and family then font = family end
+	end
+	if not font then
+		font = CreateFont("AHOSLookFont" .. key)
+		font:SetFont(file, size, "")
+	end
 	font:SetShadowOffset(0, -1)
 	font:SetShadowColor(0, 0, 0, kind == "display" and .9 or .6)
 	fonts[key] = font
@@ -89,6 +112,31 @@ function Look.Round(frame, radius, thick, layer, keycap)
 	Sliced(edge, Media("round" .. r .. (thick and "-edge2" or "-edge")), margin)
 	edge:SetAllPoints()
 
+	return Look.Surface(fill, face, edge)
+end
+
+-- A shape drawn at its frame's own size and aspect (the mouse, its buttons, the
+-- controller): -fill, -face and -edge files as for Look.Round, not sliced.
+function Look.Shape(frame, name, keycap, layer)
+	layer = layer or "BACKGROUND"
+	local fill = frame:CreateTexture(nil, layer, nil, -6)
+	fill:SetTexture(Media(name .. "-fill"))
+	fill:SetAllPoints()
+	local face
+	if keycap then
+		face = frame:CreateTexture(nil, layer, nil, -5)
+		face:SetTexture(Media(name .. "-face"))
+		face:SetAllPoints()
+	end
+	local edge = frame:CreateTexture(nil, layer, nil, -4)
+	edge:SetTexture(Media(name .. "-edge"))
+	edge:SetAllPoints()
+	return Look.Surface(fill, face, edge)
+end
+
+-- What Look.Round and Look.Shape hand back: SetFill, SetEdge and SetShown over a
+-- fill, an optional keycap face and an edge.
+function Look.Surface(fill, face, edge)
 	local round = { fill = fill, face = face, edge = edge }
 	function round:SetFill(c, a)
 		if not c then
@@ -120,6 +168,155 @@ function Look.Round(frame, radius, thick, layer, keycap)
 	return round
 end
 
+-- The Backlit theme's light under a key: a soft glow spilling out from under
+-- `frame`'s bottom edge. Hidden until shown; tinted by the caller.
+function Look.Underglow(frame)
+	local glow = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
+	Sliced(glow, Media("underglow"), 24)
+	glow:SetPoint("TOPLEFT", frame, "TOPLEFT", -12, -4)
+	glow:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 12, -16)
+	glow:SetBlendMode("ADD")
+	glow:Hide()
+	return glow
+end
+
+-- Shows `glow` in the accent when the theme is backlit and `on`; kept faint, since
+-- it draws over the game world.
+function Look.SetGlow(glow, on)
+	if not glow then return end
+	if on and Kit.Backlit then
+		local accent = Kit.TextSelected
+		glow:SetVertexColor(accent[1], accent[2], accent[3], .22)
+		glow:Show()
+	else
+		glow:Hide()
+	end
+end
+
+---------------------------------------------------------------------
+-- Whole pixels
+---------------------------------------------------------------------
+-- The UI scale (often 0.64-0.75) and the window's own scale put a 20-unit control
+-- on 12.8 physical pixels, so an edge drawn at a size in UI units lands between
+-- pixels and smears. Small controls (switches, slider knobs) are sized here in
+-- whole physical pixels instead.
+
+-- One physical screen pixel, in `frame`'s units.
+function Look.PixelSize(frame)
+	local height = GetPhysicalScreenSize and select(2, GetPhysicalScreenSize())
+	local scale = frame and frame.GetEffectiveScale and frame:GetEffectiveScale()
+	if not (height and height > 0 and scale and scale > 0) then return 1 end
+	return 768 / height / scale
+end
+
+-- `units` rounded to whole physical pixels (at least one); `even` keeps the
+-- count even, so a circle or pill has a centre on a pixel boundary.
+function Look.Snap(frame, units, even)
+	local px = Look.PixelSize(frame)
+	local count = units / px
+	if even then
+		count = max(2, math.floor(count / 2 + .5) * 2)
+	else
+		count = max(1, math.floor(count + .5))
+	end
+	return count * px, px
+end
+
+-- A texture that stays clean drawn far below its file's size: mipmapped
+-- (TRILINEAR) where the client takes a filter mode.
+function Look.SmoothTexture(texture, file)
+	if not pcall(texture.SetTexture, texture, file, "CLAMP", "CLAMP", "TRILINEAR") then
+		texture:SetTexture(file)
+	end
+end
+
+local PLAIN = "Interface\\Buttons\\WHITE8X8"
+
+-- One row of a pill: round caps cut from the circle art, a flat middle.
+local function PillLayer(parent, layer, sublevel)
+	local left = parent:CreateTexture(nil, layer, nil, sublevel)
+	Look.SmoothTexture(left, Media("circle-fill"))
+	left:SetTexCoord(0, .5, 0, 1)
+	local right = parent:CreateTexture(nil, layer, nil, sublevel)
+	Look.SmoothTexture(right, Media("circle-fill"))
+	right:SetTexCoord(.5, 1, 0, 1)
+	local mid = parent:CreateTexture(nil, layer, nil, sublevel)
+	mid:SetTexture(PLAIN)
+	return { left, mid, right }
+end
+
+local function PlacePill(parts, anchor, height, inset)
+	local left, mid, right = parts[1], parts[2], parts[3]
+	local cap = height / 2
+	left:ClearAllPoints()
+	left:SetPoint("TOPLEFT", anchor, "TOPLEFT", inset, -inset)
+	left:SetSize(cap, height)
+	right:ClearAllPoints()
+	right:SetPoint("TOPRIGHT", anchor, "TOPRIGHT", -inset, -inset)
+	right:SetSize(cap, height)
+	-- between the caps, by anchors: a pill narrower than its two caps draws no middle
+	mid:ClearAllPoints()
+	mid:SetPoint("TOPLEFT", left, "TOPRIGHT", 0, 0)
+	mid:SetPoint("BOTTOMRIGHT", right, "BOTTOMLEFT", 0, 0)
+end
+
+-- Colour only: whether a pill shows is SetShown's (a slider at its minimum hides
+-- its fill, and a restyle must not bring it back).
+local function ColorParts(parts, c, a)
+	for _, t in ipairs(parts) do
+		t:SetVertexColor(c[1], c[2], c[3], a or c[4] or 1)
+	end
+end
+
+-- A pill on `frame` (filling it) with a one-pixel edge: an outer pill in the edge
+-- colour and an inner one, a pixel in, in the fill colour. Flat colours only; a
+-- gradient across a few pixels only reads as blur.
+--   pill:Layout(height, px)   height and pixel size in `frame`'s units
+--   pill:SetColors(fill, edge) edge nil: the fill reaches the outside edge
+function Look.Pill(frame, layer, sublevel)
+	layer = layer or "ARTWORK"
+	local pill = { frame = frame, outer = PillLayer(frame, layer, sublevel or 0), inner = PillLayer(frame, layer, (sublevel or 0) + 1) }
+	function pill:Layout(height, px)
+		self.height, self.px = height, px
+		PlacePill(self.outer, self.frame, height, 0)
+		PlacePill(self.inner, self.frame, max(px, height - 2 * px), px)
+	end
+	function pill:SetColors(fill, edge, alpha)
+		ColorParts(self.outer, edge or fill, alpha)
+		ColorParts(self.inner, fill, alpha)
+	end
+	function pill:SetShown(shown)
+		for _, t in ipairs(self.outer) do t:SetShown(shown) end
+		for _, t in ipairs(self.inner) do t:SetShown(shown) end
+	end
+	return pill
+end
+
+-- A round knob with a hard one-pixel lip under it in place of a blurred shadow.
+--   knob:Layout(size, px)  knob:SetColor(c)  knob:SetLip(shown)
+--   knob.texture is what gets anchored
+function Look.Knob(frame, layer)
+	layer = layer or "OVERLAY"
+	local knob = {}
+	local lip = frame:CreateTexture(nil, layer, nil, 1)
+	Look.SmoothTexture(lip, Media("circle-fill"))
+	lip:SetVertexColor(0, 0, 0, .35)
+	local face = frame:CreateTexture(nil, layer, nil, 2)
+	Look.SmoothTexture(face, Media("circle-fill"))
+	lip:SetPoint("TOP", face, "TOP", 0, -1)
+	knob.texture, knob.lip = face, lip
+	function knob:Layout(size, px)
+		self.size = size
+		face:SetSize(size, size)
+		lip:SetSize(size, size)
+		lip:ClearAllPoints()
+		lip:SetPoint("TOP", face, "TOP", 0, -px)
+	end
+	function knob:SetColor(c, a) face:SetVertexColor(c[1], c[2], c[3], a or c[4] or 1) end
+	function knob:SetLip(shown) lip:SetShown(shown and true or false) end
+	return knob
+end
+
 -- A soft shadow around `frame`, on a frame of its own just below it.
 function Look.Shadow(frame, spread)
 	spread = spread or 18
@@ -145,6 +342,8 @@ Look.PageIcons = {
 	display = "page-display",
 	text = "page-keybinds",
 	abbreviations = "page-abbreviations",
+	bars = "page-bars",
+	inspector = "page-inspector",
 	profiles = "page-profiles",
 	integration = "page-compatibility",
 	debug = "page-debug",

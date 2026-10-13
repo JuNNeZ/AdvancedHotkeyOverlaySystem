@@ -11,6 +11,8 @@ AHOS integrates with the following action bar addons. This page describes how ea
 - [Bartender4](#bartender4)
 - [AzeriteUI](#azeriteui)
 - [DiabolicUI3](#diabolicui3)
+- [LUI](#lui)
+- [Neuron](#neuron)
 - [ElvUI](#elvui)
 - [LibKeyBound-1.0 Integration](#libkeybound-10-integration)
 - [Unsupported Addons](#unsupported-addons)
@@ -147,6 +149,45 @@ DiabolicUI3 provides a complete UI replacement including multiple styled action 
 
 ---
 
+## LUI
+
+**Status:** ✅ Supported
+
+LUI builds its action bars from Blizzard's own button template and binds each button as a click binding.
+
+### Covered Button Prefixes
+
+| Button Type | Frame Name Pattern |
+|---|---|
+| Bottom bars | `LUIBarBottom1Button1`–`LUIBarBottom6Button12` |
+| Side bars | `LUIBarLeft1Button1`–, `LUIBarRight1Button1`– |
+| Pet and stance bars | Blizzard's own `PetActionButton` and `StanceButton` |
+
+### How It Works
+
+AHOS reads the key from the button's `CLICK <button>:LeftButton` binding. The Bars page lists the side bars as **Left Sidebar 1**, **Right Sidebar 2** and so on. LUI uses LibKeyBound for its keybind mode, which AHOS follows.
+
+---
+
+## Neuron
+
+**Status:** ✅ Supported
+
+Neuron names its buttons after their bar (`NeuronActionBar1_ActionButton3`) and binds them with override bindings, which the game's binding lookup cannot see.
+
+### Covered Button Prefixes
+
+| Button Type | Frame Name Pattern |
+|---|---|
+| Action bars | `NeuronActionBar<n>_ActionButton<n>` |
+| Pet bars | `NeuronPetBar<n>_PetButton<n>` |
+
+### How It Works
+
+AHOS reads the keys Neuron keeps on each button (its key list, `:Q:SHIFT-E:`), so the first key is shown, and with **Show Both Keys** on, the second too. Neuron's label is its `Hotkey` font string, which AHOS hides or rewrites like any other.
+
+---
+
 ## ElvUI
 
 **Status:** ⚠️ Detected — use with caution
@@ -175,7 +216,7 @@ ElvUI replaces Blizzard's action buttons with its own styled frames and controls
 
 **LibKeyBound-1.0** is a library used by some action bar addons (notably Dominos and Bartender4) to provide an interactive keybind assignment mode.
 
-When AHOS detects LibKeyBound-1.0 is loaded, it registers for LibKeyBound's `LIBKEYBOUND_MODE_CHANGED` and key-set events. This means:
+When AHOS detects LibKeyBound-1.0 is loaded, it registers for LibKeyBound's `LIBKEYBOUND_ENABLED` and `LIBKEYBOUND_DISABLED` callbacks; every key bound in the mode also fires the game's binding update, which AHOS follows. LibKeyBound comes with the bar addon that uses it and may load after AHOS, so AHOS looks for it again each time an addon loads. This means:
 
 - Overlays update in real time as you assign new keybinds via the LibKeyBound interactive mode
 - There is no need to run `/ahos refresh` after changing binds with LibKeyBound mode

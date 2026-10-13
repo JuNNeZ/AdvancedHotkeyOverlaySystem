@@ -1,6 +1,7 @@
 ---@diagnostic disable: undefined-global
 -- AdvancedHotkeyOverlaySystem.lua
 local addonName, addonScope = ...
+---@class AHOS
 local addon = LibStub("AceAddon-3.0"):NewAddon(addonName, "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0")
 addonScope.addon = addon
 -- Localization table (loaded from locales/*.lua); ensure a table exists
@@ -16,14 +17,17 @@ _G["AdvancedHotkeyOverlaySystem"] = nil
 _G.AdvancedHotkeyOverlaySystem = addon
 
 -- Register modules in the correct order so dependencies are always available
-addon.Config = addon:NewModule("Config", "AceEvent-3.0")
-addon.Options = addon:NewModule("Options")
-addon.Core = addon:NewModule("Core", "AceEvent-3.0", "AceTimer-3.0")
-addon.Bars = addon:NewModule("Bars")
-addon.Keybinds = addon:NewModule("Keybinds")
-addon.Display = addon:NewModule("Display", "AceEvent-3.0")
-addon.Performance = addon:NewModule("Performance", "AceTimer-3.0")
-addon.UI = addon:NewModule("UI", "AceEvent-3.0")
+addon.Config = addon:NewModule("Config", "AceEvent-3.0") --[[@as AHOSConfig]]
+addon.Options = addon:NewModule("Options") --[[@as AHOSOptions]]
+addon.Core = addon:NewModule("Core", "AceEvent-3.0", "AceTimer-3.0") --[[@as AHOSCore]]
+addon.Bars = addon:NewModule("Bars") --[[@as AHOSBars]]
+addon.Keybinds = addon:NewModule("Keybinds") --[[@as AHOSKeybinds]]
+addon.Display = addon:NewModule("Display", "AceEvent-3.0") --[[@as AHOSDisplay]]
+addon.Performance = addon:NewModule("Performance", "AceTimer-3.0") --[[@as AHOSPerformance]]
+addon.UI = addon:NewModule("UI", "AceEvent-3.0") --[[@as AHOSUI]]
+addon.Visibility = addon:NewModule("Visibility", "AceEvent-3.0", "AceTimer-3.0") --[[@as AHOSVisibility]]
+addon.Editor = addon:NewModule("Editor", "AceEvent-3.0") --[[@as AHOSEditor]]
+addon.Profiles = addon:NewModule("Profiles", "AceEvent-3.0", "AceTimer-3.0") --[[@as AHOSProfiles]]
 
 -- Compatibility helper for checking if an addon is loaded
 local function IsAddOnLoadedCompat(name)
@@ -134,6 +138,8 @@ local PROVIDER_ORDER = {
     "Dominos",
     "Bartender4",
     "DiabolicUI3",
+    "LUI",
+    "Neuron",
     "Blizzard",
 }
 
@@ -144,7 +150,6 @@ addon.ProviderRegistry = {
         color_hex = "ffb4e0ff",
         color_rgb = {0.71, 0.88, 1.0},
         supported = true,
-        defaultOffsets = { xOffset = -22, yOffset = -3, scale = 0.95 },
         hotkey_update_methods = { "UpdateHotkeys", "SetHotkeys" },
     },
     AzeriteUI = {
@@ -156,7 +161,6 @@ addon.ProviderRegistry = {
         color_hex = "ffe6c200",
         color_rgb = {0.90, 0.76, 0.00},
         supported = true,
-        defaultOffsets = { xOffset = -18, yOffset = -2, scale = 0.90 },
         button_patterns = {
             "^AzeriteActionBar%d+Button%d+$",
             "^AzeritePetBarButton%d+$",
@@ -176,7 +180,6 @@ addon.ProviderRegistry = {
         color_hex = "ffb6ff00",
         color_rgb = {0.71, 1.0, 0.0},
         supported = true,
-        defaultOffsets = { xOffset = -20, yOffset = -4, scale = 0.90 },
         rewrite_setting = "dominosRewrite",
         compatibility_note = "Dominos is supported directly. If a skin hides overlays on some bars, try 'Dominos: Use Native Text' in Display.",
         button_patterns = {
@@ -219,7 +222,6 @@ addon.ProviderRegistry = {
         color_hex = "fff69528",
         color_rgb = {0.96, 0.59, 0.16},
         supported = true,
-        defaultOffsets = { xOffset = -20, yOffset = -4, scale = 0.90 },
         compatibility_note = "Bartender4 is supported directly through BT4 button discovery, LibActionButton binding targets, and :Keybind bindings.",
         button_patterns = {
             "^BT4Button%d+$",
@@ -252,7 +254,6 @@ addon.ProviderRegistry = {
         color_hex = "ffdb3930",
         color_rgb = {0.86, 0.22, 0.19},
         supported = true,
-        defaultOffsets = { xOffset = -20, yOffset = -4, scale = 0.90 },
         compatibility_note = "DiabolicUI support relies on the current Arahort edition button naming and action-button library.",
         button_patterns = {
             "^DiabolicActionBar%d+Button%d+$",
@@ -277,6 +278,68 @@ addon.ProviderRegistry = {
         },
         command_fields = { "commandName", "keyBoundTarget" },
         hotkey_update_method = "UpdateHotkeys",
+    },
+    -- LUI builds its bars from ActionBarButtonTemplate (LUIBarBottom1Button1,
+    -- LUIBarLeft1Button1) and binds them as CLICK <button>:LeftButton; its pet and
+    -- stance bars are Blizzard's own buttons.
+    LUI = {
+        key = "LUI",
+        label = "LUI",
+        addon = "LUI",
+        color_hex = "ff3fa9f5",
+        color_rgb = {0.25, 0.66, 0.96},
+        supported = true,
+        compatibility_note = "LUI is supported through its LUIBar buttons and their CLICK bindings.",
+        button_patterns = {
+            "^LUIBar%a+%d+Button%d+$",
+        },
+        button_scanners = {
+            globals = {
+                { prefix = "LUIBarBottom1Button", max = 12 },
+                { prefix = "LUIBarBottom2Button", max = 12 },
+                { prefix = "LUIBarBottom3Button", max = 12 },
+                { prefix = "LUIBarBottom4Button", max = 12 },
+                { prefix = "LUIBarBottom5Button", max = 12 },
+                { prefix = "LUIBarBottom6Button", max = 12 },
+                { prefix = "LUIBarLeft1Button", max = 12 },
+                { prefix = "LUIBarLeft2Button", max = 12 },
+                { prefix = "LUIBarRight1Button", max = 12 },
+                { prefix = "LUIBarRight2Button", max = 12 },
+            },
+        },
+        binding_rules = {
+            { matcher = "^LUIBar%a+%d+Button%d+$", suffixes = { ":LeftButton" } },
+        },
+        command_fields = { "commandName", "keyBoundTarget" },
+        hotkey_update_method = "UpdateHotkeys",
+    },
+    -- Neuron names its buttons <bar>_<type><n> (NeuronActionBar1_ActionButton3) and
+    -- binds them with override bindings, which GetBindingKey cannot see: the keys are
+    -- kept on the button as ":Q:SHIFT-E:" in button.keys.hotKeys, and its label is
+    -- button.Hotkey (lower-case k), redrawn by ApplyBindings.
+    Neuron = {
+        key = "Neuron",
+        label = "Neuron",
+        addon = "Neuron",
+        globals = { "Neuron" },
+        color_hex = "ffa78bfa",
+        color_rgb = {0.65, 0.55, 0.98},
+        supported = true,
+        compatibility_note = "Neuron is supported through its own key list on each button (it binds with override bindings).",
+        button_patterns = {
+            "^NeuronActionBar%d+_ActionButton%d+$",
+            "^NeuronPetBar%d+_PetButton%d+$",
+        },
+        button_scanners = {
+            containers = {
+                { prefix = "NeuronActionBar", count = 30, matcher = "^NeuronActionBar%d+_ActionButton%d+$" },
+                { prefix = "NeuronPetBar", count = 4, matcher = "^NeuronPetBar%d+_PetButton%d+$" },
+            },
+        },
+        bound_keys_path = { "keys", "hotKeys" },
+        hotkey_fields = { "Hotkey" },
+        command_fields = { "commandName", "keyBoundTarget" },
+        hotkey_update_method = "ApplyBindings",
     },
     ElvUI = {
         key = "ElvUI",
@@ -369,70 +432,26 @@ function addon:GetProviderForButtonName(buttonName)
     return self.ProviderRegistry.Blizzard
 end
 
--- Wrapper to call the correct module's UpdateAllButtons
-function addon:UpdateAllButtons(...)
-    if not self:ShouldShowOverlays() or not (self.db and self.db.profile and self.db.profile.enabled) then
-        if self.Display and self.Display.RemoveAllOverlays then
-            self.Display:RemoveAllOverlays()
-        end
-        return
-    end
-    if self.Core and type(self.Core.UpdateAllButtons) == "function" then
-        return self.Core:UpdateAllButtons(...)
-    elseif self.Bars and type(self.Bars.UpdateAllButtons) == "function" then
-        return self.Bars:UpdateAllButtons(...)
-    elseif self.Display and type(self.Display.UpdateAllButtons) == "function" then
-        return self.Display:UpdateAllButtons(...)
-    else
-        self:Print("|cffff0000Error:|r No UpdateAllButtons method found in any module.")
-    end
+-- Every overlay update goes through Core:FullUpdate, which batches them (Performance.lua)
+-- and takes the overlays down when AHOS is off or standing back for ElvUI.
+function addon:UpdateAllButtons()
+    if self.Core and self.Core.FullUpdate then self.Core:FullUpdate() end
 end
 
 -- Global reference for the options panel display name (keep this stable; do not include version)
 _G.AHOS_OPTIONS_PANEL_NAME = "Advanced Hotkey Overlay System"
 
--- Helper: read addon version from TOC metadata
-local function AHOS_GetVersion()
-    local ver
-    if C_AddOns and C_AddOns.GetAddOnMetadata then
-        ver = C_AddOns.GetAddOnMetadata(addonName, "Version")
-    elseif GetAddOnMetadata then
-        ver = GetAddOnMetadata(addonName, "Version")
-    end
-    return ver or "unknown"
-end
-
--- The previous Ace3 window. Always reachable through /ahos classic, and what
--- opens instead when the options window cannot be built.
-function addon:OpenClassicOptions()
-    local AceConfigDialog = LibStub("AceConfigDialog-3.0", true)
-    local appName = _G.AHOS_OPTIONS_PANEL_NAME
-    if AceConfigDialog then
-        if AceConfigDialog.OpenFrames and AceConfigDialog.OpenFrames[appName] then
-            AceConfigDialog:Close(appName)
-        else
-            AceConfigDialog:Open(appName)
-        end
-        return
-    end
-    -- Fallbacks: try new Settings panel, then legacy Interface Options
-    if Settings and Settings.OpenToCategory then Settings.OpenToCategory(appName); return end
-    if InterfaceOptionsFrame_OpenToCategory then
-        InterfaceOptionsFrame_OpenToCategory(appName)
-        InterfaceOptionsFrame_OpenToCategory(appName)
-    end
-end
-
--- The options window (options/Panel.lua), unless the classic one was chosen in it.
+-- The options window (options/Panel.lua). It is the only one: the generated Ace3
+-- window that used to sit beside it is gone.
 _G.OpenAHOSOptionsPanel = function()
     local Kit = addonScope.OptionsKit
     local Panel = Kit and Kit.Panel
-    local settings = Panel and Panel.Settings and Panel.Settings()
-    if Panel and not (settings and settings.classic) then
-        if Panel:IsShown() then Panel:Close(); return end
-        if Panel:Open() then return end
+    if not Panel then
+        addon:Print((addon.L and addon.L.OPTIONS_PANEL_NOT_AVAILABLE) or "[AHOS] The options window could not be loaded.")
+        return
     end
-    addon:OpenClassicOptions()
+    if Panel:IsShown() then Panel:Close(); return end
+    Panel:Open()
 end
 
 -- Addon state
@@ -449,20 +468,19 @@ end
 function addon:ProcessCallQueue()
     if not self:IsReady() then return end
     if self.db.profile.debug then
-        self:Print(string.format("Processing %d queued calls.", #self.callQueue))
+        self:Print(string.format("[AHOS DEBUG] Processing %d queued calls.", #self.callQueue))
     end
-    for _, call in ipairs(self.callQueue) do
-        -- Reworked to handle function references directly
-        if type(call.func) == "function" then
-            call.func(call.module, unpack(call.args))
-        else -- Fallback for old string-based calls, for safety
-            local module = self[call.moduleName]
-            if module and type(module[call.funcName]) == "function" then
-                module[call.funcName](module, unpack(call.args))
-            end
+    -- Taken off first: a queued call may queue another, which runs next time.
+    local queue = self.callQueue
+    self.callQueue = {}
+    for _, call in ipairs(queue) do
+        local module = self[call.moduleName]
+        local func = type(call.func) == "string" and module and module[call.func] or call.func
+        if module and type(func) == "function" then
+            local ok, err = pcall(func, module, unpack(call.args, 1, call.args.n))
+            if not ok then self:Print("|cffff0000Error:|r " .. call.moduleName .. ": " .. self:SafeToString(err, "unknown error")) end
         end
     end
-    wipe(self.callQueue)
 end
 
 -- Safely call a module's function, queueing it if not ready
@@ -480,8 +498,14 @@ function addon:SafeCall(moduleName, func, ...)
             func(moduleInstance, ...)
         end
     else
-        -- Queue the call with a direct function reference
-        table.insert(self.callQueue, { moduleName = moduleName, func = func, args = {...} })
+        -- Queued until ready; the same call without arguments is queued once.
+        local count = select("#", ...)
+        if count == 0 then
+            for _, call in ipairs(self.callQueue) do
+                if call.moduleName == moduleName and call.func == func and call.args.n == 0 then return end
+            end
+        end
+        table.insert(self.callQueue, { moduleName = moduleName, func = func, args = { n = count, ... } })
     end
 end
 
@@ -490,42 +514,15 @@ function addon:SetReady()
     if self.ready then return end
     self.ready = true
     if self.db and self.db.profile.debug then
-        self:Print("Addon is now ready. Processing call queue.")
+        self:Print("[AHOS DEBUG] Addon is now ready. Processing call queue.")
     end
     self:ProcessCallQueue()
     -- After the queue is processed, do a final full update to ensure UI is correct.
     self:SafeCall("Core", "FullUpdate")
-    -- Register overlay update events only after ready
-    self:RegisterEvent("UPDATE_BINDINGS", function()
-        if self.Keybinds and self.Keybinds.ClearCache then
-            self.Keybinds:ClearCache()
-        end
-        if self.db.profile.debug then self:Print("UPDATE_BINDINGS: Clearing keybind cache and updating overlays.") end
-        self:UpdateAllButtons()
-    end)
-        self:RegisterEvent("PLAYER_REGEN_DISABLED", function()
-            if self.Keybinds and self.Keybinds.ClearCache then
-                self.Keybinds:ClearCache()
-            end
-            if self.db.profile.debug then self:Print("PLAYER_REGEN_DISABLED: Entered combat, clearing keybind cache and updating overlays.") end
-            self:UpdateAllButtons()
-        end)
-    self:RegisterEvent("ACTIONBAR_SLOT_CHANGED", function()
-        if not InCombatLockdown() then
-            if self.db.profile.debug then self:Print("ACTIONBAR_SLOT_CHANGED: Updating overlays.") end
-            self:UpdateAllButtons()
-        end
-    end)
-    self:RegisterEvent("PLAYER_REGEN_ENABLED", function()
-        if self.db.profile.debug then self:Print("PLAYER_REGEN_ENABLED: Updating overlays after combat.") end
-        self:ScheduleTimer(function() self:UpdateAllButtons() end, 1)
-    end)
-    self:RegisterEvent("PLAYER_ENTERING_WORLD", function()
-        if self.db.profile.debug then self:Print("PLAYER_ENTERING_WORLD: Updating overlays.") end
-        self:UpdateAllButtons()
-    end)
+    -- Bindings, combat, paging and vehicles are Core's (Core:RegisterEvents). A new
+    -- zone can bring different bars (a vehicle, a scenario), so it refreshes too.
     self:RegisterEvent("ZONE_CHANGED_NEW_AREA", function()
-        if self.db.profile.debug then self:Print("ZONE_CHANGED_NEW_AREA: Updating overlays.") end
+        if self.db.profile.debug then self:Print("[AHOS DEBUG] ZONE_CHANGED_NEW_AREA: Updating overlays.") end
         self:UpdateAllButtons()
     end)
 end
@@ -534,67 +531,15 @@ end
 function addon:OnInitialize()
     -- Initialize the database
     local defaults = self.Config:GetDynamicDefaults()
-    self.db = LibStub("AceDB-3.0"):New("AdvancedHotkeyOverlaySystemDB", defaults, true)
+    self.db = LibStub("AceDB-3.0"):New("AdvancedHotkeyOverlaySystemDB", defaults, true) --[[@as AHOSDB]]
     -- The options window marks settings that differ from these.
     if addonScope.P then
         addonScope.P.DB = self.db
         addonScope.P.defaults = defaults
     end
 
-    -- Register the options table once (safe lookups to avoid hard error if a user is missing embedded libs)
-    local AceConfig = LibStub("AceConfig-3.0", true)
-    local AceConfigDialog = LibStub("AceConfigDialog-3.0", true)
-    local appName = _G.AHOS_OPTIONS_PANEL_NAME
-
-    if AceConfig then
-        AceConfig:RegisterOptionsTable(appName, function()
-            return self.Options and self.Options.GetOptions and self.Options:GetOptions() or {}
-        end)
-    else
-        -- Retry shortly in case AceConfig loads a tick later on some installs
-        C_Timer.After(1, function()
-            local AC = LibStub("AceConfig-3.0", true)
-            if AC then
-                AC:RegisterOptionsTable(appName, function()
-                    return self.Options and self.Options.GetOptions and self.Options:GetOptions() or {}
-                end)
-            end
-        end)
-    end
-
-        -- Helper to register our options in the Blizzard panel only once
-        local function EnsureBlizOptionsRegistered(name)
-            -- ESC > Options > AddOns gets a landing page into the options window
-            -- (options/Settings.lua); only a client without that API embeds Ace3's page.
-            if addonScope.RegisterSettingsPage and addonScope.RegisterSettingsPage() then return end
-            local ACD = LibStub("AceConfigDialog-3.0", true)
-            if not ACD then return end
-            -- Avoid duplicate categories even if older builds used a versioned title
-            local function alreadyRegistered()
-                local tbl = ACD.BlizOptions
-                if type(tbl) ~= "table" then return false end
-                for key in pairs(tbl) do
-                    if type(key) == "string" then
-                        if key == name or key == "Advanced Hotkey Overlay System" or key:match("^Advanced Hotkey Overlay System v%d+%.%d+%.%d+") then
-                            return true
-                        end
-                    end
-                end
-                return false
-            end
-            if alreadyRegistered() then return end
-            ACD:AddToBlizOptions(name, name)
-        end
-
-        local tmpACD = LibStub("AceConfigDialog-3.0", true)
-        if tmpACD then
-            EnsureBlizOptionsRegistered(appName)
-    else
-        -- Fallback: try again after login when all addons are guaranteed loaded
-        C_Timer.After(2, function()
-                EnsureBlizOptionsRegistered(appName)
-        end)
-    end
+    -- ESC > Options > AddOns: a landing page with a button into the options window.
+    if addonScope.RegisterSettingsPage then addonScope.RegisterSettingsPage() end
 
     -- Register for profile changes
     self.db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
@@ -607,35 +552,21 @@ function addon:OnInitialize()
     -- Register only PLAYER_LOGIN here
     self:RegisterEvent("PLAYER_LOGIN", function()
         if self.db.profile.debug then
-            self:Print("PLAYER_LOGIN detected. Running immediate and delayed overlay updates.")
+            self:Print("[AHOS DEBUG] PLAYER_LOGIN detected. Running immediate and delayed overlay updates.")
         end
         self:DetectUI()
         self:SetReady() -- Mark as ready BEFORE any overlay updates
+        -- Late bar addons are caught by Core's passes after PLAYER_ENTERING_WORLD.
         self:UpdateAllButtons()
-        self:ScheduleTimer(function() self:UpdateAllButtons() end, 1)
-        self:ScheduleTimer(function() self:UpdateAllButtons() end, 3)
-
-        -- Ensure the options panel exists if AceConfigDialog became available only after login
-    EnsureBlizOptionsRegistered(appName)
     end)
     -- Setup minimap icon after DB is ready
     self:SetupMinimapButton()
     -- Remove overlay update event registrations from here
     if self.db.profile.debug then
-        self:Print("Addon initialized and all overlay update events registered.")
+        self:Print("[AHOS DEBUG] Addon initialized and all overlay update events registered.")
     end
     -- Show a popup if ElvUI is detected and overlays are not forced
     C_Timer.After(2, function() self:MaybeShowElvUIWarningOnLoad() end)
-end
-
-function addon:OnPlayerLogin()
-    self:UnregisterEvent("PLAYER_LOGIN")
-    if self.db.profile.debug then
-        self:Print("PLAYER_LOGIN detected. Finalizing setup.")
-    end
-    -- Now that the player is in the world, we can safely initialize all modules.
-    -- Core will call SetReady() when it's done.
-    self:SafeCall("Core", "Initialize")
 end
 
 -- Called when the addon is enabled
@@ -643,7 +574,7 @@ function addon:OnEnable()
     if self.db and self.db.profile.enabled then
         self:SafeCall("Core", "OnEnable")
         if self.db.profile.debug then
-            self:Print("Addon enabled.")
+            self:Print("[AHOS DEBUG] Addon enabled.")
         end
     end
 end
@@ -653,26 +584,21 @@ function addon:OnDisable()
     if self.db then
         self:SafeCall("Core", "OnDisable")
         if self.db.profile.debug then
-            self:Print("Addon disabled.")
+            self:Print("[AHOS DEBUG] Addon disabled.")
         end
     end
 end
 
 -- Handle profile changes
-function addon:OnProfileChanged(event, db, newProfileKey)
+function addon:OnProfileChanged(_, _, newProfileKey)
     if self.db.profile.debug then
-        self:Print("Profile changed to", newProfileKey)
+        self:Print("[AHOS DEBUG] Profile changed to", newProfileKey)
     end
     -- Notify all modules of the profile change
     for name, module in self:IterateModules() do
         if module.OnProfileChanged then
             self:SafeCall(name, module.OnProfileChanged)
         end
-    end
-    -- Force AceConfigDialog to refresh all options panels
-    local reg = LibStub and LibStub("AceConfigRegistry-3.0", true)
-    if reg then
-        reg:NotifyChange(addonName)
     end
     -- Update minimap icon visibility on profile change
     self:SetupMinimapButton()
@@ -699,42 +625,19 @@ function addon:SetupMinimapButton()
     end
 end
 
--- Basic localization table (expand as needed)
-local L = setmetatable({
-    enUS = {
-        SHOW_OPTIONS = "Open options",
-        LOCK = "Lock overlays",
-        UNLOCK = "Unlock overlays",
-        RESET = "Reset settings",
-        TOGGLE = "Enable/disable overlays",
-        HELP = "Show this help",
-        UNKNOWN = "Unknown command. Type /aho help for options.",
-        OVERLAYS_LOCKED = "Overlays locked.",
-        OVERLAYS_UNLOCKED = "Overlays unlocked.",
-        SETTINGS_RESET = "Settings reset to default.",
-        OVERLAY_ENABLED = "Overlay enabled.",
-        OVERLAY_DISABLED = "Overlay disabled.",
-        COMMANDS = "Commands:",
-    },
-}, { __index = function(t, k) return t.enUS[k] or k end })
-local locale = GetLocale() or "enUS"
-local LocalizedStrings = L[locale] or L.enUS
-
 -- Slash Command Handler
 function AdvancedHotkeyOverlaySystem:SlashHandler(input)
     local cmd, rest = input:match("^(%S*)%s*(.-)$")
     cmd = (cmd and cmd:lower()) or ""
     local Loc = self and self.L or {}
 
-    if cmd == "" or cmd == "show" or cmd == "options" or cmd == "ui" or cmd == "config" or cmd == "settings" then
+    -- "classic" opened the old generated window, which is gone; it opens this one
+    if cmd == "" or cmd == "show" or cmd == "options" or cmd == "ui" or cmd == "config" or cmd == "settings" or cmd == "classic" then
         if type(_G.OpenAHOSOptionsPanel) == "function" then
             _G.OpenAHOSOptionsPanel()
         else
             print(Loc.OPTIONS_PANEL_NOT_AVAILABLE or "[AHOS] Options panel function not available.")
         end
-
-    elseif cmd == "classic" then
-        self:OpenClassicOptions()
 
     elseif cmd == "lock" then
         self.db.profile.display.locked = true
@@ -747,6 +650,7 @@ function AdvancedHotkeyOverlaySystem:SlashHandler(input)
         self:Print(Loc.MSG_SETTINGS_UNLOCKED or "|cff4A9EFF Settings unlocked|r - |cff888888you can now modify settings|r")
 
     elseif cmd == "reset" then
+        if self.Profiles and self.Profiles.TakeSnapshot then self.Profiles:TakeSnapshot(Loc.SNAPSHOT_BEFORE_RESET or "Before reset") end
         self.db:ResetProfile()
         self.Core:FullUpdate()
         self:Print(Loc.MSG_SETTINGS_RESET or "|cffFFD700Settings reset|r |cff888888to default values|r")
@@ -798,10 +702,35 @@ function AdvancedHotkeyOverlaySystem:SlashHandler(input)
         end
         self:DebugExportTable(tbl)
 
+    elseif cmd == "profile" or cmd == "profiles" then
+        self.Profiles:SlashProfile(cmd == "profiles" and "" or rest)
+
+    elseif cmd == "snapshot" then
+        self.Profiles:SlashSnapshot(rest)
+
+    elseif cmd == "rollback" or cmd == "undo" then
+        self.Profiles:SlashRollback(rest)
+
+    elseif cmd == "preset" or cmd == "presets" then
+        self.Profiles:SlashPreset(cmd == "presets" and "" or rest)
+
+    elseif cmd == "edit" then
+        self.Editor:Toggle()
+
+    elseif cmd == "ignore" or cmd == "unignore" then
+        local buttonName = rest and rest:match("^(%S+)")
+        if not buttonName or buttonName == "" then
+            self:Print(Loc.USAGE_IGNORE or "|cffFF6B6BUsage:|r |cffFFD700/ahos ignore <ButtonName>|r, |cffFFD700/ahos unignore <ButtonName>|r")
+        else
+            self.Bars:SetButtonIgnored(buttonName, cmd == "ignore")
+            self.Core:FullUpdate()
+            self:Print(string.format(cmd == "ignore" and (Loc.MSG_BUTTON_IGNORED or "AHOS leaves %s alone.")
+                or (Loc.MSG_BUTTON_UNIGNORED or "AHOS draws on %s again."), buttonName))
+        end
+
     elseif cmd == "help" then
         self:Print(Loc.SLASH_HEADER or "|cffFFD700Advanced Hotkey Overlay System|r |cff4A9EFF- Commands:|r")
         self:Print(Loc.SLASH_SHOW or "|cffFFD700/ahos show|r - |cff888888Open options panel|r")
-        self:Print(Loc.SLASH_CLASSIC or "|cffFFD700/ahos classic|r - |cff888888Open the classic Ace3 options window|r")
         self:Print(Loc.SLASH_LOCK or "|cffFFD700/ahos lock|r - |cff888888Lock overlay settings|r")
         self:Print(Loc.SLASH_UNLOCK or "|cffFFD700/ahos unlock|r - |cff888888Unlock overlay settings|r")
         self:Print(Loc.SLASH_RESET or "|cffFFD700/ahos reset|r - |cff888888Reset all settings to default|r")
@@ -811,6 +740,12 @@ function AdvancedHotkeyOverlaySystem:SlashHandler(input)
         self:Print(Loc.SLASH_CLEANUP or "|cffFFD700/ahos cleanup|r - |cff888888Temporarily clear all overlays (same as UI button)|r")
         self:Print(Loc.SLASH_DEBUG or "|cffFFD700/ahos debug|r - |cff888888Toggle debug mode|r")
         self:Print(Loc.SLASH_DETECTUI or "|cffFFD700/ahos detectui|r - |cff888888Manually detect UI addon|r")
+        self:Print(Loc.SLASH_EDIT or "|cffFFD700/ahos edit|r - |cff888888Drag the hotkey text into place on your bars|r")
+        self:Print(Loc.SLASH_PROFILE or "|cffFFD700/ahos profile [name]|r - |cff888888List profiles, or switch to one (made from this one if new)|r")
+        self:Print(Loc.SLASH_PRESET or "|cffFFD700/ahos preset [name]|r - |cff888888List the presets, or apply one|r")
+        self:Print(Loc.SLASH_SNAPSHOT or "|cffFFD700/ahos snapshot [label]|r - |cff888888Save a copy of this profile to go back to|r")
+        self:Print(Loc.SLASH_ROLLBACK or "|cffFFD700/ahos rollback [n]|r - |cff888888Put back the latest (or n-th) snapshot|r")
+        self:Print(Loc.SLASH_IGNORE or "|cffFFD700/ahos ignore <ButtonName>|r - |cff888888Leave one button to its own hotkey text (unignore to undo)|r")
         self:Print(Loc.SLASH_HELP or "|cffFFD700/ahos help|r - |cff888888Show this help message|r")
 
     elseif cmd == "junnez" then
@@ -852,43 +787,8 @@ function AdvancedHotkeyOverlaySystem:SlashHandler(input)
     end
 end
 
--- Fix all OpenFrames, Open, Close, and InterfaceOptionsFrame_OpenToCategory references to use addonName
-local function OpenOptionsPanel()
-    if AceConfigDialog then
-        if AceConfigDialog.OpenFrames[addonName] then
-            AceConfigDialog:Close(addonName)
-        else
-            AceConfigDialog:Open(addonName)
-        end
-    elseif InterfaceOptionsFrame_OpenToCategory then
-        InterfaceOptionsFrame_OpenToCategory(addonName)
-        InterfaceOptionsFrame_OpenToCategory(addonName)
-    end
-end
-
-local function CloseOptionsPanel()
-    if AceConfigDialog then
-        AceConfigDialog:Close(addonName)
-    end
-end
-
--- Replace all AceConfigDialog:Open/Close/OpenFrames/InterfaceOptionsFrame_OpenToCategory("Advanced Hotkey Overlay System") with OpenOptionsPanel()/CloseOptionsPanel()
--- In DataBroker, Titan, and SlashHandler, call OpenOptionsPanel() instead of direct AceConfigDialog:Open/Close
-
--- Helper method for applying updates when not locked
-function AdvancedHotkeyOverlaySystem:ApplyUpdatesIfNotLocked()
-    if not self.db.profile.display.locked then
-        self:UpdateAllButtons()
-        self.Display:UpdateAllOverlayStyles()
-    end
-end
-
--- Debugging UI detection details
-local debugEnabled = false -- Set to true to enable debug output for UI detection
+-- The bar addon AHOS draws on: the first loaded one in PROVIDER_ORDER, else Blizzard.
 function AdvancedHotkeyOverlaySystem:DetectUI()
-    if debugEnabled then
-        self:Print("=== UI Detection Debug ===")
-    end
     local detectedUI = "Blizzard"
     for _, key in ipairs(PROVIDER_ORDER) do
         if key ~= "Blizzard" and self:IsProviderLoaded(key) then
@@ -898,31 +798,13 @@ function AdvancedHotkeyOverlaySystem:DetectUI()
     end
 
     self.detectedUI = detectedUI
-
-    if debugEnabled then
-        self:Print("Final detected provider: " .. (self:GetDetectedProviderText() or "None"))
-        self:Print("=== End UI Detection Debug ===")
+    if self.db and self.db.profile and self.db.profile.debug then
+        self:Print("[AHOS DEBUG] Detected provider: " .. (self:GetDetectedProviderText() or "None"))
     end
-    -- Force options panel to refresh detected UI display
-    local reg = LibStub and LibStub("AceConfigRegistry-3.0", true)
-    if reg then
-        reg:NotifyChange("AdvancedHotkeyOverlaySystem")
-    end
+    -- the options window shows what AHOS draws on
+    if addonScope.OnOptionsChanged then addonScope.OnOptionsChanged() end
+    return detectedUI
 end
-
-AdvancedHotkeyOverlaySystem.UI_DETECTED_COLORS = setmetatable({}, {
-    __index = function(_, key)
-        return addon:GetProviderHexColor(key)
-    end,
-})
-
-AdvancedHotkeyOverlaySystem.UIColors = setmetatable({}, {
-    __index = function(_, key)
-        return addon:GetProviderColor(key)
-    end,
-})
-
-local optionsAddedToBliz = false
 
 -- Optionally disable overlays if ElvUI is detected, or allow user override
 addon.elvuiDetected = false
@@ -936,22 +818,6 @@ function addon:ShouldShowOverlays()
     self.elvuiDetected = false
     return true
 end
-
--- In your UpdateAllButtons and overlay update logic, wrap overlay code:
--- if addon:ShouldShowOverlays() then ... end
--- Optionally, in your options panel, add:
--- [ ] Force overlays even if ElvUI is loaded
-
--- In your options table (modules/Options.lua), add:
--- forceOverlaysWithElvUI = {
---     type = "toggle",
---     name = "Force Overlays with ElvUI",
---     desc = "Show overlays even if ElvUI is loaded (may cause conflicts).",
---     order = 99,
---     get = function() local db = getSafeProfile() return db.forceOverlaysWithElvUI end,
---     set = function(_, val) local db = getSafeProfile() db.forceOverlaysWithElvUI = val; addon.Core:FullUpdate() end,
--- },
--- And in overlay update code, check addon:ShouldShowOverlays().
 
 -- Show a popup if ElvUI is detected and overlays are not forced
 function addon:ShowElvUIOverlayWarning()
@@ -983,61 +849,85 @@ end
 function addon:MaybeShowElvUIWarningOnLoad()
     -- Ensure elvuiDetected is set correctly
     self.elvuiDetected = IsAddOnLoadedCompat("ElvUI")
-    if self.db and self.db.profile then
-        self:Print("[DEBUG] ElvUI detected:", tostring(self.elvuiDetected), "forceOverlaysWithElvUI:", tostring(self.db.profile.forceOverlaysWithElvUI))
+    if self.db and self.db.profile and self.db.profile.debug then
+        self:Print("[AHOS DEBUG] ElvUI detected:", tostring(self.elvuiDetected), "forceOverlaysWithElvUI:", tostring(self.db.profile.forceOverlaysWithElvUI))
     end
     if self.elvuiDetected and self.db and self.db.profile and self.db.profile.forceOverlaysWithElvUI == nil then
         self:ShowElvUIOverlayWarning()
     end
 end
 
-local LibSerialize = LibStub and LibStub("LibSerialize")
-local LibDeflate = LibStub and LibStub("LibDeflate")
+local LibSerialize = LibStub and LibStub("LibSerialize", true)
+local LibDeflate = LibStub and LibStub("LibDeflate", true)
 
--- Debug Export Window
-function addon:ShowDebugExportWindow(data)
-    if not addon.DebugExportFrame then
-        local f = CreateFrame("Frame", "AHOS_DebugExportFrame", UIParent, "BackdropTemplate")
-        f:SetSize(600, 300)
+-- Text to read and copy (the exports, the debug log, the inspector's details), in
+-- the options window's look (options/TextWindow.lua). Should that have failed to
+-- load, a plain frame does the same job.
+local plainWindows = {}
+local function PlainTextWindow(key, title, text)
+    local f = plainWindows[key]
+    if not f then
+        f = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+        f:SetSize(640, 400)
         f:SetPoint("CENTER")
         f:SetFrameStrata("DIALOG")
         f:SetBackdrop({ bgFile = "Interface/Tooltips/UI-Tooltip-Background", edgeFile = "Interface/Tooltips/UI-Tooltip-Border", tile = true, tileSize = 16, edgeSize = 16, insets = { left = 4, right = 4, top = 4, bottom = 4 } })
-        f:SetBackdropColor(0,0,0,0.85)
+        f:SetBackdropColor(0, 0, 0, 0.9)
         f:SetMovable(true)
         f:EnableMouse(true)
         f:RegisterForDrag("LeftButton")
         f:SetScript("OnDragStart", f.StartMoving)
         f:SetScript("OnDragStop", f.StopMovingOrSizing)
-        f:Hide()
-        local eb = CreateFrame("EditBox", nil, f)
+        local scroll = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
+        scroll:SetPoint("TOPLEFT", 20, -36)
+        scroll:SetPoint("BOTTOMRIGHT", -30, 44)
+        local eb = CreateFrame("EditBox", nil, scroll)
         eb:SetMultiLine(true)
         eb:SetFontObject(ChatFontNormal)
-        eb:SetSize(560, 220)
-        eb:SetPoint("TOP", 0, -30)
-        eb:SetAutoFocus(true)
+        eb:SetWidth(580)
+        eb:SetAutoFocus(false)
         eb:SetScript("OnEscapePressed", function() f:Hide() end)
-        eb:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
-        f.EditBox = eb
-        local scroll = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
-        scroll:SetPoint("TOPLEFT", 20, -30)
-        scroll:SetPoint("BOTTOMRIGHT", -30, 40)
         scroll:SetScrollChild(eb)
+        local L = addon.L or {}
         local close = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    local L = addon and addon.L or {}
-    close:SetText(L.CLOSE or "Close")
-        close:SetWidth(80)
-        close:SetPoint("BOTTOMRIGHT", -20, 10)
+        close:SetText(L.CLOSE or "Close")
+        close:SetSize(90, 22)
+        close:SetPoint("BOTTOMRIGHT", -20, 12)
         close:SetScript("OnClick", function() f:Hide() end)
-        f.CloseButton = close
-        local label = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-        label:SetPoint("TOP", 0, -10)
-    label:SetText((L.DEBUG_EXPORT_TITLE or "AHOS Debug Export"))
-        f.Label = label
-        addon.DebugExportFrame = f
+        local copy = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+        copy:SetText(L.COPY_ALL or "Copy All")
+        copy:SetSize(90, 22)
+        copy:SetPoint("BOTTOMLEFT", 20, 12)
+        copy:SetScript("OnClick", function() eb:SetFocus(); eb:HighlightText() end)
+        f.label = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        f.label:SetPoint("TOP", 0, -12)
+        f.EditBox = eb
+        plainWindows[key] = f
     end
-    addon.DebugExportFrame.EditBox:SetText(data or "[No data]")
-    addon.DebugExportFrame:Show()
-    addon.DebugExportFrame.EditBox:HighlightText()
+    f.label:SetText(title or "")
+    f.EditBox:SetText(text or "")
+    f:Show()
+end
+
+-- Shows `text` in the window kept for `key` (one per kind, so the log can stay open
+-- beside an export). `toEnd` scrolls to the bottom, as a log reads.
+function addon:ShowTextWindow(title, text, key, toEnd)
+    key = key or "text"
+    local kit = addonScope.OptionsKit
+    local ok = kit and kit.TextWindow and pcall(kit.TextWindow.Show, kit.TextWindow, key, title, text, toEnd)
+    if not ok then PlainTextWindow(key, title, text) end
+end
+
+function addon:IsTextWindowShown(key)
+    local kit = addonScope.OptionsKit
+    if kit and kit.TextWindow and kit.TextWindow:IsShown(key) then return true end
+    local plain = plainWindows[key]
+    return plain and plain:IsShown() or false
+end
+
+function addon:ShowDebugExportWindow(data)
+    local L = addon.L or {}
+    self:ShowTextWindow(L.DEBUG_EXPORT_TITLE or "AHOS Debug Export", data or "[No data]", "export")
 end
 
 function addon:DebugExportTable(tbl)
@@ -1067,8 +957,6 @@ function addon.ImportProfileString(...)
     end
     local L = addon and addon.L or {}
     if not str or str == "" then addon:Print(L.NO_IMPORT_STRING or "No import string provided."); return end
-    local LibDeflate = LibStub and LibStub("LibDeflate")
-    local LibSerialize = LibStub and LibStub("LibSerialize")
     if not LibDeflate or not LibSerialize then addon:Print(L.ERR_LIBS_MISSING or "LibDeflate/LibSerialize missing."); return end
     local decoded = LibDeflate:DecodeForPrint(str)
     if not decoded then addon:Print(L.ERR_DECODE_FAILED or "Failed to decode string."); return end
@@ -1077,6 +965,7 @@ function addon.ImportProfileString(...)
     local success, tbl = LibSerialize:Deserialize(decompressed)
     if not success or type(tbl) ~= "table" then addon:Print(L.ERR_DESERIALIZE_FAILED or "Failed to deserialize string."); return end
     if addon.db and addon.db.profile then
+        if addon.Profiles and addon.Profiles.TakeSnapshot then addon.Profiles:TakeSnapshot(L.SNAPSHOT_BEFORE_IMPORT or "Before import") end
         for k, v in pairs(tbl) do addon.db.profile[k] = v end
     addon:Print(L.PROFILE_IMPORTED_OK or "Profile imported successfully. Reload UI to apply all changes.")
         addon.Core:FullUpdate()
@@ -1094,8 +983,6 @@ function addon.DebugImportString(...)
     end
     local L = addon and addon.L or {}
     if not str or str == "" then addon:Print(L.NO_DEBUG_IMPORT_STRING or "No debug import string provided."); return end
-    local LibDeflate = LibStub and LibStub("LibDeflate")
-    local LibSerialize = LibStub and LibStub("LibSerialize")
     if not LibDeflate or not LibSerialize then addon:Print(L.ERR_LIBS_MISSING or "LibDeflate/LibSerialize missing."); return end
     local decoded = LibDeflate:DecodeForPrint(str)
     if not decoded then addon:Print(L.ERR_DECODE_FAILED or "Failed to decode string."); return end
@@ -1122,26 +1009,7 @@ function addon:TableToPrettyString(tbl, indent)
     return str
 end
 
--- Per-Character/Spec Profile Auto-Switch
-local frame = CreateFrame("Frame")
-frame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
-frame:SetScript("OnEvent", function(_, event, unit)
-    if event == "PLAYER_SPECIALIZATION_CHANGED" and unit == "player" then
-        local db = addon.db and addon.db.profile
-        if db and db.autoSwitchProfile then
-            local specializationAPI = C_SpecializationInfo
-            if specializationAPI and specializationAPI.GetSpecialization and specializationAPI.GetSpecializationInfo then
-                local specIndex = specializationAPI.GetSpecialization()
-                local specName = specIndex and select(2, specializationAPI.GetSpecializationInfo(specIndex))
-                if specName and addon.db then
-                    local profileName = UnitName("player") .. "-" .. GetRealmName() .. "-" .. specName
-                    addon.db:SetProfile(profileName)
-                    addon:Print("Auto-switched to profile: " .. profileName)
-                end
-            end
-        end
-    end
-end)
+-- Switching profiles by specialization or talent loadout is modules/Profiles.lua's.
 
 -- Performance Metrics
 addon.perfMetrics = {}
@@ -1158,92 +1026,35 @@ function addon:LogDebug(msg)
     if not msg then return end
     table.insert(self.debugLogBuffer, tostring(msg))
     if #self.debugLogBuffer > 200 then table.remove(self.debugLogBuffer, 1) end -- keep last 200 lines
-    if self.DebugLogFrame and self.DebugLogFrame:IsShown() then
-        self:UpdateDebugLogWindow()
-    end
+    self:UpdateDebugLogWindow()
 end
 
 function addon:ShowDebugLogWindow()
-    if not self.DebugLogFrame then
-        local f = CreateFrame("Frame", "AHOS_DebugLogFrame", UIParent, "BackdropTemplate")
-        f:SetSize(700, 400)
-        f:SetPoint("CENTER")
-        f:SetFrameStrata("DIALOG")
-        f:SetBackdrop({ bgFile = "Interface/Tooltips/UI-Tooltip-Background", edgeFile = "Interface/Tooltips/UI-Tooltip-Border", tile = true, tileSize = 16, edgeSize = 16, insets = { left = 4, right = 4, top = 4, bottom = 4 } })
-        f:SetBackdropColor(0,0,0,0.92)
-        f:SetMovable(true)
-        f:EnableMouse(true)
-        f:RegisterForDrag("LeftButton")
-        f:SetScript("OnDragStart", f.StartMoving)
-        f:SetScript("OnDragStop", f.StopMovingOrSizing)
-        f:Hide()
-        local eb = CreateFrame("EditBox", nil, f)
-        eb:SetMultiLine(true)
-        eb:SetFontObject(ChatFontNormal)
-        eb:SetSize(650, 320)
-        eb:SetPoint("TOP", 0, -40)
-        eb:SetAutoFocus(false)
-        eb:SetScript("OnEscapePressed", function() f:Hide() end)
-        eb:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
-        f.EditBox = eb
-        local scroll = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
-        scroll:SetPoint("TOPLEFT", 20, -40)
-        scroll:SetPoint("BOTTOMRIGHT", -30, 50)
-        scroll:SetScrollChild(eb)
-        local close = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    local L = addon and addon.L or {}
-    close:SetText(L.CLOSE or "Close")
-        close:SetWidth(80)
-        close:SetPoint("BOTTOMRIGHT", -20, 15)
-        close:SetScript("OnClick", function() f:Hide() end)
-        f.CloseButton = close
-        local copy = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    copy:SetText((L.COPY_ALL or "Copy All"))
-        copy:SetWidth(80)
-        copy:SetPoint("BOTTOMLEFT", 20, 15)
-        copy:SetScript("OnClick", function() eb:SetFocus(); eb:HighlightText() end)
-        f.CopyButton = copy
-        local label = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-        label:SetPoint("TOP", 0, -15)
-    label:SetText((L.DEBUG_LOG_TITLE or "AHOS Debug Log"))
-        f.Label = label
-        self.DebugLogFrame = f
-    end
-    self:UpdateDebugLogWindow()
-    self.DebugLogFrame:Show()
-    self.DebugLogFrame.EditBox:HighlightText()
+    local L = self.L or {}
+    self:ShowTextWindow(L.DEBUG_LOG_TITLE or "AHOS Debug Log", table.concat(self.debugLogBuffer, "\n"), "log", true)
 end
 
 function addon:UpdateDebugLogWindow()
-    if not self.DebugLogFrame then return end
-    local lines = table.concat(self.debugLogBuffer, "\n")
-    self.DebugLogFrame.EditBox:SetText(lines)
+    if not self:IsTextWindowShown("log") then return end
+    self:ShowDebugLogWindow()
 end
 
--- Override addon:Print to only log to debug window (not chat)
+-- addon:Print keeps everything in the debug log (/ahoslog). What is said to you
+-- (command replies, imports, warnings) also goes to the chat; debug lines, which
+-- all start with [AHOS DEBUG] (or [Perf]), stay in the log so chat is not flooded.
 addon._origPrint = addon._origPrint or addon.Print
-function addon:Print(...)
-    local msg = ""
-    for i = 1, select("#", ...) do
-        msg = msg .. self:SafeToString(select(i, ...)) .. " "
-    end
-    self:LogDebug(msg)
-    -- Do NOT call self:_origPrint(msg) or print to avoid chat spam
+local function IsDebugLine(msg)
+    return msg:find("^%[AHOS DEBUG%]") or msg:find("^%[Perf%]")
 end
-
--- Override global print to also log to debug window
-if not _G._AHOS_OriginalPrint then
-    _G._AHOS_OriginalPrint = print
-    print = function(...)
-        local msg = ""
-        local count = select("#", ...)
-        local safeArgs = {}
-        for i = 1, count do
-            safeArgs[i] = addon:SafeToString(select(i, ...))
-            msg = msg .. safeArgs[i] .. " "
-        end
-        if addon and addon.LogDebug then addon:LogDebug(msg) end
-        _G._AHOS_OriginalPrint(unpack(safeArgs, 1, count))
+function addon:Print(...)
+    local parts = {}
+    for i = 1, select("#", ...) do
+        parts[i] = self:SafeToString(select(i, ...))
+    end
+    local msg = table.concat(parts, " ")
+    self:LogDebug(msg)
+    if not IsDebugLine(msg) and self._origPrint then
+        self:_origPrint(msg)
     end
 end
 

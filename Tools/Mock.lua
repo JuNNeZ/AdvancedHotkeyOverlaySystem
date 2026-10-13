@@ -21,10 +21,24 @@ function Mock.New(opts)
   -- Widgets
   -------------------------------------------------------------------------
   local Widget = {}
+  function game.TextWidth(fs)
+    local text = tostring(rawget(fs, "text") or "")
+    local chars = #text:gsub("[\128-\191]", "")
+    local size = 12
+    local object = rawget(fs, "fontObject")
+    local named = object and tonumber(tostring(rawget(object, "name") or ""):match("(%d+)$"))
+    if named then size = named elseif rawget(fs, "font") then size = fs.font[2] or 12 end
+    return chars * size / 2
+  end
   local function NewWidget(kind, name, parent)
     local w = setmetatable({ kind = kind, name = name, parent = parent, shown = true, scripts = {},
       width = 600, height = 20, level = 1, text = "", points = {}, scale = 1, alpha = 1 }, Widget)
     frames[#frames + 1] = w
+    if type(parent) == "table" and rawget(parent, "kind") then
+      local list = (kind == "FontString" or kind == "Texture" or kind == "MaskTexture") and "regions" or "children"
+      parent[list] = rawget(parent, list) or {}
+      table.insert(parent[list], w)
+    end
     return w
   end
   game.NewWidget = NewWidget
@@ -44,8 +58,10 @@ function Mock.New(opts)
     GetText = function(self) return self.text end,
     SetFormattedText = function(self, f, ...) self.text = string.format(f, ...) end,
     GetStringHeight = function() return 13 end,
-    GetStringWidth = function(self) return #tostring(self.text or "") * 6 end,
-    GetUnboundedStringWidth = function(self) return #tostring(self.text or "") * 6 end,
+    -- about half the font's size per character (12 px text: 6 px a character), counted
+    -- in characters, not UTF-8 bytes; a font object's size is the number its name ends in
+    GetStringWidth = function(self) return game.TextWidth(self) end,
+    GetUnboundedStringWidth = function(self) return game.TextWidth(self) end,
     GetNumLines = function() return 1 end,
     SetWidth = function(self, v) self.width = v end,
     SetHeight = function(self, v) self.height = v end,
@@ -74,6 +90,16 @@ function Mock.New(opts)
     GetNumPoints = function(self) return #self.points end,
     GetParent = function(self) return self.parent end,
     SetParent = function(self, p) self.parent = p end,
+    GetChildren = function(self) return unpack(rawget(self, "children") or {}) end,
+    GetRegions = function(self) return unpack(rawget(self, "regions") or {}) end,
+    EnableMouse = function(self, on) self.mouse = on and true or false end,
+    IsMouseEnabled = function(self) return self.mouse == true end,
+    IsMouseOver = function(self) return game.mouseOver == self end,
+    GetEffectiveAlpha = function(self)
+      local a, f = 1, self
+      while f do a = a * (rawget(f, "alpha") or 1); f = rawget(f, "parent") end
+      return a
+    end,
     GetName = function(self) return self.name end,
     GetDebugName = function(self) return self.name or "?" end,
     -- a file with "Missing" in its path does not load, as a removed addon's font would not
@@ -92,9 +118,10 @@ function Mock.New(opts)
     end,
     SetFontObject = function(self, font) self.fontObject = font end,
     GetFontObject = function(self) return self.fontObject end,
-    HasFocus = function(self) return self.focus == true end,
-    SetFocus = function(self) self.focus = true end,
-    ClearFocus = function(self) self.focus = false end,
+    -- one box has the caret at a time, as in the client
+    HasFocus = function(self) return game.keyboardFocus == self end,
+    SetFocus = function(self) game.keyboardFocus = self end,
+    ClearFocus = function(self) if game.keyboardFocus == self then game.keyboardFocus = nil end end,
     EnableKeyboard = function(self, on) self.keyboard = on and true or false end,
     GetEffectiveScale = function() return 1 end,
     GetScale = function(self) return self.scale end,
@@ -217,17 +244,22 @@ function Mock.New(opts)
   env.hash_SlashCmdList = {}
   env.PlaySound = function() end
   env.PlaySoundFile = function() end
-  env.GetCursorPosition = function() return 0, 0 end
+  game.cursor = { 0, 0 }
+  env.GetCursorPosition = function() return game.cursor[1], game.cursor[2] end
   env.GetTime = function() return game.time end
   env.GetTimePreciseSec = function() return game.time end
   env.debugprofilestop = function() return game.time * 1000 end
   env.InCombatLockdown = function() return game.lockdown and true or false end
-  env.UnitAffectingCombat = function() return false end
+  env.UnitAffectingCombat = function() return game.combat and true or false end
   env.IsLoggedIn = function() return game.loggedIn and true or false end
   env.GetLocale = function() return opts.locale or "enUS" end
   env.IsShiftKeyDown = function() return game.shift and true or false end
-  env.IsControlKeyDown = function() return false end
-  env.IsAltKeyDown = function() return false end
+  env.GetCurrentKeyBoardFocus = function() return game.keyboardFocus end
+  env.IsControlKeyDown = function() return game.ctrl and true or false end
+  env.IsAltKeyDown = function() return game.alt and true or false end
+  env.IsModifierKeyDown = function() return (game.shift or game.ctrl or game.alt) and true or false end
+  env.time = function() return 1700000000 + math.floor(game.time) end
+  env.date = os.date
   env.strtrim = function(s) return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", "")) end
   env.strsplit = function(sep, s, limit)
     local out, start = {}, 1
@@ -286,10 +318,28 @@ function Mock.New(opts)
   env.GetSpecializationInfo = function() return 253, "Beast Mastery" end
   env.C_SpecializationInfo = { GetSpecialization = function() return 1 end,
     GetSpecializationInfo = function() return 253, "Beast Mastery" end }
+  -- bindings: command -> key, or command -> { key1, key2 }
+  game.bindings = opts.bindings or {}
   env.GetBindingKey = function(command)
-    return (opts.bindings or {})[command]
+    local v = game.bindings[command]
+    if type(v) == "table" then return v[1], v[2] end
+    return v
   end
-  env.GetBindingAction = function() return "" end
+  env.GetBindingAction = function(key)
+    for command, v in pairs(game.bindings) do
+      if v == key or (type(v) == "table" and (v[1] == key or v[2] == key)) then return command end
+    end
+    return ""
+  end
+  env.SetBinding = function(key, command)
+    for c, v in pairs(game.bindings) do if v == key then game.bindings[c] = nil end end
+    if command then game.bindings[command] = key end
+    return true
+  end
+  env.SaveBindings = function() end
+  env.GetCurrentBindingSet = function() return 1 end
+  -- the game's short key text: "SHIFT-Q" reads "s-Q"
+  env.GetBindingText = function(key) return (tostring(key or ""):gsub("SHIFT%-", "s-"):gsub("CTRL%-", "c-"):gsub("ALT%-", "a-")) end
   env.GetNumAddOns = function() return 0 end
   env.C_Timer = {
     After = function(_, f) table.insert(game.timers, f) end,
@@ -305,7 +355,9 @@ function Mock.New(opts)
     GetNumAddOns = function() return 0 end,
   }
   env.Enum = { UITextureSliceMode = { Stretched = 0, Tiled = 1 } }
-  env.C_ActionBar = { HasAction = function() return false end }
+  -- game.actions[slot] = true puts something on an action slot
+  game.actions = {}
+  env.C_ActionBar = { HasAction = function(slot) return game.actions[slot] and true or false end }
   env.hooksecurefunc = function(target, method, hook)
     if type(target) == "string" then target, method, hook = env, target, method end
     local original = target[method]
@@ -404,6 +456,22 @@ function Mock.New(opts)
     end
   end
   function game.frame(name) return env[name] end
+
+  -- An action button as Blizzard's template makes one: a HotKey label (also the
+  -- global <name>HotKey), an action slot, and SetButtonState.
+  function game.MakeButton(name, o)
+    o = o or {}
+    local parent = o.parent or env.UIParent
+    local b = env.CreateFrame("CheckButton", name, parent)
+    local hk = b:CreateFontString()
+    hk.name = name .. "HotKey"
+    env[name .. "HotKey"] = hk
+    if o.hotkeyField ~= false then b[o.hotkeyField or "HotKey"] = hk end
+    b.hotkey = hk
+    if o.action then b.action = o.action; game.actions[o.action] = o.empty ~= true end
+    b.SetButtonState = function(self, state) self.buttonState = state end
+    return b
+  end
 
   if not opts.noLogin then
     game.fire("ADDON_LOADED", ADDON)

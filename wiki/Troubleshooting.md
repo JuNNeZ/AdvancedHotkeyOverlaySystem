@@ -114,7 +114,7 @@ Use the inspect command with the exact frame name of the button:
 /ahos inspect ActionButton1
 ```
 
-If AHOS doesn't know that button name, the output will say so. Use `/fstack` (Blizzard's built-in frame stack tool, or a UI inspector addon) to get the exact frame name of the button.
+If AHOS doesn't know that button name, the output will say so. Easier still: open `/ahos`, go to the **Inspector** page and click **Pick a Button**, then point at the button. Otherwise use `/fstack` (Blizzard's built-in frame stack tool, or a UI inspector addon) to get the exact frame name of the button.
 
 ### Check 3 — Recently added bars
 

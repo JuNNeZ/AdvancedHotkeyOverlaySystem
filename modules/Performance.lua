@@ -1,7 +1,8 @@
 ---@diagnostic disable: undefined-global
 -- modules/Performance.lua
 local addonName, privateScope = ...
-local addon = privateScope.addon
+local addon = privateScope.addon --[[@as AHOS]]
+---@class AHOSPerformance
 local Performance = addon.Performance
 
 local updateQueue = {}
@@ -11,6 +12,7 @@ local updateTimer = nil
 -- Default settings
 local THROTTLE_INTERVAL = 0.1 -- seconds
 
+---@param button Button
 function Performance:QueueButtonUpdate(button)
     if not addon.db or not addon.db.profile or not addon.db.profile.enabled then return end
     if not button then return end
@@ -41,7 +43,7 @@ function Performance:ScheduleUpdate()
     if not updateTimer then
         updateTimer = self:ScheduleTimer("ProcessQueue", THROTTLE_INTERVAL)
         if addon:IsReady() and addon.db and addon.db.profile and addon.db.profile.debug then
-            addon:Print("Update scheduled.")
+            addon:Print("[AHOS DEBUG] Update scheduled.")
         end
     end
 end
@@ -66,7 +68,7 @@ function Performance:ProcessQueue()
 
     if fullUpdateScheduled then
         if addon:IsReady() and addon.db and addon.db.profile and addon.db.profile.debug then
-            addon:Print("Processing full update.")
+            addon:Print("[AHOS DEBUG] Processing full update.")
         end
         fullUpdateScheduled = false
         wipe(updateQueue)
@@ -76,7 +78,7 @@ function Performance:ProcessQueue()
         if addon:IsReady() and addon.db and addon.db.profile and addon.db.profile.debug then
             local count = 0
             for _ in pairs(updateQueue) do count = count + 1 end
-            addon:Print("Processing partial update for " .. count .. " buttons.")
+            addon:Print("[AHOS DEBUG] Processing partial update for " .. count .. " buttons.")
         end
         for _, button in pairs(updateQueue) do
             if addon.Keybinds and addon.Keybinds.ClearButtonCache then

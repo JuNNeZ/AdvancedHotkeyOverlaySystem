@@ -280,6 +280,10 @@ Kit.TextHighlight = {}
 Kit.TextSelected = {}
 Kit.TextDisabled = {}
 
+-- The window's outer edge, and whether keys that are on light the plate under them.
+Kit.EdgeColor = {}
+Kit.Backlit = false
+
 -- AHOS's own palettes. All of them draw on the same keycap art (Look.lua); only
 -- the colours change, so switching never needs a reload.
 local themes = {
@@ -294,7 +298,8 @@ local themes = {
 		window = { .059, .071, .086, .98 },
 		backdrop = { .102, .118, .145, 1 },
 		inset = { .043, .051, .063, 1 },
-		track = { .18, .21, .26, 1 }
+		track = { .18, .21, .26, 1 },
+		edge = { .24, .28, .34, 1 }
 	},
 	-- The logo's gold on the same slate.
 	gold = {
@@ -319,7 +324,39 @@ local themes = {
 		window = { .90, .91, .93, .98 },
 		backdrop = { .97, .97, .98, 1 },
 		inset = { .84, .86, .89, 1 },
-		track = { .74, .77, .81, 1 }
+		track = { .74, .77, .81, 1 },
+		edge = { .62, .66, .72, 1 }
+	},
+	-- A darker board with backlighting: the selected page and every switch that
+	-- is on throw a soft glow of the accent onto the plate under them.
+	backlit = {
+		order = 5,
+		accent = { .1, .9, .72 },
+		text = { .84, .87, .9 },
+		bright = { 1, 1, 1 },
+		muted = { .47, .5, .56 },
+		border = { .11, .13, .16, 1 },
+		window = { .031, .035, .043, .98 },
+		backdrop = { .067, .078, .098, 1 },
+		inset = { .024, .028, .035, 1 },
+		track = { .12, .14, .17, 1 },
+		edge = { .11, .13, .16, 1 },
+		backlit = true
+	},
+	-- Cream keycaps with printed legends on a brass-edged case, the logo's gold
+	-- for what is selected. Light, so the dark legends read on every surface.
+	legend = {
+		order = 6,
+		accent = { .72, .53, .04 },
+		text = { .2, .16, .1 },
+		bright = { .07, .05, .02 },
+		muted = { .48, .42, .32 },
+		border = { .66, .56, .34, 1 },
+		window = { .86, .82, .72, .98 },
+		backdrop = { .96, .93, .85, 1 },
+		inset = { .8, .75, .64, 1 },
+		track = { .7, .64, .5, 1 },
+		edge = { .55, .43, .18, 1 }
 	}
 }
 
@@ -327,7 +364,9 @@ local themeLabels = {
 	ahos = L["Keycap"],
 	gold = L["Keycap Gold"],
 	class = L["Class Color"],
-	light = L["Light"]
+	light = L["Light"],
+	backlit = L["Keycap Backlit"],
+	legend = L["Keycap Legend"]
 }
 
 -- Other files may add themes of their own.
@@ -336,7 +375,7 @@ Kit.AddTheme = function(key, theme, label)
 	themeLabels[key] = label or key
 end
 
-local currentTheme = "ahos"
+local currentTheme = "gold"
 
 -- How solid the panel is drawn.
 --
@@ -395,6 +434,8 @@ Kit.SetTheme = function(key)
 	CopyInto(Kit.BackdropColor, theme.backdrop or base.backdrop)
 	CopyInto(Kit.InsetColor, theme.inset or base.inset)
 	CopyInto(Kit.TrackColor, theme.track or base.track)
+	CopyInto(Kit.EdgeColor, theme.edge or base.edge or themes.ahos.edge)
+	Kit.Backlit = (theme.backlit or base.backlit) and true or false
 
 	-- Fills only, normalised against the most solid of them. See the note on
 	-- `opacity` above.
@@ -518,6 +559,24 @@ Kit.CreateSliceBar = function(parent, layer, spec, height, anchor, sublevel)
 
 	bar.SetColor = function(self, color)
 		self:SetVertexColor(color[1], color[2], color[3], color[4] or 1)
+	end
+
+	-- `color` shaded from `bottom` to `top` (multipliers), so a trough reads as
+	-- sunk (dark top) and a fill as raised (light top). A client without the
+	-- gradient API gets the flat colour.
+	bar.SetShaded = function(self, color, top, bottom, alpha)
+		local a = alpha or color[4] or 1
+		local function Scaled(m)
+			return min(1, color[1] * m), min(1, color[2] * m), min(1, color[3] * m), a
+		end
+		local ok = CreateColor and pcall(function()
+			local lowColor, highColor = CreateColor(Scaled(bottom)), CreateColor(Scaled(top))
+			for _, texture in ipairs({ self.left, self.mid, self.right }) do
+				texture:SetVertexColor(1, 1, 1, 1)
+				texture:SetGradient("VERTICAL", lowColor, highColor)
+			end
+		end)
+		if (not ok) then self:SetVertexColor(color[1], color[2], color[3], a) end
 	end
 
 	bar.SetShown = function(self, shown)

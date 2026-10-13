@@ -15,11 +15,21 @@ This page is a complete reference for every AHOS setting, organized by category.
   - [Choosing the Right Mode](#choosing-the-right-mode)
 - [Core / General](#core--general)
 - [Display](#display)
+  - [Placement and Edit Mode](#placement-and-edit-mode)
+  - [Visibility](#visibility)
+  - [In Combat](#in-combat)
+  - [Effects](#effects)
 - [Font / Appearance](#font--appearance)
+  - [Shadow and Glow](#shadow-and-glow)
+  - [Buttons with Two Keys](#buttons-with-two-keys)
 - [Keybind / Abbreviations](#keybind--abbreviations)
+- [Bars](#bars)
 - [Profile Management](#profile-management)
+  - [Presets](#presets)
+  - [Snapshots](#snapshots)
 - [Minimap](#minimap)
 - [Compatibility](#compatibility)
+- [Inspector](#inspector)
 - [Troubleshooting Tools](#troubleshooting-tools)
 
 ---
@@ -159,6 +169,80 @@ A Dominos-specific variant of Native Rewrite Mode. Dominos manages its own keybi
 
 ---
 
+### Follow Masque Skin
+
+With Masque loaded, **Follow Masque Skin** (Display page, off by default) puts the hotkey text on Masque-skinned buttons where the skin puts the hotkey: its corner, offset, width and alignment, read from the skin itself. The font and colour stay yours. Picking another skin in Masque moves the text with it. A bar with a place of its own keeps that place. **Mirror Native Hotkey Style** is the other way to match a skin: it copies the label's font and colour too.
+
+### Placement and Edit Mode
+
+**Edit Positions on Your Bars** (or `/ahos edit`) lets you drag the hotkey text into place on your own bars:
+
+| Action | Result |
+|---|---|
+| Drag a hotkey | Moves the text on every bar (the profile's X and Y Offset) |
+| Shift-drag a hotkey | Moves the text on that bar only (gives the bar a place of its own) |
+| Right-click a hotkey | Gives that bar back to the profile's position |
+| **Done** | Ends edit mode; the positions are saved in the profile |
+| **Save as Profile** | Saves the current settings as a new profile and switches to it |
+
+While editing, the hotkey text takes the mouse, so your buttons cannot be clicked. Edit mode cannot start in combat and ends the moment combat starts. Offsets stay within the sliders' range (-50 to 50).
+
+### Visibility
+
+When the hotkey text shows. Every rule you turn on must agree; when one does not, the text fades.
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| **Fade Out of Combat** | Toggle | Off | Shows the hotkey text only in combat. |
+| **Only While a Modifier Is Held** | Toggle | Off | Shows the hotkey text only while Shift, Ctrl or Alt is held down. |
+| **Faded Alpha** | Slider | 0% | How much of the text stays when a rule hides it. 0% hides it completely. |
+| **Fade Time** | Slider | 0.25 s | How long the text takes to fade in or out. 0 is instant. |
+| **Condition of Your Own (Lua)** | Text | Empty | Advanced: a Lua expression that must be true for the text to show. |
+
+A bar can also show its text only while the mouse is over it: see **Show on Mouseover** on the [Bars](#bars) page.
+
+The overlays are drawn on the buttons themselves, so a bar addon that fades its bars (Bartender4's or Dominos' fade and mouseover settings, ElvUI's mouseover) fades the hotkey text with them; nothing needs setting up for that.
+
+**Writing a condition.** The text is one Lua expression (`return` is optional). It can read:
+
+| Name | What it is |
+|---|---|
+| `button` | The button's frame name, e.g. `ActionButton3` |
+| `bar` | The bar's key, e.g. `Blizzard:1`, `Dominos:4`, `LUI:Left1` |
+| `key` | The full binding, e.g. `SHIFT-Q` |
+| Game state | `InCombatLockdown`, `UnitAffectingCombat`, `IsMounted`, `IsFlying`, `IsStealthed`, `IsResting`, `IsInGroup`, `IsInRaid`, `IsInInstance`, `IsShiftKeyDown`, `IsControlKeyDown`, `IsAltKeyDown`, `IsModifierKeyDown`, `UnitExists`, `UnitIsDead`, `UnitCanAttack`, `UnitHealth`, `UnitPower`, `GetShapeshiftForm`, `GetSpecialization`, `HasAction`, `IsUsableAction` and a few more, plus `math` and `string` |
+
+Examples:
+
+```lua
+UnitExists("target")                       -- only with a target
+bar ~= "Blizzard:1" or InCombatLockdown()  -- bar 1 only in combat
+not IsMounted()                            -- hide while mounted
+key:find("SHIFT") == nil or IsShiftKeyDown()
+```
+
+The condition cannot reach anything else (no `_G`, `print`, `os`, `SetBinding`...). It is checked whenever the visibility is worked out and five times a second while one is set. A condition that errors shows the text and says so once in the chat.
+
+### In Combat
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| **Combat Style** | Toggle | Off | Draws the hotkey text in another colour and size while you are in combat. |
+| **Combat Colour** | Colour | Red | The text colour in combat. |
+| **Combat Size** | Slider | 115% | The text size in combat, relative to its size out of it. |
+
+### Effects
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| **When Pressed** | Dropdown | Nothing | What the text does when you press its button: **Flash** (a flash of colour) or **Pulse** (it grows and settles). |
+| **Flash Colour** | Colour | Gold | The colour of the flash. |
+| **Background Plate** | Toggle | Off | Draws a plate behind the text, so it reads on any icon. |
+| **Plate Colour** | Colour | Black, 55% | The plate's colour and transparency. |
+| **Plate Padding** | Slider | 2 | Space between the text and the plate's edge. |
+
+---
+
 ## Font / Appearance
 
 | Option | Type | Default | Description |
@@ -181,6 +265,35 @@ A Dominos-specific variant of Native Rewrite Mode. Dominos manages its own keybi
 
 > **Tip:** `THICKOUTLINE` works best at small font sizes (8–12pt) on buttons with varied backgrounds. `OUTLINE` is usually fine at 12pt and above.
 
+In the options window the Font list draws each font's name in that font.
+
+**Modifier Colours** (on the Keybinds page):
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| **Colour by Modifier** | Toggle | Off | Draws Shift, Ctrl and Alt bindings each in their own colour, with a fourth colour for two or more modifiers. Works in overlay and native text mode. |
+| **Hide Modifier Letters** | Toggle | Off | Shows `Q` in the Shift colour instead of `SQ`: the colour alone tells the modifiers apart. |
+| **Shift / Ctrl / Alt / Two or More Modifiers** | Color pickers | Blue / Gold / Green / Pink | The text colour for each. |
+
+---
+
+### Shadow and Glow
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| **Shadow** | Toggle | On | A drop shadow under the hotkey text. |
+| **Shadow Colour** | Colour | Black | The shadow's colour and strength. |
+| **Shadow X / Shadow Y** | Slider | 1 / -1 | Where the shadow falls. |
+| **Glow** | Toggle | Off | A soft halo in its own colour around the text. |
+| **Glow Colour** | Colour | Gold | The halo's colour and strength. |
+
+### Buttons with Two Keys
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| **Show Both Keys** | Toggle | Off | A button bound to two keys shows both, for example `Q/SE`. |
+| **Between the Keys** | Text | `/` | The text between the two keys. |
+
 ---
 
 ## Keybind / Abbreviations
@@ -190,6 +303,9 @@ A Dominos-specific variant of Native Rewrite Mode. Dominos manages its own keybi
 | **Enable Abbreviations** | Toggle | On | Condenses modifier keys to single letters. `CTRL` → `C`, `SHIFT` → `S`, `ALT` → `A`. Mouse buttons become `B1`–`B3`. Disable to show the full raw keybind string. |
 | **Max Length** | Slider | 6 | Maximum number of characters to display. If the abbreviated string exceeds this, it is truncated. Range: 1–10. |
 | **Modifier Separator** | Text | *(empty)* | Character(s) inserted between each modifier letter and the key. Examples: `-` gives `C-S-A`, `·` gives `C·S·A`, empty gives `CSA`. |
+| **Controller Button Icons** | Toggle | On | Draws gamepad buttons as your controller's own button icons (in the label style of the controller in use) instead of text. A gamepad button you gave an abbreviation of your own keeps it. |
+
+In the options window the Abbreviations page is a keyboard. Click a key to change its abbreviation, see what it is bound to, and bind it: **Bind to...** lists every action button command by bar, **Unbind** clears the key, and **Hover Bind Mode** starts LibKeyBound where a bar addon brought it. Bindings cannot change in combat.
 
 **Abbreviation reference:**
 
@@ -203,6 +319,33 @@ A Dominos-specific variant of Native Rewrite Mode. Dominos manages its own keybi
 | `MOUSEBUTTON3` | `B3` |
 | Number keys | As-is (`1`, `2`, etc.) |
 | Function keys | As-is (`F1`, `F5`, etc.) |
+
+---
+
+### Keyboard Layouts
+
+The keyboard on the Abbreviations page can be drawn as English (US), English (UK), Dansk, Norsk, Svenska / Suomi, Deutsch, Français, Русская, Українська, 한국어 (두벌식) or 繁體中文 (注音). Each board names its keys as the game names them on that layout: a Russian board's keys are Й, Ц, У and so on. The Korean and Taiwanese boards are the US board with the Hangul or Zhuyin printed under each letter, as on the real keys. The layout follows the client's language until you pick one. Cyrillic, Korean and Chinese text is drawn in the game's own faces for them, so it reads on a client in any language.
+
+### Mouse Button Icons
+
+With **Mouse Button Icons** on (Abbreviations page, off by default), mouse buttons and the wheel are drawn as small mouse icons in the text's colour: the left, right and middle buttons, the wheel up and down, and the side buttons with their number (`BUTTON4` shows the side-button icon and `4`). A mouse button you gave an abbreviation of your own keeps it.
+
+---
+
+## Bars
+
+Settings for one bar on its own. Everything a bar does not set follows the profile.
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| **Bar** | Dropdown | First bar found | The bar to change, from every bar AHOS found on Blizzard's bars and in your bar addon. Bars with settings of their own are marked `*`. |
+| **Leave This Bar Alone** | Toggle | Off | AHOS draws nothing on this bar, and its buttons show their own hotkey text. |
+| **Text Size on This Bar** | Slider | 100% | The hotkey text on this bar, relative to the size everywhere else. |
+| **Show on Mouseover** | Toggle | Off | This bar's hotkey text shows only while the mouse is over the bar. Moving from one of its buttons to the next keeps it shown. |
+| **A Place of Its Own** | Toggle | Off | Puts this bar's text somewhere else than on the other bars. |
+| **Anchor / X Offset / Y Offset on This Bar** | Grid / Sliders | The profile's | Where the text sits on this bar. Shift-drag in [edit mode](#placement-and-edit-mode) does the same. |
+| **Draw on Every Button Again** | Button | — | Forgets every single button AHOS was told to leave alone. Buttons are left alone from the [Inspector](#inspector) card or with `/ahos ignore <ButtonName>`. |
+| **Reset Every Bar** | Button | — | Removes every bar's settings. |
 
 ---
 
@@ -228,11 +371,46 @@ AHOS includes a complete profile system allowing different configurations per ch
 | **Export Profile** | Serializes the current profile to a text string you can copy. Use this to back up settings or share them with others. |
 | **Import Profile** | Pastes a previously exported string and loads those settings into the current profile. |
 
-### Auto-Switch by Spec
+### Switch Profile By Itself
 
-When **Auto-Switch by Spec** is enabled, AHOS automatically activates a different profile when you change your specialization. Configure which profile maps to which spec in the profile options.
+**Switch Profile By Itself** is a choice per character:
+
+| Choice | Profile used |
+|---|---|
+| **Never** | Whatever you pick |
+| **By Specialization** | `Name-Realm-Specialization` |
+| **By Talent Loadout** | `Name-Realm-Specialization-Loadout` (Retail; elsewhere it follows the specialization) |
+
+A profile that does not exist yet starts as a copy of the one you are on, so switching never resets your look. (Before 2.6 this setting lived inside the profile it switched away from; it moves to the character by itself.)
 
 > **Example use case:** A Druid who uses aggressive abbreviations for Balance but larger, clearer text for Restoration.
+
+**Save as New Profile** (or `/ahos profile <name>`) makes a profile of that name from the current one and switches to it.
+
+### Presets
+
+Presets are laid over the current profile; anything a preset does not set stays as it is. A [snapshot](#snapshots) is taken first, so `/ahos rollback` undoes one.
+
+| Preset | What it does |
+|---|---|
+| **Blizzard Style** | Small text in the top-right corner, where the game puts it |
+| **Big and Centered** | Large text in the middle of the button |
+| **Bottom Corner** | Text in the bottom-right corner, clear of cooldown numbers |
+| **Compact** | Small text along the top, at most four letters |
+| **Tank** | Big, glowing text that turns red in combat |
+| **Healer** | Bindings coloured by modifier with the letters dropped, on a dark plate |
+| **Damage** | Text that pulses when pressed and dims out of combat |
+
+### Snapshots
+
+Copies of a profile to go back to, kept for all characters (the newest fifteen). One is taken by itself before every preset, import, reset and restore.
+
+| Action | Description |
+|---|---|
+| **Take a Snapshot** | Keeps a copy of the profile as it is now (`/ahos snapshot [label]`) |
+| **Snapshot** | Picks one; the newest is first (`/ahos snapshot list`) |
+| **Restore** | Puts it into the profile you are on; what was there is kept as a snapshot first (`/ahos rollback [n]`) |
+| **Delete** | Throws it away |
 
 ---
 
@@ -257,6 +435,14 @@ When **Auto-Switch by Spec** is enabled, AHOS automatically activates a differen
 | Option | Description |
 |---|---|
 | **Enable ElvUI Compatibility** | Forces AHOS overlays to render even when ElvUI is detected. By default, AHOS detects ElvUI and warns about potential conflicts. Enable this to proceed anyway. See [[Supported-Addons#elvui]] and [[Troubleshooting]] for details. |
+
+---
+
+## Inspector
+
+In the options window, **Pick a Button** steps the window aside so you can point at any action button on your screen. A click keeps it, a right-click cancels. The card shows which bar addon drew the button and on which bar, the key that presses it, the text AHOS draws for it, the command and action on it, and why AHOS shows what it shows. **Copy Details** opens the same information as `/ahos inspect <ButtonName>`, ready to copy. `/ahos inspect <ButtonName>` prints it in the chat.
+
+**Leave This Button Alone** on the card makes AHOS leave that one button to its own hotkey text; **Draw on This Button** undoes it. The same is `/ahos ignore <ButtonName>` and `/ahos unignore <ButtonName>`.
 
 ---
 

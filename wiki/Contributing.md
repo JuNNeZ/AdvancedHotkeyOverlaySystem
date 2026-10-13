@@ -10,6 +10,8 @@ Thank you for your interest in contributing to the Advanced Hotkey Overlay Syste
 - [Reporting Bugs](#reporting-bugs)
 - [Requesting Features](#requesting-features)
 - [Setting Up a Development Environment](#setting-up-a-development-environment)
+- [Running the Tests](#running-the-tests)
+- [How the Modules Work Together](#how-the-modules-work-together)
 - [Pull Requests](#pull-requests)
 - [Adding Support for a New Action Bar Addon (Provider)](#adding-support-for-a-new-action-bar-addon-provider)
 - [Localization](#localization)
@@ -124,10 +126,66 @@ For TOC changes or new file additions, you must fully restart WoW (or at minimum
 
 ---
 
+## Running the Tests
+
+AHOS has a test harness that loads the addon against a mock WoW client, so most changes can be checked without starting the game. You need Lua 5.1 (`lua5.1` on Linux, [LuaBinaries](https://luabinaries.sourceforge.net/) or Lua for Windows).
+
+From the addon folder:
+
+```bash
+lua Tools/RunTests.lua             # every suite, against every client TOC
+lua Tools/RunTests.lua TestCore    # one suite
+lua Tools/TestCore.lua AdvancedHotkeyOverlaySystem_Vanilla.toc   # one suite, one client
+```
+
+| File | What it does |
+|---|---|
+| `Tools/Mock.lua` | The mock client. Loads every file a TOC lists, in order, with the real pure-Lua Ace3 libraries and stand-ins for the ones that draw. Frames record their text, colours, points and scripts, so a test can read what was drawn. `game.MakeButton(name, { action = n })` makes an action button; `game.bindings`, `game.actions`, `game.combat`, `game.shift`, `game.cursor` and `game.lockdown` set the client's state; `game.fire(event, ...)` fires an event and `game.flush()` runs pending timers. |
+| `Tools/TestPanel.lua` | The options window: every page, every row bound, the preview, the changed-from-default marks, search, the landing page under ESC > Options > AddOns, the multi-line field. |
+| `Tools/TestCore.lua` | The engine: key detection on Blizzard, Dominos, Bartender4, LUI and Neuron buttons, abbreviations and mouse icons, overlays, per-bar placement, glow and plate, ignored buttons, the visibility rules, combat style, press animations, the editor, presets, snapshots, profile switching, the LibKeyBound hook, the slash commands, and a timing of a full update over 300+ buttons. |
+| `Tools/TestLocales.lua` | Every locale loads; every string the modules ask for is in enUS; every translation keeps its `%s` and `%d`. |
+| `Tools/RunTests.lua` | Runs each suite in its own process for each client TOC and exits non-zero on a failure. |
+
+CI runs `lua5.1 Tools/RunTests.lua` on every push and pull request (`.github/actions/verify`), after the Lua syntax, TOC and version checks.
+
+**Translations.** Module strings are named constants (`L.SOME_KEY or "English"`). New ones go in `Tools/translations_roadmap.py` (English plus de, es, fr, pt, ru, ko, zhCN, zhTW); the options window's own strings are keyed by their English text in `Tools/translations.py`. Then run `python Tools/MakeLocales.py <file with the options/*.lua text>` to write them into `locales/`. `TestLocales` fails if a new string has no entry.
+
+**Art.** `python Tools/MakePanelArt.py` draws the options window's art and `python Tools/MakeGlyphs.py` the mouse icons (both need Pillow).
+
+---
+
+## How the Modules Work Together
+
+Every module is an AceAddon module created in `AdvancedHotkeyOverlaySystem.lua` and filled in by its file under `modules/`:
+
+| Module | Job |
+|---|---|
+| **Config** | The default profile (`GetDefaultProfile`) and the font list |
+| **Core** | Events: bindings, paging, vehicles, combat. Batches refreshes into one series of passes (`ScheduleRefreshPasses`) and hooks LibKeyBound |
+| **Performance** | The update queue: `QueueFullUpdate` and `QueueButtonUpdate`, processed together 0.1 s later |
+| **Bars** | Finds the buttons (`GetAllButtons`), names their bars (`GetBarInfo`), and keeps per-bar and per-button settings |
+| **Keybinds** | The key on a button (`GetFullBindingText`), its abbreviation (`GetBinding`), glyphs and icons |
+| **Display** | Draws the overlays or rewrites the native labels, and gives the labels back. Four files: `DisplayShared.lua` (state and helpers, shared as `privateScope.DisplayShared`), `Display.lua` (the update flow), `DisplayNative.lua` (the buttons' own labels), `DisplayStyle.lua` (font, place, Masque, glow, plate, scale) |
+| **Visibility** | Fades the overlays by the visibility rules, the combat style, press animations |
+| **Editor** | `/ahos edit` |
+| **Profiles** | Presets, snapshots, switching profiles |
+| **Options** | The option table, in AceConfig's format, which the options window (`options/`) reads and draws. `Options.lua` puts it together from one file per page (`OptionsStatus`, `OptionsDisplay`, `OptionsText`, `OptionsBars`, `OptionsProfiles`), which share `Options.Helpers` |
+
+A change flows: an event → `Core:FullUpdate()` → `Performance:QueueFullUpdate()` → `Display:UpdateAllOverlays()` → for each button `Keybinds:GetBinding()` and `Display:StyleOverlay()` → `Visibility:Track()`.
+
+**Types.** `types/AHOS.lua` describes the profile, the providers, overlays, snapshots and every module for the Lua language server (it is not loaded by the game or packaged). Each module file declares its class where it takes its module (`---@class AHOSDisplay` above `local Display = addon.Display`), so methods defined there are known everywhere. Check the workspace with the language server's `--check` mode.
+
+**SafeCall.** Until the player is in the world, `addon:SafeCall(moduleName, method, ...)` queues the call (the same call without arguments only once) and runs the queue when `addon:SetReady()` is called on `PLAYER_LOGIN`. After that it calls straight through. Use it for any cross-module call that can happen during loading.
+
+**Bar addons** are data, not code: each is an entry in `addon.ProviderRegistry` in the core file (see [Adding Support for a New Action Bar Addon](#adding-support-for-a-new-action-bar-addon-provider)).
+
+---
+
 ## Pull Requests
 
 ### Before Submitting
 
+- Run `lua Tools/RunTests.lua` and make sure every run passes
 - Test your change in-game on at least one WoW version (Retail preferred)
 - If your change affects multiple providers (Blizzard, Dominos, etc.), test each
 - Ensure you haven't introduced any Lua errors (`/reload` with BugSack installed is a good check)
@@ -173,20 +231,28 @@ Determine how the addon reports keybinds:
 - Does it have its own keybind table or API (like Dominos)?
 - Is LibKeyBound-1.0 involved?
 
-### Step 3 — Implement the Provider Module
+### Step 3 — Describe the Provider
 
-Look at the existing provider modules in the `modules/` directory for patterns to follow. A provider module typically:
+A provider is an entry in `addon.ProviderRegistry` in `AdvancedHotkeyOverlaySystem.lua`, plus its key in `PROVIDER_ORDER`. The fields:
 
-1. Detects whether the addon is loaded (`C_AddOns.IsAddOnLoaded("AddonName")` or equivalent)
-2. Returns a list of button frame references to track
-3. Implements a keybind resolver function for its buttons (if the standard API doesn't suffice)
-4. Hooks any addon-specific events that indicate button/binding changes
+| Field | What it says |
+|---|---|
+| `addon` / `addons` / `globals` | How to tell the addon is loaded |
+| `button_patterns` | Lua patterns that match its button names |
+| `button_scanners.globals` | `{ prefix, max }`: buttons named `prefix1`..`prefixN` (scanning goes on past `max` while names continue) |
+| `button_scanners.containers` | `{ prefix, count, matcher }`: bar frames whose children are the buttons |
+| `binding_rules` | `{ matcher, suffixes }`: the key is found on `CLICK <button><suffix>` |
+| `bound_keys_path` | For addons that bind with override bindings: where on the button its own key list is (Neuron: `{ "keys", "hotKeys" }`) |
+| `hotkey_fields` | The button's label field when it is not `HotKey` (Neuron: `Hotkey`) |
+| `hotkey_update_method(s)` | The method that redraws the label, hooked so AHOS rewrites after it |
 
-### Step 4 — Register the Provider
+Then add the bar names to `BAR_PATTERNS` in `modules/Bars.lua`, so the Bars page names its bars.
 
-Register the new provider with the AHOS core provider registry. Follow the pattern of existing provider registrations in the main addon file.
+### Step 4 — Add It to the Tests
 
-### Step 5 — Test
+Make a few of its buttons in `Tools/TestCore.lua` with `game.MakeButton`, give them bindings in the `bindings` table at the top, and check what `Keybinds:GetBinding` and `Bars:GetBarInfo` answer (the LUI and Neuron checks are the pattern).
+
+### Step 5 — Test In Game
 
 - Test with at least the provider's most common configuration
 - Test adding/removing bars mid-session
@@ -238,19 +304,19 @@ The following languages are most commonly used by the WoW playerbase and are hig
 
 ```
 AdvancedHotkeyOverlaySystem/
-├── AdvancedHotkeyOverlaySystem.lua             ← Core: initialization, event handling, overlay engine
-├── AdvancedHotkeyOverlaySystem.toc             ← Shared addon metadata
-├── AdvancedHotkeyOverlaySystem_Mainline.toc    ← Retail-specific interface version
-├── AdvancedHotkeyOverlaySystem_Mists.toc       ← MoP Classic interface version
-├── AdvancedHotkeyOverlaySystem_Vanilla.toc     ← Classic Era interface version
+├── AdvancedHotkeyOverlaySystem.lua             ← Modules, provider registry, SafeCall, slash commands
+├── AdvancedHotkeyOverlaySystem.toc             ← Development TOC (not packaged)
+├── AdvancedHotkeyOverlaySystem_Mainline.toc    ← Retail
+├── AdvancedHotkeyOverlaySystem_Camelot.toc     ← WoW Forever (keep its file list in sync with Mainline)
+├── AdvancedHotkeyOverlaySystem_Mists.toc       ← MoP Classic
+├── AdvancedHotkeyOverlaySystem_Vanilla.toc     ← Classic Era
 ├── Libs/                                        ← Bundled libraries (do not edit)
-├── locales/                                     ← Locale strings per language
-├── media/                                       ← Textures, embedded fonts, other assets
-└── modules/                                     ← Feature modules
-    ├── providers/                               ← One file per supported action bar addon
-    ├── options/                                 ← Options panel UI definition
-    ├── profiles/                                ← Profile management logic
-    └── abbreviations/                           ← Keybind abbreviation engine
+├── locales/                                     ← Strings per language (generated blocks from Tools/)
+├── media/                                       ← Logo, options window art (panel/), mouse icons (glyphs/)
+├── modules/                                     ← The engine (see How the Modules Work Together)
+├── options/                                     ← The options window
+├── Tools/                                       ← Test harness, locale and art generators (not packaged)
+└── wiki/                                        ← This wiki (published on push)
 ```
 
 ---

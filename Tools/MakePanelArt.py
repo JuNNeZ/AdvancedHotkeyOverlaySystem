@@ -177,6 +177,141 @@ def main():
             d.ellipse([(x - 3) * s, (knob - 3) * s, (x + 3) * s, (knob + 3) * s], fill=255)
     glyph("page-window", window)
 
+    def bars(d, s):  # three rows of keys, the middle one set apart
+        for y, keys in ((5, 4), (13, 3), (21, 4)):
+            for i in range(keys):
+                x = 4 + i * 6.5 + (3 if keys == 3 else 0)
+                if keys == 3:
+                    box(d, s, x, y, x + 5, y + 6, 1.5, 1.6)
+                else:
+                    box(d, s, x, y, x + 5, y + 6, 1.5)
+    glyph("page-bars", bars)
+
+    def inspector(d, s):  # a crosshair over a key
+        box(d, s, 6, 6, 26, 26, 4, 2)
+        line(d, s, [(16, 2), (16, 11)], 2.2)
+        line(d, s, [(16, 21), (16, 30)], 2.2)
+        line(d, s, [(2, 16), (11, 16)], 2.2)
+        line(d, s, [(21, 16), (30, 16)], 2.2)
+        d.ellipse([14 * s, 14 * s, 18 * s, 18 * s], fill=255)
+    glyph("page-inspector", inspector)
+
+    # Backlit theme: the light a key throws on the plate under it. Soft on every
+    # side, brightest just under the key's bottom edge; slice margin 24.
+    m = canvas(96, 64)
+    ImageDraw.Draw(m).rounded_rectangle([18 * SS, 24 * SS, 78 * SS, 48 * SS], radius=10 * SS, fill=255)
+    save(m.filter(ImageFilter.GaussianBlur(9 * SS)), "underglow", 128, 64)
+
+    # The mouse and the controller on the Abbreviations page. Not sliced: each is
+    # stretched to its frame, so files are saved at power-of-two sizes. A shape gets -fill, -face (lifted 3px off its
+    # bottom, for a keycap's lip) and -edge, like the rounded surfaces.
+    def shape_set(name, mask, w, h):
+        save(mask, name + "-fill", w, h)
+        lifted = Image.new("L", mask.size, 0)
+        lifted.paste(mask.crop((0, 0, mask.size[0], mask.size[1] - 3 * SS)), (0, 0))
+        save(Image.composite(lifted, Image.new("L", mask.size, 0), mask), name + "-face", w, h)
+        save(cut(mask, mask.filter(ImageFilter.MinFilter(int(2 * SS) * 2 + 1))), name + "-edge", w, h)
+
+    # In body pixels, 64 x 104: narrower at the front, as a mouse is.
+    def mouse_mask(inset=0):
+        m = Image.new("L", (64 * SS, 104 * SS), 0)
+        d = ImageDraw.Draw(m)
+        i = inset
+        d.ellipse([(5 + i) * SS, (1 + i) * SS, (59 - i) * SS, (66 - i) * SS], fill=255)
+        d.ellipse([(1 + i) * SS, (30 + i) * SS, (63 - i) * SS, (103 - i) * SS], fill=255)
+        d.rectangle([(3 + i) * SS, (34 + i) * SS, (61 - i) * SS, (66 - i) * SS], fill=255)
+        return m.filter(ImageFilter.GaussianBlur(1 * SS)).point(lambda v: 255 if v > 127 else 0)
+    shape_set("mouse", mouse_mask(), 64, 128)
+
+    # The two big buttons: the top of the body, split by the wheel's channel.
+    # In body pixels (64 x 104): left x 4-28, right x 36-60, y 4-46.
+    def mouse_button(left):
+        body = mouse_mask(3)
+        half = Image.new("L", body.size, 0)
+        x0, x1 = (4, 29) if left else (35, 60)
+        ImageDraw.Draw(half).rounded_rectangle([x0 * SS, 4 * SS, x1 * SS, 46 * SS], radius=4 * SS, fill=255)
+        piece = Image.composite(body, Image.new("L", body.size, 0), half)
+        return piece.crop((x0 * SS, 4 * SS, x1 * SS, 46 * SS))
+    shape_set("mouse-left", mouse_button(True), 32, 64)
+    shape_set("mouse-right", mouse_button(False), 32, 64)
+
+    # Controllers, drawn in key units at U pixels a unit so the Lua that places
+    # their buttons (options/Keyboard.lua, PAD_DEVICES) can use the same numbers.
+    # Each has -fill (the body), -edge (its outline and the outlines of what is
+    # not a button: touchpad, screen, trackpads) and -detail (those areas filled,
+    # tinted darker in game).
+    U = 24
+
+    def pad_set(name, w, h, body, details, size):
+        def blank():
+            return Image.new("L", (int(w * U * SS), int(h * U * SS)), 0)
+
+        def px(v):
+            return v * U * SS
+
+        fill = blank()
+        body(ImageDraw.Draw(fill), px)
+        fill = fill.filter(ImageFilter.GaussianBlur(1 * SS)).point(lambda v: 255 if v > 127 else 0)
+        detail = blank()
+        details(ImageDraw.Draw(detail), px)
+        ring = int(2 * SS) * 2 + 1
+        edge = Image.composite(cut(fill, fill.filter(ImageFilter.MinFilter(ring))), Image.new("L", fill.size, 0), fill)
+        detail_edge = cut(detail, detail.filter(ImageFilter.MinFilter(int(1.5 * SS) * 2 + 1)))
+        edge = Image.composite(Image.new("L", fill.size, 255), edge, detail_edge)
+        save(fill, name + "-fill", *size)
+        save(edge, name + "-edge", *size)
+        save(detail, name + "-detail", *size)
+
+    def grips(d, px, centers, rx, ry, top):
+        for cx, cy in centers:
+            d.ellipse([px(cx - rx), px(cy - ry), px(cx + rx), px(cy + ry)], fill=255)
+        (a, b) = centers
+        d.polygon([(px(a[0]), px(top)), (px(b[0]), px(top)), (px(b[0] - rx * .6), px(a[1] + ry * .45)),
+                   (px(a[0] + rx * .6), px(a[1] + ry * .45))], fill=255)
+
+    # Xbox: a rounded top, round grips set wide.
+    def xbox(d, px):
+        d.rounded_rectangle([px(1.0), px(.1), px(11.4), px(3.5)], radius=px(1.5), fill=255)
+        grips(d, px, ((2.4, 4.05), (10.0, 4.05)), 2.2, 2.15, 2.6)
+    pad_set("pad-xbox", 12.4, 6.35, xbox, lambda d, px: None, (256, 128))
+
+    # DualSense: a flatter, wider top with the touchpad in it, long grips.
+    def ps(d, px):
+        d.rounded_rectangle([px(.8), px(.05), px(12.2), px(3.1)], radius=px(1.0), fill=255)
+        grips(d, px, ((2.2, 4.4), (10.8, 4.4)), 1.75, 2.05, 2.4)
+
+    def ps_details(d, px):
+        d.rounded_rectangle([px(4.9), px(.3), px(8.1), px(1.75)], radius=px(.3), fill=255)
+    pad_set("pad-ps", 13, 6.6, ps, ps_details, (256, 128))
+
+    # Switch Pro: squarer shoulders, shorter grips.
+    def switch(d, px):
+        d.rounded_rectangle([px(.7), px(.1), px(11.7), px(3.6)], radius=px(1.0), fill=255)
+        grips(d, px, ((2.4, 4.15), (10.0, 4.15)), 2.0, 2.0, 2.6)
+    pad_set("pad-switch", 12.4, 6.35, switch, lambda d, px: None, (256, 128))
+
+    # Steam Deck: a wide handheld, the screen in the middle, a trackpad under
+    # each thumb.
+    def deck(d, px):
+        d.rounded_rectangle([px(.08), px(.08), px(16.32), px(5.32)], radius=px(1.6), fill=255)
+
+    def deck_details(d, px):
+        d.rounded_rectangle([px(4.6), px(.7), px(11.8), px(4.7)], radius=px(.25), fill=255)
+        for x in (1.35, 13.15):
+            d.rounded_rectangle([px(x), px(2.45), px(x + 1.9), px(4.35)], radius=px(.35), fill=255)
+    pad_set("pad-deck", 16.4, 5.4, deck, deck_details, (256, 128))
+
+    # Steam Controller: two round trackpads up top, the stick low on the left.
+    def steam(d, px):
+        d.rounded_rectangle([px(.4), px(.08), px(12.6), px(3.3)], radius=px(1.6), fill=255)
+        grips(d, px, ((2.2, 4.4), (10.8, 4.4)), 2.0, 2.2, 2.6)
+        d.rounded_rectangle([px(3.6), px(2.5), px(9.4), px(5.6)], radius=px(1.0), fill=255)
+
+    def steam_details(d, px):
+        for cx in (3.2, 9.8):
+            d.ellipse([px(cx - 1.35), px(2.0 - 1.35), px(cx + 1.35), px(2.0 + 1.35)], fill=255)
+    pad_set("pad-steam", 13, 6.8, steam, steam_details, (256, 128))
+
     print("wrote", len(os.listdir(OUT)), "files to", OUT)
 
 

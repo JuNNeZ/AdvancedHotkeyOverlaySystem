@@ -4,13 +4,13 @@ Enhanced hotkey overlays for all action bar addons with intelligent UI detection
 
 ## What does this addon do?
 
-Advanced Hotkey Overlay System replaces the default hotkey text on your action buttons with fully customizable overlays. It currently has dedicated support for the default Blizzard interface, AzeriteUI, Bartender4, Dominos, and DiabolicUI, with conflict-aware handling for ElvUI.
+Advanced Hotkey Overlay System replaces the default hotkey text on your action buttons with fully customizable overlays. It currently has dedicated support for the default Blizzard interface, AzeriteUI, Bartender4, Dominos, DiabolicUI, LUI and Neuron, with conflict-aware handling for ElvUI.
 
 ## Key Features
 
 ### Universal Compatibility
 
-- Automatically detects Blizzard UI, AzeriteUI, Bartender4, Dominos, DiabolicUI, and ElvUI conflict state
+- Automatically detects Blizzard UI, AzeriteUI, Bartender4, Dominos, DiabolicUI, LUI, Neuron, and ElvUI conflict state
 - Focused support for the action bar addons the codebase explicitly targets
 - Intelligent button detection for new and custom action bars
 
@@ -86,11 +86,13 @@ Advanced Hotkey Overlay System replaces the default hotkey text on your action b
 - LibSharedMedia-3.0 (included)
 - LibDBIcon-1.0 (included)
 
-## Recent Updates (v2.5.24)
-- New options window in AHOS's own keycap art, with search, changed-from-default marks, themes and a live hotkey preview.
-- Abbreviations as a keyboard: click a key to change its abbreviation and see its binding, spell, bar and any addon conflicts.
-- ESC > Options > AddOns opens a landing page into the new window; /ahos classic keeps the previous one.
-- Fixed profile import, missing AceDBOptions-3.0, and fonts that did not load leaving hotkey text blank.
+## Recent Updates (v2.6.0)
+- When the hotkey text shows: fade it out of combat, show it only on mouseover per bar or while a modifier is held, or write a Lua condition of your own. A different colour and size in combat, and a flash or pulse when you press a button.
+- `/ahos edit`: drag the hotkey text into place on your own bars; Shift-drag moves one bar. Bars can also have a place of their own.
+- Presets and Tank, Healer and Damage templates, snapshots with `/ahos rollback`, `/ahos profile <name>`, and switching profile by specialization or talent loadout.
+- Shadow colour, glow and a background plate; mouse button icons; both keys on a button with two; Follow Masque Skin.
+- LUI and Neuron support; Russian, Ukrainian, Korean and Taiwanese keyboards, with their letters drawn in the game's own fonts on any client.
+- Sharp new switches and sliders, Keycap Gold as the default theme, and the classic Ace3 window removed.
 
 ---
 

@@ -72,7 +72,7 @@ local HELP_LINE = 13
 -- narrower than this and there is no room for a control beside it anyway.
 local MIN_TEXT_WIDTH = 120
 
-local TRACK_HEIGHT = 18
+local TRACK_HEIGHT = 14
 local SOUND_ON, SOUND_OFF, SOUND_CLICK = 856, 857, 852
 
 --------------------------------------------------------------------------
@@ -244,7 +244,7 @@ local CreateRow = function(parent, kind)
 	-- drawn. Called by the page on every layout, including after a resize.
 	control.Measure = function(self, width)
 		self.textWidth = max(MIN_TEXT_WIDTH,
-			(width or 0) - PAD_LEFT - PAD_RIGHT - CONTROL_WIDTH - LABEL_GAP)
+			(width or 0) - PAD_LEFT - PAD_RIGHT - (self.stacked and 0 or (CONTROL_WIDTH + LABEL_GAP)))
 
 		if (self.hasHelp) then
 			local lines = MeasureText(GetFont(11), self.helpText, self.textWidth)
@@ -258,6 +258,9 @@ local CreateRow = function(parent, kind)
 	end
 
 	control.GetHeight = function(self)
+		if (self.stacked) then
+			return 9 + 14 + (self.hasHelp and ((self.helpHeight or HELP_LINE) + 3) or 0) + 8 + 26 + 6
+		end
 		if (not self.hasHelp) then return ROW_HEIGHT end
 
 		-- Before a page has measured it, one line, which is what it always was.
@@ -293,6 +296,29 @@ local CreateRow = function(parent, kind)
 
 	control.SetCallback = function(self, fn)
 		self.callback = fn
+	end
+
+	-- The label and help across the top and the control under them, full width,
+	-- for a narrow place such as the key's card beside the keyboard.
+	control.SetStacked = function(self)
+		self.stacked = true
+		label:ClearAllPoints()
+		label:SetPoint("TOPLEFT", frame, "TOPLEFT", PAD_LEFT, -9)
+		label:SetPoint("RIGHT", frame, "RIGHT", -PAD_RIGHT - 22, 0)
+		help:ClearAllPoints()
+		help:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -3)
+		help:SetPoint("RIGHT", frame, "RIGHT", -PAD_RIGHT, 0)
+		area:ClearAllPoints()
+		area:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", PAD_LEFT, 6)
+		area:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PAD_RIGHT, 6)
+		area:SetHeight(26)
+		revert:ClearAllPoints()
+		revert:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -PAD_RIGHT, -6)
+		textArea:ClearAllPoints()
+		textArea:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+		textArea:SetPoint("BOTTOMRIGHT", area, "TOPRIGHT", 0, 2)
+		if (self.OnStacked) then self:OnStacked() end
+		self.frame:SetHeight(self:GetHeight())
 	end
 
 	control.SetOnRevert = function(self, fn)
@@ -451,70 +477,104 @@ end
 --------------------------------------------------------------------------
 -- Toggle
 --------------------------------------------------------------------------
--- A switch, per the artifact: the cast bar in miniature. A three-sliced
--- cast_back trough, a three-sliced cast_bar fill that appears when on, and
--- point_diamond as the knob sliding between the two ends.
+-- A switch: a pill track and a round knob, two layers, every size a whole
+-- physical pixel. Off, the track is a sunk inset with a one-pixel edge and the
+-- knob rests muted at the left; on, the track fills with the accent and the knob
+-- sits bright at the right, a hard pixel of shadow under it.
+--
+-- It used to be five layers cut from 64-pixel circle art at sizes like 13.64 px
+-- (a knob, a ring, a blurred shadow 1.5 px down, a trough and a fill pill), which
+-- at a UI scale of 0.7 put every edge between pixels: a grey halo round a soft
+-- knob in an off-centre fill.
+local SWITCH_W, SWITCH_H, SWITCH_KNOB = 36, 18, 14
+local SLIDE_TIME = .12
+
 Controls.CreateToggle = function(parent)
 	local control = CreateRow(parent, "toggle")
-
-	-- The artifact's switch at its own size: 54 by 24, a knob a quarter
-	-- larger than the track, and its centre 6px in from either end.
-	local SWITCH_W, SWITCH_H = 54, 24
-	local KNOB_INSET = 6
-	local fillH, fillTop, fillBottom = Kit.FillMetrics(SWITCH_H)
+	local Look = Kit.Look
 
 	local box = CreateFrame("Button", nil, control.area)
 	box:SetSize(SWITCH_W, SWITCH_H)
 	box:SetPoint("RIGHT", control.area, "RIGHT", 0, 0)
 	control.box = box
 
-	local trough = Kit.CreateSliceBar(box, "BACKGROUND", Kit.Trough, SWITCH_H)
-	control.trough = trough
+	-- the Backlit theme's glow under a switch that is on
+	control.glow = Look and Look.Underglow(box)
 
-	-- Between the trough's chamfered caps, lapping a pixel over each.
-	local fillInset = Kit.FillInset(SWITCH_H)
+	local track = Look.Pill(box, "ARTWORK")
+	control.track = track
 
-	local fillHost = CreateFrame("Frame", nil, box)
-	fillHost:SetPoint("TOPLEFT", box, "TOPLEFT", fillInset, -fillTop)
-	fillHost:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -fillInset, fillBottom)
-	local fill = Kit.CreateSliceBar(fillHost, "ARTWORK", Kit.Fill, fillH)
-	control.fill = fill
-
-	-- The knob needs a frame of its own, above the fill's. A child frame
-	-- draws above its parent's regions whatever draw layer they are on, so a
-	-- knob put straight on the box sat behind the fill below it.
+	-- The knob on a frame of its own, so it always draws above the track.
 	local knobHost = CreateFrame("Frame", nil, box)
 	knobHost:SetAllPoints(box)
-	knobHost:SetFrameLevel(fillHost:GetFrameLevel() + 2)
+	knobHost:SetFrameLevel(box:GetFrameLevel() + 2)
 	control.knobHost = knobHost
-
-	local knob = knobHost:CreateTexture(nil, "OVERLAY")
-	knob:SetTexture(GetMedia("point_diamond"))
-	local knobDraw = Kit.DrawSize(SWITCH_H * 1.25, "point_diamond")
-	knob:SetSize(knobDraw, knobDraw)
+	local knob = Look.Knob(knobHost)
 	control.knob = knob
 
-	local gem = knobHost:CreateTexture(nil, "OVERLAY", nil, 2)
-	gem:SetTexture(GetMedia("point_crystal"))
-	gem:SetSize(8, 8)
-	gem:SetPoint("CENTER", knob, "CENTER", 0, 0)
-	gem:Hide()
-	control.gemOn = gem
-
-	local Reposition = function(self)
-		self.knob:ClearAllPoints()
-		if (self.value) then
-			self.knob:SetPoint("CENTER", self.box, "RIGHT", -KNOB_INSET, 0)
-		else
-			self.knob:SetPoint("CENTER", self.box, "LEFT", KNOB_INSET, 0)
-		end
-		self.fill:SetShown(self.value and true or false)
-		self.gemOn:SetShown(self.value and true or false)
+	-- Where the knob's left edge sits, off and on, for the current size.
+	local function Ends(self)
+		local gap = (self.h - self.knobSize) / 2
+		return gap, self.w - gap - self.knobSize
 	end
 
-	control.SetValue = function(self, value)
-		self.value = value and true or false
-		Reposition(self)
+	local function PlaceKnob(self, x)
+		knob.texture:ClearAllPoints()
+		knob.texture:SetPoint("LEFT", box, "LEFT", x, 0)
+	end
+
+	-- Sizes in whole physical pixels for the scale the window is drawn at now;
+	-- run again whenever it is restyled, so a scale change is caught too.
+	control.Layout = function(self)
+		local w, px = Look.Snap(box, SWITCH_W, true)
+		local h = Look.Snap(box, SWITCH_H, true)
+		local k = Look.Snap(box, SWITCH_KNOB, true)
+		self.w, self.h, self.knobSize, self.px = w, h, k, px
+		box:SetSize(w, h)
+		track:Layout(h, px)
+		knob:Layout(k, px)
+		if (not self.sliding) then
+			local off, on = Ends(self)
+			PlaceKnob(self, self.value and on or off)
+		end
+	end
+
+	-- The knob slides over a short moment when you click; set from outside, it
+	-- is simply there.
+	local function Slide(self)
+		local off, on = Ends(self)
+		local from, to = self.value and off or on, self.value and on or off
+		self.sliding = 0
+		knobHost:SetScript("OnUpdate", function(_, elapsed)
+			self.sliding = self.sliding + (elapsed or 0)
+			local t = min(1, self.sliding / SLIDE_TIME)
+			t = 1 - (1 - t) * (1 - t)
+			-- whole pixels on the way too, or the knob blurs while it moves
+			local x = from + (to - from) * t
+			PlaceKnob(self, floor(x / self.px + .5) * self.px)
+			if (t >= 1) then
+				self.sliding = nil
+				knobHost:SetScript("OnUpdate", nil)
+			end
+		end)
+	end
+
+	control.SetValue = function(self, value, animate)
+		value = value and true or false
+		-- The page redraws right after a click and sets the same value again: that
+		-- must not cut the slide short.
+		if (not animate and self.sliding and value == self.value) then
+			self:Restyle()
+			return
+		end
+		self.value = value
+		if (animate and self.w) then
+			Slide(self)
+		else
+			self.sliding = nil
+			knobHost:SetScript("OnUpdate", nil)
+		end
+		self:Layout()
 		self:Restyle()
 	end
 
@@ -531,25 +591,40 @@ Controls.CreateToggle = function(parent)
 	local baseRestyle = control.Restyle
 	control.Restyle = function(self)
 		baseRestyle(self)
+		self:Layout()
 
-		self.trough:SetColor(Kit.TrackColor)
-
-		local fillColor = self.disabled and Kit.TextDisabled or Kit.TextSelected
-		self.fill:SetVertexColor(fillColor[1], fillColor[2], fillColor[3], Kit.FillAlpha)
-
-		self.knob:SetVertexColor(unpack(self.disabled and Kit.TextDisabled or Kit.TextHighlight))
-		self.gemOn:SetVertexColor(unpack(self.disabled and Kit.TextDisabled or Kit.TextSelected))
+		local on = self.value
+		if (on) then
+			local accent = Kit.TextSelected
+			local lift = (self.hovered and not self.disabled) and 1.08 or 1
+			track:SetColors({ min(1, accent[1] * lift), min(1, accent[2] * lift), min(1, accent[3] * lift), 1 })
+		else
+			local edge = (self.hovered and not self.disabled) and Kit.BorderHover or Kit.BorderIdle
+			track:SetColors(Kit.InsetColor, edge)
+		end
+		knob:SetColor(on and Kit.TextHighlight or Kit.TextDisabled)
+		knob:SetLip(on)
+		box:SetAlpha(self.disabled and .45 or 1)
+		if (Look) then Look.SetGlow(self.glow, on and not self.disabled) end
 	end
 
 	control.press = box
 	box:SetScript("OnClick", function()
 		if (control.disabled) then return end
-		control:SetValue(not control.value)
+		control:SetValue(not control.value, true)
 		PlaySound(control.value and SOUND_ON or SOUND_OFF)
 		control:Fire(control.value)
 	end)
-	box:SetScript("OnEnter", function() control.hover:Show() end)
-	box:SetScript("OnLeave", function() control.hover:Hide() end)
+	box:SetScript("OnEnter", function()
+		control.hover:Show()
+		control.hovered = true
+		control:Restyle()
+	end)
+	box:SetScript("OnLeave", function()
+		control.hover:Hide()
+		control.hovered = nil
+		control:Restyle()
+	end)
 
 	control:SetValue(false)
 	return control
@@ -558,11 +633,10 @@ end
 --------------------------------------------------------------------------
 -- Slider
 --------------------------------------------------------------------------
--- The trough is three-sliced, and so is the fill. A StatusBar still drives the
--- geometry, because the engine keeps its texture sized correctly and never
--- hands back a zero width mid-refresh, but its own texture is invisible: the
--- visible fill is three textures anchored to it, so the chamfered ends keep
--- their shape at every value instead of stretching with the bar.
+-- A rail and a knob drawn like the switch (Look.Pill, Look.Knob). A StatusBar still
+-- drives the geometry, because the engine keeps its texture sized correctly and
+-- never hands back a zero width mid-refresh, but its own texture is invisible: the
+-- fill and the knob are anchored to it.
 Controls.CreateSlider = function(parent)
 	local control = CreateRow(parent, "range")
 
@@ -584,20 +658,28 @@ Controls.CreateSlider = function(parent)
 	track:SetPoint("CENTER", control.area, "CENTER", 0, 0)
 	control.track = track
 
-	local trough = Kit.CreateSliceBar(track, "BACKGROUND", Kit.Trough, TRACK_HEIGHT)
+	-- The rail and the knob are the switch's: a pill with a one-pixel edge, the
+	-- part up to the value filled with the accent, and a round knob with a hard
+	-- pixel of shadow, every size a whole physical pixel (Look.Snap).
+	local Look = Kit.Look
+	local RAIL_H, KNOB = 6, 14
+	local knobHalf = KNOB / 2
+
+	local rail = CreateFrame("Frame", nil, track)
+	rail:SetPoint("LEFT", track, "LEFT", 0, 0)
+	rail:SetPoint("RIGHT", track, "RIGHT", 0, 0)
+	rail:SetHeight(RAIL_H)
+	control.rail = rail
+	local trough = Look.Pill(rail, "BACKGROUND")
 	control.trough = trough
 
-	-- The fill lives between the trough's chamfered caps, lapping a pixel over
-	-- each. Spanning the whole track instead put the fill's chamfer on top of
-	-- the trough's at full value, which is what read as clipping.
-	local fillH, fillTop, fillBottom = Kit.FillMetrics(TRACK_HEIGHT)
-	local fillInset = Kit.FillInset(TRACK_HEIGHT)
-
 	-- A StatusBar is kept purely to size the fill: the engine keeps its texture
-	-- correct at every value and never hands back a zero width mid-refresh.
+	-- correct at every value and never hands back a zero width mid-refresh. It
+	-- spans the knob's travel, half a knob in from each end, so the knob never
+	-- hangs past the rail.
 	local driverHost = CreateFrame("StatusBar", nil, track)
-	driverHost:SetPoint("TOPLEFT", track, "TOPLEFT", fillInset, -fillTop)
-	driverHost:SetPoint("BOTTOMRIGHT", track, "BOTTOMRIGHT", -fillInset, fillBottom)
+	driverHost:SetPoint("TOPLEFT", track, "TOPLEFT", knobHalf, 0)
+	driverHost:SetPoint("BOTTOMRIGHT", track, "BOTTOMRIGHT", -knobHalf, 0)
 	driverHost:SetStatusBarTexture(GetMedia("plain"))
 	driverHost:SetMinMaxValues(0, 100)
 	driverHost:SetValue(0)
@@ -606,27 +688,36 @@ Controls.CreateSlider = function(parent)
 	local driver = driverHost:GetStatusBarTexture()
 	driver:SetAlpha(0)
 
-	local fill = Kit.CreateSliceBar(driverHost, "ARTWORK", Kit.Fill, fillH, driver)
+	-- the filled part: from the rail's left end to the knob's centre
+	local fillFrame = CreateFrame("Frame", nil, rail)
+	fillFrame:SetPoint("TOPLEFT", rail, "TOPLEFT", 0, 0)
+	fillFrame:SetPoint("BOTTOM", rail, "BOTTOM", 0, 0)
+	fillFrame:SetPoint("RIGHT", driver, "RIGHT", 0, 0)
+	local fill = Look.Pill(fillFrame, "ARTWORK")
 	control.fill = fill
 
-	-- The knob has to sit on a frame of its own, above the fill's. A child frame
-	-- draws above its parent's regions whatever draw layer they are on, so a knob
-	-- put straight on the track disappeared behind the fill that lives on the
-	-- status bar below it.
+	-- The knob on a frame of its own, above the fill.
 	local knobHost = CreateFrame("Frame", nil, track)
 	knobHost:SetAllPoints(track)
 	knobHost:SetFrameLevel(driverHost:GetFrameLevel() + 2)
 	control.knobHost = knobHost
 
-	-- Anchored to the leading edge of the fill, which is what the artifact does
-	-- with `left: calc(var(--p) * 100%)`. At the minimum the fill has no width,
-	-- so the knob sits exactly where the fill begins.
-	local knob = knobHost:CreateTexture(nil, "OVERLAY")
-	knob:SetTexture(GetMedia("point_diamond"))
-	local knobDraw = Kit.DrawSize(TRACK_HEIGHT * 1.35, "point_diamond")
-	knob:SetSize(knobDraw, knobDraw)
-	knob:SetPoint("CENTER", driver, "RIGHT", 0, 0)
+	-- Centred on the fill's leading edge: at the minimum the fill has no width,
+	-- so the knob sits where the travel begins.
+	local knob = Look.Knob(knobHost)
+	knob.texture:SetPoint("CENTER", driver, "RIGHT", 0, 0)
 	control.knob = knob
+
+	control.Layout = function(self)
+		local h, px = Look.Snap(rail, RAIL_H, true)
+		local k = Look.Snap(rail, KNOB, true)
+		rail:SetHeight(h)
+		trough:Layout(h, px)
+		fill:Layout(h, px)
+		knob:Layout(k, px)
+		knob.texture:ClearAllPoints()
+		knob.texture:SetPoint("CENTER", driver, "RIGHT", 0, 0)
+	end
 
 	-- Input only. There is deliberately no WoW Slider here any more.
 	--
@@ -641,10 +732,10 @@ Controls.CreateSlider = function(parent)
 	--
 	-- The value is ours now, start to finish.
 	local input = CreateFrame("Frame", nil, track)
-	input:SetPoint("TOPLEFT", track, "TOPLEFT", fillInset, 0)
-	input:SetPoint("BOTTOMRIGHT", track, "BOTTOMRIGHT", -fillInset, 0)
+	input:SetPoint("TOPLEFT", track, "TOPLEFT", knobHalf, 0)
+	input:SetPoint("BOTTOMRIGHT", track, "BOTTOMRIGHT", -knobHalf, 0)
 	input:SetFrameLevel(knobHost:GetFrameLevel() + 1)
-	input:SetHitRectInsets(-fillInset, -fillInset, -8, -8)
+	input:SetHitRectInsets(-knobHalf, -knobHalf, -8, -8)
 	input:EnableMouse(true)
 	input:EnableMouseWheel(true)
 	control.input = input
@@ -727,12 +818,11 @@ Controls.CreateSlider = function(parent)
 	control.Restyle = function(self)
 		baseRestyle(self)
 
-		self.trough:SetColor(Kit.TrackColor)
-
-		local fillColor = self.disabled and Kit.TextDisabled or Kit.TextSelected
-		self.fill:SetVertexColor(fillColor[1], fillColor[2], fillColor[3], Kit.FillAlpha)
-
-		self.knob:SetVertexColor(unpack(self.disabled and Kit.TextDisabled or Kit.TextHighlight))
+		self:Layout()
+		self.trough:SetColors(Kit.InsetColor, Kit.BorderIdle)
+		self.fill:SetColors(self.disabled and Kit.TextDisabled or Kit.TextSelected)
+		self.knob:SetColor(self.disabled and Kit.TextDisabled or Kit.TextHighlight)
+		self.knob:SetLip(not self.disabled)
 		self.valuebox:SetTextColor(unpack(self.disabled and Kit.TextDisabled or Kit.TextHighlight))
 	end
 
@@ -824,6 +914,27 @@ Controls.IsDropdownOpen = function()
 end
 
 local ROW_H, MAX_ROWS = 20, 16
+
+-- A list of fonts shows each name in its own font. `rowFont(key)` gives the file;
+-- anything that gives none, or a file that will not load, keeps the window's font.
+local ApplyRowFont = function(fontstring, rowFont, key, size)
+	local path = rowFont and key ~= nil and rowFont(key)
+	local config = ns.addon and ns.addon.Config
+	local loads = config and config.FontLoads
+	if (type(path) == "string" and (not loads or loads(path))
+		and fontstring:SetFont(path, size + 1, "") ~= false) then
+		fontstring.ownFont = true
+		return
+	end
+	if (fontstring.ownFont) then
+		fontstring.ownFont = nil
+		-- SetFontObject alone does not take back a font set with SetFont.
+		local object = GetFont(size)
+		fontstring:SetFontObject(object)
+		local file, height, flags = object:GetFont()
+		if (file) then fontstring:SetFont(file, height, flags or "") end
+	end
+end
 
 local CreatePullout = function()
 	local frame = CreateFrame("Frame", nil, UIParent, ns.BackdropTemplate)
@@ -945,6 +1056,7 @@ local OpenPullout = function(control)
 		local row = GetPulloutRow(i)
 		row.key = key
 		row.text:SetText(tostring(list[key]))
+		ApplyRowFont(row.text, control.rowFont, key, 12)
 		row.selected = (key == control.value)
 		row.check:SetShown(row.selected)
 		row.check:SetVertexColor(unpack(accent))
@@ -958,7 +1070,7 @@ local OpenPullout = function(control)
 	end
 
 	local shown = min(count, MAX_ROWS)
-	local width = max(control.box:GetWidth(), 150)
+	local width = max(control.listWidth or control.box:GetWidth(), 150)
 
 	pullout.child:SetSize(width - 12, max(1, count * ROW_H))
 	pullout.scroll:SetVerticalScroll(0)
@@ -1023,6 +1135,7 @@ Controls.CreateDropdown = function(parent)
 		-- looking up nil and relying on that being harmless.
 		local shown = (value ~= nil) and self.list and self.list[value] or nil
 		self.text:SetText(shown ~= nil and tostring(shown) or "")
+		ApplyRowFont(self.text, self.rowFont, value, 12)
 		if (pulloutOwner == self and pullout and pullout:IsShown()) then
 			OpenPullout(self)
 		end
@@ -1193,6 +1306,136 @@ Controls.CreateSegmented = function(parent)
 end
 
 --------------------------------------------------------------------------
+-- Anchor grid
+--------------------------------------------------------------------------
+-- For an anchor point: nine cells laid out where they sit on a button, so the
+-- choice is a place to click rather than a word to read. The option asks for it
+-- through PanelMeta (anchorGrid).
+local ANCHORS = {
+	"TOPLEFT", "TOP", "TOPRIGHT",
+	"LEFT", "CENTER", "RIGHT",
+	"BOTTOMLEFT", "BOTTOM", "BOTTOMRIGHT",
+}
+local CELL_W, CELL_H, CELL_GAP, GRID_PAD = 22, 14, 4, 5
+local GRID_HEIGHT = 3 * CELL_H + 2 * CELL_GAP + 2 * GRID_PAD
+local ANCHOR_ROW_HEIGHT = GRID_HEIGHT + 12
+
+Controls.Anchors = ANCHORS
+
+Controls.CreateAnchorGrid = function(parent)
+	local control = CreateRow(parent, "select")
+	control.anchorGrid = true
+
+	-- The button the text sits on.
+	local box = CreateFrame("Frame", nil, control.area)
+	box:SetSize(3 * CELL_W + 2 * CELL_GAP + 2 * GRID_PAD, GRID_HEIGHT)
+	box:SetPoint("RIGHT", control.area, "RIGHT", 0, 0)
+	control.box = box
+	control.backdrop = Inset(box)
+
+	local text = control.area:CreateFontString(nil, "OVERLAY")
+	text:SetFontObject(GetFont(12))
+	text:SetPoint("RIGHT", box, "LEFT", -10, 0)
+	text:SetPoint("LEFT", control.area, "LEFT", 0, 0)
+	text:SetJustifyH("RIGHT")
+	text:SetWordWrap(false)
+	control.text = text
+
+	control.cells = {}
+	for i, key in ipairs(ANCHORS) do
+		local column, line = (i - 1) % 3, floor((i - 1) / 3)
+		local cell = CreateFrame("Button", nil, box)
+		cell:SetSize(CELL_W, CELL_H)
+		cell:SetPoint("TOPLEFT", box, "TOPLEFT", GRID_PAD + column * (CELL_W + CELL_GAP), -(GRID_PAD + line * (CELL_H + CELL_GAP)))
+		cell.key = key
+		cell.backdrop = Kit.CreateBackdrop(cell, Kit.InsetBackdrop, 1)
+
+		cell:SetScript("OnClick", function(self)
+			if (control.disabled or not control.list or control.list[self.key] == nil) then return end
+			PlaySound(SOUND_CLICK)
+			control:SetValue(self.key)
+			control:Fire(self.key)
+		end)
+		cell:SetScript("OnEnter", function(self)
+			control.hover:Show()
+			self.hovered = true
+			control:Restyle()
+			local name = control.list and control.list[self.key]
+			if (name ~= nil) then
+				GameTooltip:SetOwner(self, "ANCHOR_TOP")
+				GameTooltip:AddLine(tostring(name), unpack(Kit.TextHighlight))
+				GameTooltip:Show()
+			end
+		end)
+		cell:SetScript("OnLeave", function(self)
+			control.hover:Hide()
+			self.hovered = nil
+			control:Restyle()
+			GameTooltip:Hide()
+		end)
+		control.cells[i] = cell
+	end
+
+	local baseHeight = control.GetHeight
+	control.GetHeight = function(self)
+		return max(baseHeight(self), ANCHOR_ROW_HEIGHT)
+	end
+
+	control.SetList = function(self, list)
+		self.list = list or {}
+		self.order = {}
+		for _, key in ipairs(ANCHORS) do
+			if (self.list[key] ~= nil) then self.order[#self.order + 1] = key end
+		end
+		self.frame:SetHeight(self:GetHeight())
+		self:SetValue(self.value)
+	end
+
+	control.SetValue = function(self, value)
+		self.value = value
+		local shown = (value ~= nil) and self.list and self.list[value] or nil
+		self.text:SetText(shown ~= nil and tostring(shown) or "")
+		self:Restyle()
+	end
+
+	control.GetValue = function(self)
+		return self.value
+	end
+
+	control.SetDisabled = function(self, disabled)
+		self.disabled = disabled and true or false
+		self:Restyle()
+	end
+
+	local baseRestyle = control.Restyle
+	control.Restyle = function(self)
+		baseRestyle(self)
+
+		self.backdrop:SetBackdropColor(unpack(Kit.InsetColor))
+		Kit.SetBorderColor(self.backdrop, Kit.BorderIdle)
+		SetTextColor(self.text, self.disabled and Kit.TextDisabled or Kit.TextHighlight)
+
+		local accent = Kit.TextSelected
+		for _, cell in ipairs(self.cells) do
+			local available = self.list and self.list[cell.key] ~= nil
+			local selected = available and cell.key == self.value
+			cell:SetShown(available and true or false)
+			if (selected) then
+				local a = self.disabled and .35 or 1
+				cell.backdrop:SetBackdropColor(accent[1], accent[2], accent[3], a)
+				Kit.SetBorderColor(cell.backdrop, Kit.BorderFocus)
+			else
+				cell.backdrop:SetBackdropColor(unpack(Kit.BackdropColor))
+				Kit.SetBorderColor(cell.backdrop, (cell.hovered and not self.disabled) and Kit.BorderHover or Kit.BorderIdle)
+			end
+		end
+	end
+
+	control:SetDisabled(false)
+	return control
+end
+
+--------------------------------------------------------------------------
 -- Text input
 --------------------------------------------------------------------------
 Controls.CreateInput = function(parent)
@@ -1217,6 +1460,14 @@ Controls.CreateInput = function(parent)
 	accept:SetPoint("RIGHT", box, "RIGHT", -5, 0)
 	accept:Hide()
 	control.accept = accept
+
+	-- stacked, the box takes the whole width under the label
+	control.OnStacked = function(self)
+		box:ClearAllPoints()
+		box:SetPoint("LEFT", self.area, "LEFT", 0, 0)
+		box:SetPoint("RIGHT", self.area, "RIGHT", 0, 0)
+		box:SetPoint("CENTER", self.area, "CENTER", 0, 0)
+	end
 
 	local acceptIcon = accept:CreateTexture(nil, "OVERLAY")
 	acceptIcon:SetAllPoints()
@@ -1287,7 +1538,7 @@ Controls.CreateButton = function(parent)
 	local control = CreateRow(parent, "execute")
 
 	local box = CreateFrame("Button", nil, control.area)
-	box:SetHeight(26)
+	box:SetHeight(24)
 	box:SetPoint("RIGHT", control.area, "RIGHT", 0, 0)
 	box:SetWidth(CONTROL_WIDTH)
 	box:SetPoint("CENTER", control.area, "CENTER", 0, 0)
@@ -1345,6 +1596,62 @@ Controls.CreateButton = function(parent)
 
 	control:SetDisabled(false)
 	return control
+end
+
+-- A keycap button on its own, for cards and windows that are not rows of a page.
+-- Sized by its text unless given a width.
+Controls.CreateBareButton = function(parent, label, onClick, width)
+	local button = CreateFrame("Button", nil, parent)
+	button:SetHeight(22)
+	button.backdrop = Kit.CreateBackdrop(button, Kit.ButtonBackdrop)
+
+	local text = button:CreateFontString(nil, "OVERLAY")
+	text:SetFontObject(GetFont(12))
+	text:SetPoint("CENTER")
+	text:SetWordWrap(false)
+	button.text = text
+
+	function button:SetLabel(value)
+		self.text:SetText(value or "")
+		local extra = self.chevron and self.chevron:IsShown() and 14 or 0
+		self.text:ClearAllPoints()
+		self.text:SetPoint("CENTER", -extra / 2, 0)
+		if (not width) then self:SetWidth(max(64, self.text:GetStringWidth() + 22 + extra)) end
+	end
+	-- A chevron after the label, for a button that opens a list.
+	function button:SetChevron(shown)
+		if (shown and not self.chevron) then
+			local chevron = self:CreateTexture(nil, "OVERLAY")
+			chevron:SetSize(11, 11)
+			chevron:SetPoint("RIGHT", self, "RIGHT", -8, 0)
+			Kit.SetGlyph(chevron, "chevron")
+			self.chevron = chevron
+		end
+		if (self.chevron) then self.chevron:SetShown(shown and true or false) end
+		self:SetLabel(self.text:GetText())
+	end
+	function button:Restyle()
+		self.backdrop:SetBackdropColor(unpack(Kit.BackdropColor))
+		Kit.SetBorderColor(self.backdrop, self.hovered and self:IsEnabled() and Kit.BorderHover or Kit.BorderIdle)
+		SetTextColor(self.text, not self:IsEnabled() and Kit.TextDisabled
+			or (self.hovered and Kit.TextHighlight or Kit.TextNormal))
+		if (self.chevron) then self.chevron:SetVertexColor(unpack(Kit.TextSelected)) end
+	end
+	function button:SetDisabled(disabled)
+		if (disabled) then self:Disable() else self:Enable() end
+		self:Restyle()
+	end
+
+	if (width) then button:SetWidth(width) end
+	button:SetLabel(label)
+	button:SetScript("OnClick", function(self, mouse)
+		PlaySound(SOUND_CLICK)
+		if (onClick) then onClick(self, mouse) end
+	end)
+	button:SetScript("OnEnter", function(self) self.hovered = true; self:Restyle() end)
+	button:SetScript("OnLeave", function(self) self.hovered = nil; self:Restyle() end)
+	button:Restyle()
+	return button
 end
 
 --------------------------------------------------------------------------
@@ -1451,11 +1758,19 @@ Controls.CreateMultiline = function(parent)
 	scroll:SetScrollChild(edit)
 	control.edit = edit
 
-	scroll:SetScript("OnSizeChanged", function(self, width, height)
-		if (width and width > 0) then
-			edit:SetWidth(width)
-		end
-	end)
+	-- A scroll child has no anchors, only the size it is given. Given only a width
+	-- it stays one pixel tall, and an edit box draws its text and caret inside its
+	-- own rect: you could click and type and see nothing. So it fills the field,
+	-- and grows with the text so the field can scroll.
+	local function FitEdit()
+		local width, height = scroll:GetWidth() or 0, scroll:GetHeight() or 0
+		if (width > 0) then edit:SetWidth(width) end
+		local lines = (edit.GetNumLines and edit:GetNumLines()) or 1
+		edit:SetHeight(max(height, (tonumber(lines) or 1) * LINE + 4, LINE))
+	end
+	control.FitEdit = FitEdit
+	scroll:SetScript("OnSizeChanged", FitEdit)
+	box:SetScript("OnShow", FitEdit)
 
 	scroll:EnableMouseWheel(true)
 	scroll:SetScript("OnMouseWheel", function(self, delta)
@@ -1467,7 +1782,10 @@ Controls.CreateMultiline = function(parent)
 	-- Clicking anywhere in the field takes focus, not just the text itself.
 	box:EnableMouse(true)
 	box:SetScript("OnMouseDown", function()
-		if (not control.disabled) then edit:SetFocus() end
+		if (not control.disabled) then
+			FitEdit()
+			edit:SetFocus()
+		end
 	end)
 
 	local accept = CreateFrame("Button", nil, box)
@@ -1548,9 +1866,18 @@ Controls.CreateMultiline = function(parent)
 		accept:Hide()
 	end)
 	edit:SetScript("OnTextChanged", function(self, userInput)
+		FitEdit()
 		if (userInput) then
 			accept:SetShown(self:GetText() ~= (control.committed or ""))
 		end
+	end)
+	-- the caret stays in view as the text grows past the field
+	edit:SetScript("OnCursorChanged", function(self, x, y, w, h)
+		local top = -(tonumber(y) or 0)
+		local bottom = top + (tonumber(h) or LINE)
+		local view, shown = scroll:GetVerticalScroll(), scroll:GetHeight() or 0
+		if (top < view) then scroll:SetVerticalScroll(top)
+		elseif (shown > 0 and bottom > view + shown) then scroll:SetVerticalScroll(bottom - shown) end
 	end)
 	edit:SetScript("OnEditFocusGained", function() control:Restyle() end)
 	edit:SetScript("OnEditFocusLost", function() control:Restyle() end)

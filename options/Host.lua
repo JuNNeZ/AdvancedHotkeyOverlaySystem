@@ -24,9 +24,6 @@ ns.Core = {
 	GetOptions = function()
 		return addon.Options and addon.Options.GetPanelOptions and addon.Options:GetPanelOptions()
 	end,
-	OpenClassic = function()
-		if addon.OpenClassicOptions then addon:OpenClassicOptions() end
-	end,
 	IsEnabled = function()
 		return addon.db and addon.db.profile and addon.db.profile.enabled and true or false
 	end,

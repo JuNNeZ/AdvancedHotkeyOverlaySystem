@@ -59,13 +59,7 @@ local function Outline(text)
 end
 
 local function FontPath(name)
-	local path = addon.Config and addon.Config.GetFontPath and addon.Config:GetFontPath(name) or "Fonts\\FRIZQT__.TTF"
-	local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
-	if LSM and name and name ~= "Default" then
-		local fetched = LSM:Fetch("font", name, true)
-		if fetched then path = fetched end
-	end
-	return path
+	return addon.Config and addon.Config.GetFontPath and addon.Config:GetFontPath(name) or "Fonts\\FRIZQT__.TTF"
 end
 
 local control
@@ -164,7 +158,8 @@ local function Build(parent)
 			local loads = addon.Config and addon.Config.FontLoads
 			if loads and not loads(path) then path = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF" end
 			slot.text:SetFont(path, size, outline)
-			slot.text:SetTextColor(color[1] or 1, color[2] or 1, color[3] or 1, color[4] or 1)
+			local tint = addon.Keybinds and addon.Keybinds.GetModifierColor and addon.Keybinds:GetModifierColor(binding) or color
+			slot.text:SetTextColor(tint[1] or 1, tint[2] or 1, tint[3] or 1, tint[4] or 1)
 			if text.shadowEnabled and type(text.shadowOffset) == "table" then
 				slot.text:SetShadowColor(0, 0, 0, 1)
 				slot.text:SetShadowOffset(unpack(text.shadowOffset))
@@ -185,6 +180,20 @@ local function Build(parent)
 
 	return control
 end
+
+-- Renderer calls Kit.Preview:Request for every change made in the window. A change
+-- to how the hotkey text looks also lights up the overlays on your real bars.
+local FLASHED = { display = true, text = true, abbreviations = true }
+Kit.Preview = {
+	Request = function(_, options, path)
+		if not (type(path) == "table" and FLASHED[path[1]]) then return false end
+		if not (addon.Display and addon.Display.FlashOverlays) then return false end
+		local settings = Kit.Panel and Kit.Panel.Settings and Kit.Panel.Settings()
+		if settings and settings.flashBars == false then return false end
+		addon.Display:FlashOverlays(Kit.TextSelected)
+		return true
+	end,
+}
 
 function Preview:GetControl(parent)
 	return control or Build(parent)

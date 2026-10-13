@@ -5,8 +5,8 @@
 -- after it): a header with the addon's name, one search box across the window, a
 -- rail of pages down the left, and the page itself filling the rest under a heading.
 -- AceConfigDialog is not involved: the option table is read by Config.lua and drawn
--- by Renderer.lua, so the classic window (/ahos classic) and this one always show the
--- same settings. Everything is drawn with AHOS's own art (Look.lua).
+-- by Renderer.lua, so every setting the addon defines shows here. Everything is
+-- drawn with AHOS's own art (Look.lua).
 local Addon, ns = ...
 
 local Kit = ns.OptionsKit
@@ -25,7 +25,7 @@ Kit.Panel = Panel
 
 local APP = Core.appName
 
--- Options the addon keeps out of this window (drawn another way, or classic-only).
+-- Options the addon keeps out of this window (drawn another way).
 local function HiddenHere(option)
   local meta = ns.PanelMeta and ns.PanelMeta[option]
   return meta and meta.hidden
@@ -49,7 +49,7 @@ local frame, page, rail, contentScroll, pageContent
 local resultsScroll, resultsContent
 local railRows, resultRows = {}, {}
 
-local PANEL_DEFAULTS = { theme = "ahos", opacity = 1, scale = 1, classic = false }
+local PANEL_DEFAULTS = { theme = "gold", opacity = 1, scale = 1, flashBars = true }
 
 local function Settings()
   local db = Core.GetDB()
@@ -104,22 +104,16 @@ local windowOptions = {
       get = function() return Settings().scale end,
       set = function(_, value) Settings().scale = value; Panel:ApplyScale() end,
     },
+    flashBars = {
+      type = "toggle", name = L["Light Up My Bars"], order = 4.5,
+      desc = L["While you change how the hotkey text looks, the overlays on your own action bars light up for a moment, so you see the change where it matters."],
+      get = function() return Settings().flashBars end,
+      set = function(_, value) Settings().flashBars = value and true or false end,
+    },
     resetPosition = {
       type = "execute", name = L["Reset Position"], order = 5,
       desc = L["Put the window back in the middle of the screen at its first size."],
       func = function() Panel:ResetGeometry() end,
-    },
-    classicHead = { type = "header", name = L["Classic Window"], order = 10 },
-    classic = {
-      type = "toggle", name = L["Open the Classic Window"], order = 11,
-      desc = L["/ahos and the minimap button open the previous Ace3 window instead of this one. /ahos classic always opens it."],
-      get = function() return Settings().classic end,
-      set = function(_, value) Settings().classic = value and true or false end,
-    },
-    openClassic = {
-      type = "execute", name = L["Open Classic Window"], order = 12,
-      desc = L["The previous Ace3 window, with the same settings."],
-      func = function() Panel:Close(); Core.OpenClassic() end,
     },
   },
 }
@@ -140,7 +134,7 @@ local function GetPages()
   end)
   pages[#pages + 1] = {
     key = WINDOW_PAGE, label = L["Window"], window = true,
-    desc = L["How this window looks, and the classic window."],
+    desc = L["How this window looks."],
   }
   return pages
 end
@@ -150,6 +144,8 @@ local PAGE_DESC = {
   display       = L["Where the hotkey text sits on a button, and how it is layered."],
   text          = L["The font, size, colour and outline of the hotkey text."],
   abbreviations = L["Click a key to change how it is shortened, and to see what it is bound to."],
+  bars          = L["A bar of its own: a different text size, or no AHOS text at all."],
+  inspector     = L["Point at any action button and see what AHOS knows about it."],
   profiles      = L["Keep different settings per character or per specialization."],
   integration   = L["How AHOS works alongside Dominos, Bartender4, AzeriteUI, DiabolicUI and ElvUI."],
   debug         = L["Tools for tracking down a problem. Normal setup never needs them."],
@@ -207,12 +203,14 @@ local function StyleRailRow(row)
   local iconColour = selected and Kit.TextSelected or Kit.TextDisabled
   row.icon:SetVertexColor(iconColour[1], iconColour[2], iconColour[3])
   if row.dot then row.dot:SetVertexColor(unpack(Kit.TextSelected)) end
+  Look.SetGlow(row.glow, selected)
 end
 
 local function CreateRailRow(index)
   local row = CreateFrame("Button", nil, rail)
   row:SetHeight(RAIL_ROW_H)
   row.round = Look.Round(row, 6, nil, nil, true)
+  row.glow = Look.Underglow(row)
 
   local icon = row:CreateTexture(nil, "ARTWORK")
   icon:SetSize(18, 18)
@@ -319,6 +317,8 @@ function Panel:SelectPage(key)
   local extras = {}
   if Kit.HotkeyPreview and Kit.HotkeyPreview.Pages[info.key] then extras[1] = Kit.HotkeyPreview:GetControl(pageContent) end
   if info.key == "abbreviations" and Kit.Keyboard then extras[1] = Kit.Keyboard:GetControl(pageContent) end
+  if info.key == "inspector" and Kit.Inspector then extras[1] = Kit.Inspector:GetControl(pageContent) end
+  if info.key == "status" and Kit.Overview then extras[1] = Kit.Overview:GetControl(pageContent) end
 
   if info.window then
     page:Show(windowOptions, {}, extras)
@@ -330,8 +330,27 @@ function Panel:SelectPage(key)
 end
 
 -- Re-reads the open page, keeping its scroll position.
+-- Whether a text field on the page has the caret: a redraw would recycle the row
+-- under it and drop what is being typed (a bar event can ask for one at any time).
+local function IsTyping()
+  local page = Panel.page
+  if not (page and page.GetControls) then return false end
+  -- the one box that has the caret, where the client says
+  local focus = GetCurrentKeyBoardFocus and GetCurrentKeyBoardFocus()
+  for _, control in ipairs(page:GetControls()) do
+    local box = control.typeBox
+    if box and (box == focus or (not GetCurrentKeyBoardFocus and box.HasFocus and box:HasFocus())) then return true end
+  end
+  return false
+end
+Panel.IsTyping = IsTyping
+
 function Panel:Refresh()
   if not (frame and frame:IsShown()) or self.searching then return end
+  if IsTyping() then
+    self.pendingRefresh = true
+    return
+  end
   -- A row with its colour picker or list open would be recycled under it.
   if (Controls.IsColorOpen and Controls.IsColorOpen()) or (Controls.IsDropdownOpen and Controls.IsDropdownOpen()) then
     self.pendingRefresh = true
@@ -395,6 +414,7 @@ function Panel:ShowResults(query)
   self.searching = true
   contentScroll:Hide()
   resultsScroll:Show()
+  if Kit.Keyboard and Kit.Keyboard.SetDocked then Kit.Keyboard:SetDocked(false) end
 
   local matches = {}
   for _, entry in ipairs(BuildIndex()) do
@@ -628,11 +648,11 @@ end
 function Panel:ApplyTheme()
   local settings = Settings()
   Kit.SetOpacity(settings and settings.opacity or 1)
-  Kit.SetTheme(settings and settings.theme or "ahos")
+  Kit.SetTheme(settings and settings.theme or "gold")
   if not frame then return end
   local opacity = Kit.GetOpacity()
   self.windowRound:SetFill(Kit.WindowColor)
-  self.windowRound:SetEdge(Look.Steel)
+  self.windowRound:SetEdge(Kit.EdgeColor)
   self.railRound:SetFill(Kit.InsetColor, opacity * .8)
   self.railRound:SetEdge(Kit.BorderIdle, opacity)
   self.headerGlow:SetVertexColor(Kit.TextSelected[1], Kit.TextSelected[2], Kit.TextSelected[3], .07)
@@ -657,12 +677,25 @@ function Panel:ApplyTheme()
   page:Restyle()
   if Kit.HotkeyPreview then Kit.HotkeyPreview:Restyle() end
   if Kit.Keyboard then Kit.Keyboard:Restyle() end
+  if Kit.Inspector then Kit.Inspector:Restyle() end
+  if Kit.Overview then Kit.Overview:Restyle() end
 end
 
 function Panel:ApplyScale()
   local settings = Settings()
   if frame then frame:SetScale(settings and settings.scale or 1) end
+  -- switches and sliders are sized in whole screen pixels for the scale they are
+  -- drawn at, so a new scale draws the page again
+  if frame and frame:IsShown() and self.page then self:Refresh() end
 end
+
+-- The same when the game's UI scale or the screen changes.
+local scaleWatch = CreateFrame("Frame")
+scaleWatch:RegisterEvent("UI_SCALE_CHANGED")
+pcall(scaleWatch.RegisterEvent, scaleWatch, "DISPLAY_SIZE_CHANGED")
+scaleWatch:SetScript("OnEvent", function()
+  if frame and frame:IsShown() and Panel.page then Panel:Refresh() end
+end)
 
 local function SaveGeometry()
   local settings = Settings()
@@ -672,6 +705,8 @@ local function SaveGeometry()
     point = point, relativePoint = relativePoint, x = x, y = y,
     width = frame:GetWidth(), height = frame:GetHeight(),
   }
+  -- the key's card follows the window to the side with room
+  if Kit.Keyboard and Kit.Keyboard.Redock then Kit.Keyboard:Redock() end
 end
 
 function Panel:ResetGeometry()
@@ -940,7 +975,7 @@ local function Build()
   footerText:SetPoint("RIGHT")
   footerText:SetJustifyH("LEFT")
   footerText:SetWordWrap(false)
-  footerText:SetText(L["Changes apply as you make them.  /ahos classic opens the previous window."])
+  footerText:SetText(L["Changes apply as you make them."])
   Panel.footerText = footerText
 
   local resizer = CreateFrame("Button", nil, frame)
@@ -960,7 +995,7 @@ local function Build()
   -- A colour picked or a list closed while a refresh was held back.
   frame:SetScript("OnUpdate", function()
     if Panel.pendingRefresh and not (Controls.IsColorOpen and Controls.IsColorOpen())
-      and not (Controls.IsDropdownOpen and Controls.IsDropdownOpen()) then
+      and not (Controls.IsDropdownOpen and Controls.IsDropdownOpen()) and not IsTyping() then
       Panel:Refresh()
     end
   end)
@@ -987,7 +1022,7 @@ function Panel:Open(key)
     local ok, err = pcall(Build)
     if not ok then
       frame = nil
-      Core.Print(L["The options window could not be built, so the classic window opened instead:"] .. " " .. tostring(err))
+      Core.Print(L["The options window could not be built:"] .. " " .. tostring(err))
       return false
     end
   end
@@ -1012,6 +1047,11 @@ end
 
 function Panel:Close()
   if frame then frame:Hide() end
+end
+
+-- The window itself, for what docks beside it (the key's card on Abbreviations).
+function Panel:GetWindow()
+  return frame
 end
 
 function Panel:IsShown()

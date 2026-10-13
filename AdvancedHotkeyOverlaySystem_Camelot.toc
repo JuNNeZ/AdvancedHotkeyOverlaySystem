@@ -2,7 +2,7 @@
 ## Title: Advanced Hotkey Overlay System
 ## Notes: |cffffd700Advanced Hotkey Overlay System|r |cff00D4AA- Intelligent UI detection, live updates, and beautiful customization.|r
 ## Author: |cff00D4AAJuNNeZ|r
-## Version: 2.5.24
+## Version: 2.6.0
 ## SavedVariables: AdvancedHotkeyOverlaySystemDB
 ## IconTexture: Interface\AddOns\AdvancedHotkeyOverlaySystem\media\logo.tga
 ## X-Category: Action Bars
@@ -22,8 +22,6 @@ Libs\LibDBIcon-1.0\CallbackHandler-1.0\CallbackHandler-1.0.lua
 Libs\LibDBIcon-1.0\LibDataBroker-1.1\LibDataBroker-1.1.lua
 Libs\LibDBIcon-1.0\LibDBIcon-1.0\lib.xml
 Libs\AceAddon-3.0\AceAddon-3.0.xml
-Libs\AceGUI-3.0\AceGUI-3.0.xml
-Libs\AceConfig-3.0\AceConfig-3.0.xml
 Libs\AceConsole-3.0\AceConsole-3.0.xml
 Libs\AceDB-3.0\AceDB-3.0.xml
 Libs\AceDBOptions-3.0\AceDBOptions-3.0.xml
@@ -51,13 +49,23 @@ AdvancedHotkeyOverlaySystem.lua
 # Modules
 modules\Config.lua
 modules\Options.lua
+modules\OptionsStatus.lua
+modules\OptionsDisplay.lua
+modules\OptionsText.lua
+modules\OptionsBars.lua
+modules\OptionsProfiles.lua
 modules\Core.lua
 modules\Bars.lua
 modules\Keybinds.lua
+modules\DisplayShared.lua
 modules\Display.lua
+modules\DisplayNative.lua
+modules\DisplayStyle.lua
 modules\Performance.lua
 modules\UI.lua
-modules\JUI.lua
+modules\Visibility.lua
+modules\Editor.lua
+modules\Profiles.lua
 
 # Options window (options/LICENSE)
 options\Bootstrap.lua
@@ -72,6 +80,9 @@ options\Renderer.lua
 options\Look.lua
 options\Preview.lua
 options\Keyboard.lua
+options\Overview.lua
+options\Inspector.lua
+options\TextWindow.lua
 options\Panel.lua
 options\Settings.lua
 

@@ -4,6 +4,97 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - 2026-10-13
+
+### Added (2.6.0)
+
+- Colour by Modifier (Keybinds page): Shift, Ctrl and Alt bindings each get their own colour, with a fourth for two or more modifiers. "Hide Modifier Letters" then shows "Q" in the Shift colour instead of "SQ". The live preview and the keyboard on the Abbreviations page show the colours too.
+- Anchor Point is a 3x3 grid on a button in the options window.
+- Changing a Display, Keybinds or Abbreviations setting in the options window briefly lights up the overlays on your real action bars, so you see the change on your own UI and not only in the preview.
+- The Font list draws each font's name in that font.
+- Controller Button Icons (Abbreviations page, on by default): gamepad buttons are drawn as your controller's own button icons, in the label style of the controller in use, instead of text. A gamepad button you gave an abbreviation of your own keeps it.
+- A Bars page: give one bar its own text size, or leave it to its own hotkey text. Bars are found on Blizzard's bars and in AzeriteUI, Dominos, Bartender4 and DiabolicUI.
+- An Inspector page: click Pick a Button and point at any action button to see which bar addon drew it, on which bar, the key that presses it, the text AHOS draws for it, the command and action on it, and why. It replaces needing the button's name for `/ahos inspect`, which still works.
+- The Abbreviations keyboard is a full-size board with a mouse: function row, Print Screen, Scroll Lock and Pause, the navigation block with the arrow keys, and the numpad, plus a mouse with its wheel and side buttons. Extra mouse buttons 6-12 are always shown, higher ones and any other bound key (F13, a gamepad button) appear once bound. "Find a Key" picks the next key or mouse button you press, even one on neither model. On a narrow window the navigation block and numpad move under the main block.
+- Keyboard layouts on the Abbreviations page: English (US), English (UK), Dansk, Norsk, Svenska / Suomi, Deutsch and Français, each with the keys that board has (Æ Ø Å, Ö Ä Ü ß, AZERTY) and the names printed on them, and the tall Enter of ISO boards. The layout follows the client's language until you pick one.
+- Controller Icon Style (Abbreviations page): Automatic, Xbox, PlayStation, Nintendo Switch or Generic. Each draws the client's own glyphs for that controller (the KEY_ABBR_*_LTR, _SHP and _REV strings in SharedConstants.lua), on the Controller tab and on your bars alike.
+- A Controller tab on the Abbreviations page: a gamepad with triggers, bumpers, sticks, D-pad and face buttons, named in the game's own glyphs or as Xbox, PlayStation or Nintendo Switch name them, with Shift, Ctrl and Alt to latch. It opens first when the gamepad is switched on.
+- The Controller tab draws the controller you have: Xbox, PlayStation (DualSense, with its touchpad halves and mic button), Nintendo Switch Pro, Steam Deck (screen, trackpads, L4/L5/R4/R5) or Steam Controller (two trackpads), each in its own shape with its buttons where that brand puts them. Automatic picks the brand from the game's own glyph for the bottom face button. Button positions follow ConsolePort's device layouts; the drawings are AHOS's own.
+- Hold Shift, Ctrl or Alt on the Abbreviations page and the keyboard shows that layer until you let go; a key you press lights up. Keys still reach the game, and listening stops in combat.
+- A key bound only with another modifier says so in its tooltip, with what each combination does.
+- The mouse is drawn as a mouse, right of the numpad. When the page narrows, keys shrink only to a comfortable size; then a block moves under the others and the keys grow back.
+- A key's card opens in a slice docked beside the options window, on whichever side has room, so it stays in view at any UI scale instead of under the keyboard.
+- Bind from the keyboard: a key's card on the Abbreviations page can bind the key to any action button, unbind it, or start LibKeyBound's hover-and-press mode where a bar addon brought it.
+- A Status overview: a chip per bar addon with how many buttons AHOS found, in that addon's colour, how many buttons carry AHOS text, and a warning when ElvUI is loaded.
+- Two themes: Keycap Backlit, a darker board where the selected page and every switch that is on glow softly, and Keycap Legend, cream keycaps with a brass edge.
+- "Light Up My Bars" on the Window page turns the bars' flash off.
+- The debug log, the exports and the inspector's details open in the options window's look, with Select All for copying. The log and an export can be open side by side.
+- The options window and every new setting are translated into German, Spanish, French, Portuguese, Russian, Korean and Chinese (Simplified and Traditional). `Tools/MakeLocales.py` writes them from `Tools/translations.py`.
+- Visibility rules (Display page): Fade Out of Combat, Only While a Modifier Is Held, a Faded Alpha and a Fade Time, and a Condition of Your Own, a Lua expression that can read the button, its bar, its key and the game's read-only state. Every rule you turn on must agree for the text to show.
+- Show on Mouseover per bar (Bars page): that bar's text shows only while the mouse is over it.
+- A Place of Its Own per bar (Bars page): an anchor and X and Y offsets for one bar.
+- `/ahos edit` and Edit Positions on Your Bars: drag the hotkey text into place on your own bars. Shift-drag moves one bar, right-click gives it back to the profile, Save as Profile keeps the result as a new profile. It ends when combat starts.
+- Combat Style (Display page): another colour and size for the text while you are in combat.
+- When Pressed (Display page): the text flashes or pulses when you press its button.
+- Background Plate (Display page): a plate behind the text, in a colour and padding of your choice.
+- Shadow and Glow (Keybinds page): the shadow's colour and offset, and a glow in its own colour around the text.
+- Show Both Keys (Keybinds page): a button bound to two keys shows both, with the text between them of your choice.
+- Mouse Button Icons (Abbreviations page): mouse buttons and the wheel are drawn as small mouse icons in the text's colour; side buttons carry their number.
+- Presets (Profiles page and `/ahos preset`): Blizzard Style, Big and Centered, Bottom Corner, Compact, and the Tank, Healer and Damage templates, laid over the current profile.
+- Snapshots (Profiles page, `/ahos snapshot`, `/ahos rollback`): copies of a profile to go back to, kept for every character. One is taken by itself before every preset, import, reset and restore.
+- `/ahos profile <name>` switches profile, making it from the current one when it is new; `/ahos profiles` lists them. Save as New Profile on the Profiles page does the same.
+- Switch Profile By Itself can follow the talent loadout as well as the specialization.
+- Leave This Button Alone (Inspector card, `/ahos ignore <ButtonName>`): AHOS leaves one button to its own hotkey text.
+- LUI and Neuron support: LUI's bottom and side bars, and Neuron's action and pet bars, including the keys Neuron keeps on its buttons.
+- Follow Masque Skin (Display page, with Masque loaded): on buttons Masque skins, the hotkey text goes where the skin puts the hotkey (corner, offset, width and alignment, read from the skin itself) and follows a skin change. The font and colour stay yours.
+- Keyboard layouts on the Abbreviations page: Русская and Українська (ЙЦУКЕН), 한국어 (두벌식, with Hangul under each letter and the 한/영 and 한자 keys) and 繁體中文 (注音, with Zhuyin). The layout follows a Russian, Korean or Taiwanese client until you pick one.
+- Cyrillic, Korean and Chinese key names are drawn in the game's own faces for them, on your bars and in the options window, so they no longer show as boxes on a client in another language. Cyrillic keys show in capitals, as the Nordic letters do.
+- A test harness: `lua Tools/RunTests.lua` runs the options window, engine and translation suites against a mock client for every client TOC, and CI runs it on every push. The engine suite covers key detection on every supported bar addon and times a full update.
+
+### Changed (2.6.0)
+
+- Keycap Gold is the options window's default theme. A window you already opened keeps the theme it has; pick Keycap Gold on the Window page to switch.
+- Sliders, switches and buttons are tighter: thinner tracks shaded to read as sunk, fills shaded to read as raised, and knobs with a ring and a shadow.
+- Switches and sliders are redrawn sharp: a pill track and a round knob, sized in whole screen pixels for the UI scale and window scale they are drawn at (and again when either changes). A switch that is on fills its track with the accent; off, the track is a sunk inset with a one-pixel edge. The knob has a hard pixel of shadow instead of the blurred halo and ring, and slides over when clicked.
+
+- Font Outline offers six choices. The two alias spellings (MonochromeOutline, MonochromeThickOutline) are no longer listed; profiles that still hold them show and keep working as Monochrome + Outline and Monochrome + Thick Outline.
+- Colour by Modifier also colours native text mode, through a colour code, so nothing stays on the label when it gets its own text back.
+- A burst of bar events (combat starting fires several) runs one series of refresh passes instead of one per event, and the later passes are skipped once the bars have settled.
+- The list of action buttons is scanned at most twice a second outside full updates, and the font list is built once instead of for every overlay each time it is styled.
+- Every overlay update goes through the batched update. The core file's second set of event handlers is gone: Core's handles all of them.
+- `/ahoslog` no longer catches other addons' `print` output: AHOS no longer replaces the global `print`.
+- Switching profile with the specialization is now a choice per character. It used to live in the profile it switched away from, so a new profile never switched back; it moves by itself. A profile it switches to for the first time starts as a copy of the one you were on instead of the defaults.
+- A bar addon set up with more buttons than usual (Dominos past 200) has all of them found.
+- For contributors: `modules/Display.lua` is four files (DisplayShared, Display, DisplayNative, DisplayStyle) and `modules/Options.lua` one file per page (OptionsStatus, OptionsDisplay, OptionsText, OptionsBars, OptionsProfiles); `types/AHOS.lua` describes AHOS's tables and modules for the Lua language server.
+
+### Fixed (2.6.0)
+
+- Hotkey text placed in the top-right corner (the Blizzard Style and Healer presets, or an anchor of your own) vanished: the search for a button's own hotkey label took AHOS's text for it, hid it, and kept hiding it after the next preset too. AHOS's own text is now never taken for a button's label.
+- The Condition of Your Own field could not be typed in: the box inside it was one pixel tall, so neither text nor caret showed. It fills the field now, grows with the text, and the page no longer redraws under a field you are typing in.
+- The Korean and Taiwanese keyboards cut each key's legend to "Q…": the Hangul or Zhuyin now sits in the key's other corner, as on the real keycap.
+- Key names on the Abbreviations keyboard were cut short ("Ind…", "Pau…", the mouse's wheel): text too wide for its key is now drawn smaller instead, in every language. Chinese and Korean characters are drawn two sizes larger than Latin ones.
+- Follow Masque Skin read the skin's own HotKey table, which most skins leave to Masque's defaults, so the text did not move with the skin. It now reads where Masque actually put the button's hotkey label, and the skin table is only the fallback.
+
+- Core's own events never registered: they were queued before AHOS was ready, and the queue dropped every call. Leaving a vehicle, the pet bar, possess and stance changes now refresh the overlays as intended, and anything else queued at login runs.
+- One action slot changing ran a full update of every button at once. It now updates the buttons on that slot, all of them when two bar addons show the same slot.
+- Messages meant for you never reached the chat: `/ahos help` printed nothing, nor did imports, lock and unlock. Debug output still goes only to `/ahoslog`.
+- A provider default that would have reset your X Offset, Y Offset and Scale at login is gone. It only stayed harmless because of the queue bug above.
+- Every dropdown after the Font list was drawn in the fonts from that list: a reused row kept the font it was given.
+- With a bar addon drawing (AzeriteUI, Dominos, Bartender4), the Bars page no longer lists the Blizzard bars that addon hides or fades to nothing.
+- Keys with a letter like Æ, Ø, Å, Ö or É were missing from the Nordic, German and French boards and listed under "Other bound keys" instead: the game names them in lower case (æ, ø, å). The boards use those names now, Find a Key finds them, and your buttons show them in capitals.
+- The layout list's arrow and the arrow keys' legends showed an empty box: the game's font has no such characters. The list now has a drawn chevron and the keys say Up, Down, Left and Right.
+- "Leave This Bar Alone" on an AzeriteUI or Bartender4 bar left its buttons with no hotkey text: LibActionButton redraws its label through a function that is not on the button. AHOS now asks the button for its hotkey, or falls back to the game's own key text.
+- The classic window now refreshes when the detected bar addon or the profile changes (it was told under the wrong name).
+- Turning AHOS off, or leaving a bar alone, right after the first login could leave a button with no hotkey text until `/reload`: the bar had not filled in its label before AHOS drew, so there was nothing to put back. AHOS now writes the key text the label would show.
+- Dominos', Bartender4's and LUI's keybind mode was not followed when LibKeyBound loaded after AHOS. AHOS now looks for it each time an addon loads.
+
+### Removed (2.6.0)
+
+- The classic window (the generated Ace3 options window) and the "Open the Classic Window" setting and button. Several new settings did not work in it, and the options window covers every setting. `/ahos classic` now opens the options window. AceGUI-3.0 and AceConfig-3.0 are no longer bundled.
+
+- `modules/JUI.lua`, the earlier handmade options window, which nothing opened any more.
+- A "hide in combat" path with no setting to turn it on, a second locale table nothing read, 58 unused strings in the locale files, and other dead code.
+
 ## [2.5.24] - 2026-10-10
 
 ### Added (2.5.24)

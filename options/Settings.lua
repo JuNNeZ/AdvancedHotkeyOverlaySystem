@@ -3,9 +3,8 @@
 --
 -- As AzeriteUI JuNNeZ Edition and AzUI Color Picker do it: Blizzard's Settings get
 -- a landing page with the logo, the version and a button into the options window,
--- rather than the whole option list squeezed into Blizzard's frame. A client without
--- the canvas Settings API keeps the embedded Ace3 page (see EnsureBlizOptionsRegistered
--- in the core file).
+-- rather than the whole option list squeezed into Blizzard's frame. Every client AHOS
+-- supports has the canvas Settings API.
 local addonName, ns = ...
 local addon = ns.addon
 local L = ns.L
@@ -20,20 +19,14 @@ local function FontObject(...)
 end
 
 -- Leaves Blizzard's Settings first, so the window does not open underneath it.
-function ns.OpenFromSettings(classic)
+function ns.OpenFromSettings()
 	if SettingsPanel and SettingsPanel:IsShown() and HideUIPanel then HideUIPanel(SettingsPanel) end
 	local Panel = ns.OptionsKit and ns.OptionsKit.Panel
-	if classic then
-		if Panel then Panel:Close() end
-		addon:OpenClassicOptions()
-		return
-	end
-	if Panel and Panel:IsShown() then return end
-	if not (Panel and Panel:Open()) then addon:OpenClassicOptions() end
+	if Panel and not Panel:IsShown() then Panel:Open() end
 end
 
--- Returns true once the landing page is registered, false when this client needs
--- the Ace3 page instead.
+-- Returns true once the landing page is registered, false on a client without the
+-- canvas Settings API.
 function ns.RegisterSettingsPage()
 	if ns.settingsCategory then return true end
 	if not (Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory) then return false end
@@ -72,12 +65,10 @@ function ns.RegisterSettingsPage()
 	end
 	local open = Button(L["Open AHOS Options"], 1.6, function() ns.OpenFromSettings() end)
 	open:SetPoint("TOP", about, "BOTTOM", 0, -16)
-	local classic = Button(L["Open the Classic Window"], 1, function() ns.OpenFromSettings(true) end)
-	classic:SetPoint("TOP", open, "BOTTOM", 0, -14)
 
 	-- What AHOS is drawing on right now, refreshed whenever the page is shown
 	local provider = page:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-	provider:SetPoint("TOP", classic, "BOTTOM", 0, -18)
+	provider:SetPoint("TOP", open, "BOTTOM", 0, -18)
 	provider:SetWidth(520)
 	page:SetScript("OnShow", function()
 		provider:SetText(ns.Core and ns.Core.ProviderText and ns.Core.ProviderText() or "")
@@ -100,7 +91,7 @@ function ns.RegisterSettingsPage()
 	local category = Settings.RegisterCanvasLayoutCategory(page, NAME)
 	category.ID = NAME
 	Settings.RegisterAddOnCategory(category)
-	page.open, page.classic, page.provider = open, classic, provider
+	page.open, page.provider = open, provider
 	ns.settingsCategory, ns.settingsPage = category, page
 	return true
 end
