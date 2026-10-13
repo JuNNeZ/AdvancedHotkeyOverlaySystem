@@ -1,99 +1,91 @@
 # Advanced Hotkey Overlay System
 
-Enhanced hotkey overlays for all action bar addons with intelligent UI detection and real-time customization
+Readable, styled hotkey text on every action bar, with a keyboard you can see, visibility rules, and drag-and-drop placement.
 
 ## What does this addon do?
 
-Advanced Hotkey Overlay System replaces the default hotkey text on your action buttons with fully customizable overlays. It currently has dedicated support for the default Blizzard interface, AzeriteUI, Bartender4, Dominos, DiabolicUI, LUI and Neuron, with conflict-aware handling for ElvUI.
+AHOS replaces the hotkey text on your action buttons with text you style yourself: font, size, colour, outline, shadow, glow, a plate behind it, and where it sits on the button. It works on the default Blizzard bars and on AzeriteUI, Bartender4, Dominos, DiabolicUI, LUI and Neuron, and steps aside when ElvUI is loaded.
 
-## Key Features
+It runs on Retail, WoW Forever and Classic.
 
-### Universal Compatibility
+## New in 3.0
 
-- Automatically detects Blizzard UI, AzeriteUI, Bartender4, Dominos, DiabolicUI, LUI, Neuron, and ElvUI conflict state
-- Focused support for the action bar addons the codebase explicitly targets
-- Intelligent button detection for new and custom action bars
+- **A new options window** in AHOS's own keycap art, with a page rail, a search box across every setting, and one-click revert on anything you changed. Your real bars light up when you change a setting.
+- **See your binds on a keyboard.** The Abbreviations page is a full keyboard and mouse. Keys you have bound light up, and Shift, Ctrl and Alt show their layer. Click a key to set its abbreviation, or to bind and unbind it right there.
+- **Controller support** for Xbox, PlayStation, Nintendo Switch Pro, Steam Deck and Steam Controller, each drawn as the pad you have. Gamepad buttons show as their real button icons on your bars.
+- **Visibility rules**: fade the text out of combat, show it only on mouseover per bar or while a modifier is held, or write a Lua condition of your own.
+- **`/ahos edit`**: drag the hotkey text into place on your own bars. Shift-drag moves a single bar.
+- **Presets and templates**: Blizzard Style, Big and Centered, Bottom Corner, Compact, plus Tank, Healer and Damage. Snapshots are taken automatically, and `/ahos rollback` takes you back.
+- **Inspector**: point at any action button to see which bar addon drew it, the key that presses it, and why AHOS shows the text it does.
 
-### Real-Time Customization
+## Features
 
-- All settings apply instantly—no UI reload needed
-- Live preview of font, color, position, and scale changes
-- Profile-specific hotkey abbreviations with an editor for every supported modifier and key
+### Looks
 
-### Complete Visual Control
+- Font, size, colour, outline, shadow colour and offset, and glow
+- A background plate behind the text
+- Colour by modifier: Shift, Ctrl and Alt bindings each get their own colour
+- A combat style, and a flash or pulse when you press a button
+- Mouse button icons, and both keys on a button bound to two
+- Follow Masque Skin: the text goes where your Masque skin puts the hotkey
 
-- Choose font family, size, color, and transparency
-- Text shadows and outlines for maximum readability
-- Pixel-perfect positioning and multiple anchor points
+### Placement
 
-### Smart Protection System
+- Anchor on a 3×3 grid, with X and Y offsets
+- Per bar: text size, show on mouseover, and a position of its own
+- Drag and drop on your real bars with `/ahos edit`
 
-- Lock settings to prevent accidental changes during gameplay
-- Confirmation dialogs for protected options
-- Master toggle to hide all overlays and options when disabled
+### Abbreviations
 
-### Profile Management
+- Every key can have its own abbreviation
+- Keyboard layouts: English (US and UK), Danish, Norwegian, Swedish/Finnish, German, French, Russian, Ukrainian, Korean and Taiwanese
+- Cyrillic, Korean and Chinese key names are drawn in the game's own fonts on any client
 
-- Per-character and global profiles via Ace3
-- Effortless switching between configurations
-- Import/export settings for easy sharing
+### Profiles
 
-### Advanced Tools
+- Per-character and shared profiles, with import and export
+- Switch profile by specialization or talent loadout
+- `/ahos profile <name>` switches profile, making it if it does not exist yet
 
-- Comprehensive debug mode and in-game inspection commands
-- Smart refresh to re-detect UI changes
-- Temporary overlay clearing for screenshots
-- Minimap and Titan Panel integration
+### Languages
 
-## How to Use
-
-1. **Install and Enable**: Extract to your AddOns folder and enable in-game.
-2. **Automatic Setup**: The addon detects your UI and applies optimal defaults.
-3. **Configure**: Use `/ahos` or click the minimap button to open settings.
-4. **Customize**: Adjust position, appearance, and behavior to your liking.
+The options window is in English, German, Spanish, French, Portuguese, Russian, Korean and Chinese (Simplified and Traditional).
 
 ## Slash Commands
 
-- `/ahos` — Open configuration panel
-- `/ahos toggle` — Enable/disable overlays
-- `/ahos lock` — Lock settings to prevent changes
-- `/ahos reset` — Reset to default settings
-- `/ahos debug` — Enable debug mode for troubleshooting
-- `/ahos help` — Show all available commands
+- `/ahos` opens the options window
+- `/ahos edit` drags the text into place on your bars
+- `/ahos preset` applies a preset or template
+- `/ahos profile <name>` and `/ahos profiles` switch and list profiles
+- `/ahos snapshot` and `/ahos rollback` save and restore a copy of your profile
+- `/ahos ignore <ButtonName>` leaves one button to its own hotkey text
+- `/ahos inspect` shows how AHOS reads a button
+- `/ahos toggle` turns the overlays on and off
+- `/ahos lock` and `/ahos unlock` lock the settings
+- `/ahos reset` resets the profile
+- `/ahos help` lists every command
 
 ## Troubleshooting
 
-**Overlays not appearing?**
+**Overlays not showing?**
 
-- Check if the addon is enabled with `/ahos toggle`
-- Try `/ahos reload` to refresh detection
-- Use `/ahos debug` for detailed troubleshooting
+- Check that AHOS is on with `/ahos toggle`
+- Run `/ahos refresh` to find your bars again
+- Open the Status page in the options window to see which bar addons AHOS found and how many buttons it draws on
+
+**A button shows the wrong text?**
+
+- Open the Inspector page, click Pick a Button and point at it
 
 **Wrong UI detected?**
 
-- Use `/ahos detectui` to manually re-detect your interface
-- Check debug output to see which addons were found
-
-**Settings not saving?**
-
-- Ensure the addon loaded properly by testing `/ahos`
-- Make sure settings aren’t locked (unlock with `/ahos unlock`)
+- Run `/ahos detectui`
 
 ## Requirements
 
-- World of Warcraft Retail, WoW Forever, or Classic (current patches)
-- Ace3 libraries (included)
-- LibSharedMedia-3.0 (included)
-- LibDBIcon-1.0 (included)
-
-## Recent Updates (v3.0.0)
-- When the hotkey text shows: fade it out of combat, show it only on mouseover per bar or while a modifier is held, or write a Lua condition of your own. A different colour and size in combat, and a flash or pulse when you press a button.
-- `/ahos edit`: drag the hotkey text into place on your own bars; Shift-drag moves one bar. Bars can also have a place of their own.
-- Presets and Tank, Healer and Damage templates, snapshots with `/ahos rollback`, `/ahos profile <name>`, and switching profile by specialization or talent loadout.
-- Shadow colour, glow and a background plate; mouse button icons; both keys on a button with two; Follow Masque Skin.
-- LUI and Neuron support; Russian, Ukrainian, Korean and Taiwanese keyboards, with their letters drawn in the game's own fonts on any client.
-- Sharp new switches and sliders, Keycap Gold as the default theme, and the classic Ace3 window removed.
+- World of Warcraft Retail, WoW Forever or Classic (current patches)
+- All libraries are included
 
 ---
 
-**Perfect for players who want readable, customizable hotkeys that work with any UI setup!**
+**Readable hotkeys that fit your UI, on any bar addon.**
