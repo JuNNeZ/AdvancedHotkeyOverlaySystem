@@ -114,6 +114,7 @@ local function Build(key)
 		self:SetVerticalScroll(min(range, max(0, (self:GetVerticalScroll() or 0) - delta * 40)))
 	end)
 	scroll:SetScript("OnSizeChanged", function(_, width) if width and width > 0 then edit:SetWidth(width) end end)
+	Kit.AttachScrollbar(scroll, 1)
 	-- a click anywhere in the box puts the caret in it
 	holder:EnableMouse(true)
 	holder:SetScript("OnMouseDown", function() edit:SetFocus() end)

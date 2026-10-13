@@ -27,6 +27,7 @@ local anims = setmetatable({}, { __mode = "k" })     -- overlay -> running press
 local hookedEnter = setmetatable({}, { __mode = "k" })
 local hookedPress = setmetatable({}, { __mode = "k" })
 local lastPress = setmetatable({}, { __mode = "k" })
+local lastDown = setmetatable({}, { __mode = "k" })  -- button -> when a key or state went down on it
 
 local inCombat = false
 local hoveredBar
@@ -400,7 +401,7 @@ function Visibility:EnsureButtonHooks(button)
             local ok, method = pcall(function() return button.SetButtonState end)
             if ok and type(method) == "function" then
                 pcall(hooksecurefunc, button, "SetButtonState", function(self, state)
-                    if state == "PUSHED" then Visibility:Press(self) end
+                    if state == "PUSHED" then Visibility:Press(self, true) end
                 end)
             end
         end
@@ -411,13 +412,24 @@ function Visibility:EnsureButtonHooks(button)
 end
 
 -- The text answers its button being pressed: a flash of colour, or a pulse.
+-- `down` is a key or button going down. A key press goes down and then clicks
+-- when it is let go, so a click that follows a down on the same button is the
+-- same press and is not answered again; a mouse click, with no down before it,
+-- is answered on the click.
 ---@param button Button
-function Visibility:Press(button)
+---@param down? boolean
+function Visibility:Press(button, down)
     local profile = addon.db and addon.db.profile
     local mode = profile and profile.display and profile.display.pressAnimation
     if mode ~= "flash" and mode ~= "pulse" then return end
-    -- one press fires both the state change and the click
     local now = GetTime and GetTime() or 0
+    if down then
+        lastDown[button] = now
+    elseif lastDown[button] and now - lastDown[button] < 5 then
+        lastDown[button] = nil
+        return
+    end
+    -- one press can fire more than one down (the state change and the binding)
     if lastPress[button] and now - lastPress[button] < 0.1 then return end
     lastPress[button] = now
     local name = GetName(button)
@@ -489,13 +501,13 @@ function Visibility:HookBindingPresses()
     if type(ActionButtonDown) == "function" then
         pcall(hooksecurefunc, "ActionButtonDown", function(id)
             local button = (type(GetActionButtonForID) == "function" and GetActionButtonForID(id)) or _G["ActionButton" .. tostring(id)]
-            if button then Visibility:Press(button) end
+            if button then Visibility:Press(button, true) end
         end)
     end
     if type(MultiActionButtonDown) == "function" then
         pcall(hooksecurefunc, "MultiActionButtonDown", function(bar, id)
             local button = type(bar) == "string" and _G[bar .. "Button" .. tostring(id)]
-            if button then Visibility:Press(button) end
+            if button then Visibility:Press(button, true) end
         end)
     end
 end

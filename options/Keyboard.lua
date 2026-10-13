@@ -929,6 +929,7 @@ local function BuildSlice()
 		local range = self:GetVerticalScrollRange() or 0
 		self:SetVerticalScroll(min(range, max(0, (self:GetVerticalScroll() or 0) - delta * 40)))
 	end)
+	Kit.AttachScrollbar(scroll, -2)
 	slice.scroll, slice.child = scroll, child
 	return slice
 end

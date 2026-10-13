@@ -343,6 +343,22 @@ Visibility.Step(1)
 env.MultiActionButtonDown("MultiBarRight", 2)
 check(overlay(B.r2).text.textColor[2] == 0.82, "and one on another Blizzard bar")
 Visibility.Step(1)
+-- A key press goes down, then clicks when let go: one press, one flash.
+game.time = game.time + 1
+env.ActionButtonDown(1)
+Visibility.Step(1)
+game.time = game.time + 0.4
+B.ab1:GetScript("PostClick")(B.ab1)
+check(o.text.textColor[2] == 1, "letting the key go does not flash again")
+-- A mouse click, with no down before it, flashes on the click.
+game.time = game.time + 1
+B.ab1:GetScript("PostClick")(B.ab1)
+check(o.text.textColor[2] == 0.82, "a mouse click flashes")
+Visibility.Step(1)
+game.time = game.time + 0.3
+B.ab1:GetScript("PostClick")(B.ab1)
+check(o.text.textColor[2] == 0.82, "and so does the next click soon after")
+Visibility.Step(1)
 profile.display.pressAnimation = "none"
 
 ---------------------------------------------------------------------------

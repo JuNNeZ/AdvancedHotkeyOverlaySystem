@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.2] - 2026-10-13
+
+### Added (3.0.2)
+
+- A scrollbar beside every page of the options window that runs past the bottom, so the settings below the fold are not taken for missing: a thumb in the theme's accent, as long as the share of the page in view, that drags, with a click on the track paging up or down. The search results, dropdown lists, the Lua condition field, a key's card and the log and export windows have one too. It shows only while there is something to scroll.
+
+### Fixed (3.0.2)
+
+- A key press flashed or pulsed the text twice, once when the key went down and again when it was let go. A click that follows a key going down on the same button is now the same press; a mouse click still flashes on the click.
+
 ## [3.0.1] - 2026-10-13
 
 ### Added (3.0.1)

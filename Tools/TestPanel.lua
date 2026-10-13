@@ -903,4 +903,44 @@ field = row("Condition of Your Own (Lua)")
 check(field and field.edit:GetText() == "UnitExists(\"target\")", "and the field shows it after the redraw")
 addon.db.profile.visibility.condition = ""
 
+---------------------------------------------------------------------------
+-- A page that runs past the window shows a scrollbar
+---------------------------------------------------------------------------
+do
+  local scroll, bar = Panel.contentScroll, Panel.contentScrollbar
+  check(scroll and bar, "the page has a scrollbar")
+  local at, range = 0, 600
+  scroll.GetVerticalScrollRange = function() return range end
+  scroll.GetVerticalScroll = function() return at end
+  scroll.SetVerticalScroll = function(self, v)
+    at = v
+    if self.scripts.OnVerticalScroll then self.scripts.OnVerticalScroll(self, v) end
+  end
+  scroll:SetHeight(400)
+  bar:SetHeight(400)
+  scroll.scripts.OnScrollRangeChanged(scroll)
+  check(bar:IsShown(), "the bar shows while the page runs past the window")
+  check(bar.thumb:GetHeight() == 160, "the thumb is as long as the share in view: " .. tostring(bar.thumb:GetHeight()))
+  scroll:SetVerticalScroll(600)
+  local point = bar.thumb.points[#bar.thumb.points]
+  check(point and point[5] == -240, "at the bottom the thumb sits at the bottom: " .. tostring(point and point[5]))
+  -- dragging the thumb up by half its free travel scrolls half the page back
+  game.cursor = { 0, 300 }
+  bar.thumb.scripts.OnMouseDown(bar.thumb)
+  game.cursor = { 0, 420 }
+  bar.thumb.scripts.OnUpdate(bar.thumb)
+  bar.thumb.scripts.OnMouseUp(bar.thumb)
+  check(at == 300, "dragging the thumb scrolls the page: " .. tostring(at))
+  check(not bar.thumb.scripts.OnUpdate, "and lets go")
+  -- a click on the track above the thumb pages up
+  game.cursor = { 0, 900 }
+  bar.scripts.OnMouseDown(bar)
+  check(at == 0, "a click above the thumb pages up: " .. tostring(at))
+  -- nothing to scroll, no bar
+  range = 0
+  scroll.scripts.OnScrollRangeChanged(scroll)
+  check(not bar:IsShown(), "no bar when the page fits")
+  scroll.GetVerticalScrollRange, scroll.GetVerticalScroll, scroll.SetVerticalScroll = nil, nil, nil
+end
+
 print(string.format("TestPanel: %d checks passed (%s)", checks, toc or "Mainline"))

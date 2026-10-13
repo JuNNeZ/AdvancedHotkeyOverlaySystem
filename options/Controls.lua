@@ -975,6 +975,7 @@ local CreatePullout = function()
 		if (range <= 0) then return end
 		self:SetVerticalScroll(min(range, max(0, self:GetVerticalScroll() - delta * ROW_H * 2)))
 	end)
+	Kit.AttachScrollbar(scroll, 0)
 
 	frame.scroll, frame.child = scroll, child
 	return frame
@@ -1778,6 +1779,7 @@ Controls.CreateMultiline = function(parent)
 		if (range <= 0) then return end
 		self:SetVerticalScroll(min(range, max(0, self:GetVerticalScroll() - delta * LINE * 2)))
 	end)
+	Kit.AttachScrollbar(scroll, 0)
 
 	-- Clicking anywhere in the field takes focus, not just the text itself.
 	box:EnableMouse(true)

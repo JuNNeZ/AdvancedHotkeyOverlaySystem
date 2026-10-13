@@ -7,8 +7,9 @@
 --]]
 -- The shared art layer for the custom options panel.
 --
--- Everything here is measurement and texture setup. No frames are created and
--- no libraries are touched, so this file is safe to load before AceGUI exists.
+-- Mostly measurement and texture setup, plus small helpers (backdrops, scrollbars)
+-- that build frames only when called. No libraries are touched, so this file is
+-- safe to load before AceGUI exists.
 --
 -- The measurements below describe the sculpted art the kit was first drawn with
 -- in AzeriteUI JuNNeZ Edition. AHOS replaces that art with its own keycap shapes
@@ -27,7 +28,7 @@ local table_sort = table.sort
 local type = type
 local unpack = unpack
 
--- GLOBALS: CreateFrame, UnitClass
+-- GLOBALS: CreateFrame, GetCursorPosition, UnitClass
 
 local API = ns.API
 local GetFont = API.GetFont
@@ -635,6 +636,140 @@ Kit.GetFont = function(size, outline, type)
 end
 
 Kit.GetMedia = GetMedia
+
+--------------------------------------------------------------------------
+-- Scrollbars
+--------------------------------------------------------------------------
+-- A page that runs past the bottom of the window shows a bar beside it, so no one
+-- takes the last setting in view for the last one there is: a thin sunk track and
+-- a thumb in the accent, as long as the share of the page in view. It shows only
+-- while there is something to scroll. The thumb drags, a click on the track pages
+-- up or down, and the wheel goes on working as before.
+local SCROLLBAR_W = 6     -- the track and thumb as drawn
+local SCROLLBAR_HIT = 14  -- what takes the mouse, wider than what is drawn
+local THUMB_MIN = 24
+
+local scrollbars = setmetatable({}, { __mode = "k" })
+
+local ScrollTo = function(scroll, value)
+	local range = scroll:GetVerticalScrollRange() or 0
+	scroll:SetVerticalScroll(min(range, max(0, value or 0)))
+end
+
+local UpdateScrollbar = function(bar)
+	local scroll = bar.scroll
+	local range = scroll:GetVerticalScrollRange() or 0
+	local height = bar:GetHeight() or 0
+	if (range < 1 or height <= 0 or not scroll:IsShown()) then
+		bar:Hide()
+		return
+	end
+	bar:Show()
+	local view = scroll:GetHeight() or height
+	local thumbH = max(THUMB_MIN, floor(height * view / (view + range) + .5))
+	thumbH = min(thumbH, height)
+	local offset = (height - thumbH) * min(1, max(0, (scroll:GetVerticalScroll() or 0) / range))
+	bar.thumb:SetHeight(thumbH)
+	bar.thumb:ClearAllPoints()
+	bar.thumb:SetPoint("TOP", bar, "TOP", 0, -floor(offset + .5))
+
+	local track, accent = Kit.TrackColor, Kit.TextSelected
+	bar.track:SetVertexColor(track[1], track[2], track[3], .9)
+	local lit = bar.dragging or bar.thumb.hover
+	local glow = lit and Kit.TextHighlight or accent
+	bar.thumbTexture:SetVertexColor(glow[1], glow[2], glow[3], lit and 1 or .85)
+end
+
+-- Gives `scroll` (a ScrollFrame) a scrollbar. By default it sits just outside the
+-- scroll frame's right edge; `x` moves it (negative is inside), `top` and `bottom`
+-- inset it. Returns the bar; bar:Update() redraws it after the page changes size.
+Kit.AttachScrollbar = function(scroll, x, top, bottom)
+	if (not scroll or scrollbars[scroll]) then return scroll and scrollbars[scroll] end
+
+	local bar = CreateFrame("Frame", nil, scroll:GetParent() or scroll)
+	bar.scroll = scroll
+	bar:SetWidth(SCROLLBAR_HIT)
+	bar:SetPoint("TOPLEFT", scroll, "TOPRIGHT", (x or 2) - (SCROLLBAR_HIT - SCROLLBAR_W) / 2, -(top or 0))
+	bar:SetPoint("BOTTOMLEFT", scroll, "BOTTOMRIGHT", (x or 2) - (SCROLLBAR_HIT - SCROLLBAR_W) / 2, bottom or 0)
+	bar:SetFrameLevel((scroll:GetFrameLevel() or 1) + 20)
+	bar:EnableMouse(true)
+
+	local track = bar:CreateTexture(nil, "BACKGROUND")
+	track:SetTexture(GetMedia("plain"))
+	track:SetWidth(SCROLLBAR_W)
+	track:SetPoint("TOP")
+	track:SetPoint("BOTTOM")
+	bar.track = track
+
+	local thumb = CreateFrame("Button", nil, bar)
+	thumb:SetWidth(SCROLLBAR_HIT)
+	thumb:SetFrameLevel(bar:GetFrameLevel() + 1)
+	local thumbTexture = thumb:CreateTexture(nil, "ARTWORK")
+	thumbTexture:SetTexture(GetMedia("plain"))
+	thumbTexture:SetWidth(SCROLLBAR_W)
+	thumbTexture:SetPoint("TOP")
+	thumbTexture:SetPoint("BOTTOM")
+	bar.thumb, bar.thumbTexture = thumb, thumbTexture
+
+	bar.Update = UpdateScrollbar
+
+	-- a click on the track pages towards it
+	bar:SetScript("OnMouseDown", function(self)
+		local _, cursorY = GetCursorPosition()
+		local scale = self:GetEffectiveScale() or 1
+		local thumbTop = self.thumb:GetTop() or 0
+		local page = (scroll:GetHeight() or 0) * .9
+		local current = scroll:GetVerticalScroll() or 0
+		ScrollTo(scroll, (cursorY / scale > thumbTop) and (current - page) or (current + page))
+	end)
+	bar:EnableMouseWheel(true)
+	bar:SetScript("OnMouseWheel", function(_, delta)
+		local handler = scroll:GetScript("OnMouseWheel")
+		if (handler) then handler(scroll, delta) end
+	end)
+
+	-- the thumb drags; the page follows the cursor at the thumb's own rate
+	thumb:SetScript("OnMouseDown", function(self)
+		local _, cursorY = GetCursorPosition()
+		bar.dragging = true
+		bar.dragFrom = cursorY / (bar:GetEffectiveScale() or 1)
+		bar.dragStart = scroll:GetVerticalScroll() or 0
+		self:SetScript("OnUpdate", function()
+			local _, y = GetCursorPosition()
+			y = y / (bar:GetEffectiveScale() or 1)
+			local range = scroll:GetVerticalScrollRange() or 0
+			local free = (bar:GetHeight() or 0) - (self:GetHeight() or 0)
+			if (free > 0 and range > 0) then
+				ScrollTo(scroll, bar.dragStart + (bar.dragFrom - y) * range / free)
+			end
+		end)
+		UpdateScrollbar(bar)
+	end)
+	thumb:SetScript("OnMouseUp", function(self)
+		bar.dragging = nil
+		self:SetScript("OnUpdate", nil)
+		UpdateScrollbar(bar)
+	end)
+	thumb:SetScript("OnEnter", function(self) self.hover = true; UpdateScrollbar(bar) end)
+	thumb:SetScript("OnLeave", function(self) self.hover = nil; UpdateScrollbar(bar) end)
+
+	-- follow the page: scrolled, resized, or grown
+	local update = function() UpdateScrollbar(bar) end
+	scroll:HookScript("OnVerticalScroll", update)
+	scroll:HookScript("OnScrollRangeChanged", update)
+	scroll:HookScript("OnSizeChanged", update)
+	scroll:HookScript("OnShow", update)
+	scroll:HookScript("OnHide", function() bar:Hide() end)
+
+	scrollbars[scroll] = bar
+	UpdateScrollbar(bar)
+	return bar
+end
+
+-- Redraws every scrollbar in the current theme.
+Kit.RestyleScrollbars = function()
+	for _, bar in pairs(scrollbars) do UpdateScrollbar(bar) end
+end
 
 --------------------------------------------------------------------------
 -- Asking before something irreversible

@@ -679,6 +679,7 @@ function Panel:ApplyTheme()
   if Kit.Keyboard then Kit.Keyboard:Restyle() end
   if Kit.Inspector then Kit.Inspector:Restyle() end
   if Kit.Overview then Kit.Overview:Restyle() end
+  Kit.RestyleScrollbars()
 end
 
 function Panel:ApplyScale()
@@ -962,6 +963,11 @@ local function Build()
     if width and width > 0 then resultsContent:SetWidth(width) end
   end)
   resultsScroll:Hide()
+  -- a bar beside the page whenever it runs past the window, so nothing below the
+  -- fold is taken for missing (after the size handlers above, which SetScript)
+  Panel.contentScroll = contentScroll
+  Panel.contentScrollbar = Kit.AttachScrollbar(contentScroll)
+  Kit.AttachScrollbar(resultsScroll)
 
   -- Footer -------------------------------------------------------------
   local footer = CreateFrame("Frame", nil, frame)
