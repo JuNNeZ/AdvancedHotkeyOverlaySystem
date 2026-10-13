@@ -1,10 +1,10 @@
 # Advanced Hotkey Overlay System (AHOS)
 
-![Version](https://img.shields.io/badge/version-2.6.0-cyan)
+![Version](https://img.shields.io/badge/version-3.0.0-cyan)
 
 A modular, robust hotkey overlay system for World of Warcraft action bars, with dedicated support for Blizzard bars, AzeriteUI, Bartender4, Dominos, DiabolicUI, LUI and Neuron.
 
-## Version 2.6.0 Highlights
+## Version 3.0.0 Highlights
 
 - When the hotkey text shows: fade it out of combat, show it only on mouseover per bar or while a modifier is held, or write a Lua condition of your own. A different colour and size in combat, and a flash or pulse when you press a button.
 - `/ahos edit`: drag the hotkey text into place on your own bars; Shift-drag moves one bar. Bars can also have a place of their own.

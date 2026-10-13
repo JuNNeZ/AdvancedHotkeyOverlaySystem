@@ -89,7 +89,7 @@ The roadmap written for 2.5.6 (November 2025) is done. This page records where e
 
 ## Still open
 
-- **In-game verification** of the 2.6 features on every client: the test harness runs against a mock client, not the game.
+- **In-game verification** of the 3.0 features on every client: the test harness runs against a mock client, not the game.
 
 ---
 

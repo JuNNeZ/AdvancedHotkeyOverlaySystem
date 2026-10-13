@@ -381,7 +381,7 @@ AHOS includes a complete profile system allowing different configurations per ch
 | **By Specialization** | `Name-Realm-Specialization` |
 | **By Talent Loadout** | `Name-Realm-Specialization-Loadout` (Retail; elsewhere it follows the specialization) |
 
-A profile that does not exist yet starts as a copy of the one you are on, so switching never resets your look. (Before 2.6 this setting lived inside the profile it switched away from; it moves to the character by itself.)
+A profile that does not exist yet starts as a copy of the one you are on, so switching never resets your look. (Before 3.0 this setting lived inside the profile it switched away from; it moves to the character by itself.)
 
 > **Example use case:** A Druid who uses aggressive abbreviations for Balance but larger, clearer text for Restoration.
 

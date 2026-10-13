@@ -86,7 +86,7 @@ Advanced Hotkey Overlay System replaces the default hotkey text on your action b
 - LibSharedMedia-3.0 (included)
 - LibDBIcon-1.0 (included)
 
-## Recent Updates (v2.6.0)
+## Recent Updates (v3.0.0)
 - When the hotkey text shows: fade it out of combat, show it only on mouseover per bar or while a modifier is held, or write a Lua condition of your own. A different colour and size in combat, and a flash or pulse when you press a button.
 - `/ahos edit`: drag the hotkey text into place on your own bars; Shift-drag moves one bar. Bars can also have a place of their own.
 - Presets and Tank, Healer and Damage templates, snapshots with `/ahos rollback`, `/ahos profile <name>`, and switching profile by specialization or talent loadout.

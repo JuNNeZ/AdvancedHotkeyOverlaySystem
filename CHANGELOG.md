@@ -4,9 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.6.0] - 2026-10-13
+## [3.0.0] - 2026-10-13
 
-### Added (2.6.0)
+First published as 2.6.0; renumbered to 3.0.0 because of how much changed. The content is the same.
+
+### Added (3.0.0)
 
 - Colour by Modifier (Keybinds page): Shift, Ctrl and Alt bindings each get their own colour, with a fourth for two or more modifiers. "Hide Modifier Letters" then shows "Q" in the Shift colour instead of "SQ". The live preview and the keyboard on the Abbreviations page show the colours too.
 - Anchor Point is a 3x3 grid on a button in the options window.
@@ -51,7 +53,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Cyrillic, Korean and Chinese key names are drawn in the game's own faces for them, on your bars and in the options window, so they no longer show as boxes on a client in another language. Cyrillic keys show in capitals, as the Nordic letters do.
 - A test harness: `lua Tools/RunTests.lua` runs the options window, engine and translation suites against a mock client for every client TOC, and CI runs it on every push. The engine suite covers key detection on every supported bar addon and times a full update.
 
-### Changed (2.6.0)
+### Changed (3.0.0)
 
 - Keycap Gold is the options window's default theme. A window you already opened keeps the theme it has; pick Keycap Gold on the Window page to switch.
 - Sliders, switches and buttons are tighter: thinner tracks shaded to read as sunk, fills shaded to read as raised, and knobs with a ring and a shadow.
@@ -67,7 +69,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - A bar addon set up with more buttons than usual (Dominos past 200) has all of them found.
 - For contributors: `modules/Display.lua` is four files (DisplayShared, Display, DisplayNative, DisplayStyle) and `modules/Options.lua` one file per page (OptionsStatus, OptionsDisplay, OptionsText, OptionsBars, OptionsProfiles); `types/AHOS.lua` describes AHOS's tables and modules for the Lua language server.
 
-### Fixed (2.6.0)
+### Fixed (3.0.0)
 
 - Hotkey text placed in the top-right corner (the Blizzard Style and Healer presets, or an anchor of your own) vanished: the search for a button's own hotkey label took AHOS's text for it, hid it, and kept hiding it after the next preset too. AHOS's own text is now never taken for a button's label.
 - The Condition of Your Own field could not be typed in: the box inside it was one pixel tall, so neither text nor caret showed. It fills the field now, grows with the text, and the page no longer redraws under a field you are typing in.
@@ -88,7 +90,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Turning AHOS off, or leaving a bar alone, right after the first login could leave a button with no hotkey text until `/reload`: the bar had not filled in its label before AHOS drew, so there was nothing to put back. AHOS now writes the key text the label would show.
 - Dominos', Bartender4's and LUI's keybind mode was not followed when LibKeyBound loaded after AHOS. AHOS now looks for it each time an addon loads.
 
-### Removed (2.6.0)
+### Removed (3.0.0)
 
 - The classic window (the generated Ace3 options window) and the "Open the Classic Window" setting and button. Several new settings did not work in it, and the options window covers every setting. `/ahos classic` now opens the options window. AceGUI-3.0 and AceConfig-3.0 are no longer bundled.
 
