@@ -239,7 +239,11 @@ def main():
     # their buttons (options/Keyboard.lua, PAD_DEVICES) can use the same numbers.
     # Each has -fill (the body), -edge (its outline and the outlines of what is
     # not a button: touchpad, screen, trackpads) and -detail (those areas filled,
-    # tinted darker in game).
+    # tinted darker in game). A body is the controller seen from the front without
+    # its shoulder buttons (those are keys above it): a smooth curve through the
+    # points of its left half, from the top centre round to the bottom centre,
+    # mirrored for the right. The Xbox, DualSense and Switch Pro halves follow the
+    # silhouettes of the real controllers, scaled to 13 units across.
     U = 24
 
     def pad_set(name, w, h, body, details, size):
@@ -262,55 +266,73 @@ def main():
         save(edge, name + "-edge", *size)
         save(detail, name + "-detail", *size)
 
-    def grips(d, px, centers, rx, ry, top):
-        for cx, cy in centers:
-            d.ellipse([px(cx - rx), px(cy - ry), px(cx + rx), px(cy + ry)], fill=255)
-        (a, b) = centers
-        d.polygon([(px(a[0]), px(top)), (px(b[0]), px(top)), (px(b[0] - rx * .6), px(a[1] + ry * .45)),
-                   (px(a[0] + rx * .6), px(a[1] + ry * .45))], fill=255)
+    def smooth(points, steps=10):
+        # a closed Catmull-Rom curve through the points
+        out, n = [], len(points)
+        for i in range(n):
+            p0, p1, p2, p3 = (points[(i + k) % n] for k in (-1, 0, 1, 2))
+            for j in range(steps):
+                t = j / steps
+                out.append(tuple(.5 * (2 * b + (c - a) * t + (2 * a - 5 * b + 4 * c - e) * t * t
+                                       + (3 * b - a - 3 * c + e) * t * t * t)
+                                 for a, b, c, e in zip(p0, p1, p2, p3)))
+        return out
 
-    # Xbox: a rounded top, round grips set wide.
-    def xbox(d, px):
-        d.rounded_rectangle([px(1.0), px(.1), px(11.4), px(3.5)], radius=px(1.5), fill=255)
-        grips(d, px, ((2.4, 4.05), (10.0, 4.05)), 2.2, 2.15, 2.6)
-    pad_set("pad-xbox", 12.4, 6.35, xbox, lambda d, px: None, (256, 128))
+    def outline(w, half, margin=.08):
+        # pulled in by `margin` all round, so the curve's swing past its points
+        # is not cut off at the edges of the file
+        h = max(y for _, y in half)
 
-    # DualSense: a flatter, wider top with the touchpad in it, long grips.
-    def ps(d, px):
-        d.rounded_rectangle([px(.8), px(.05), px(12.2), px(3.1)], radius=px(1.0), fill=255)
-        grips(d, px, ((2.2, 4.4), (10.8, 4.4)), 1.75, 2.05, 2.4)
+        def draw(d, px):
+            right = [(w - x, y) for x, y in reversed(half[1:-1])]
+            d.polygon([(px(margin + x * (w - 2 * margin) / w), px(margin + y * (h - 2 * margin) / h))
+                       for x, y in smooth(half + right)], fill=255)
+        return draw
+
+    # Xbox: shoulders that round straight into the grips, the grips angled out.
+    xbox = [(6.5, 0), (4.6, 0), (3.3, 0), (2.7, .08), (2.18, .37), (1.8, .85), (1.48, 1.33), (1.27, 1.89),
+            (1.06, 2.44), (.86, 3.0), (.68, 3.56), (.5, 4.12), (.34, 4.7), (.2, 5.28), (.09, 5.87), (.01, 6.48),
+            (.01, 7.11), (.11, 7.7), (.37, 8.24), (.81, 8.64), (1.35, 8.86), (1.83, 8.5), (2.24, 8.04),
+            (2.62, 7.56), (3.0, 7.07), (3.43, 6.62), (3.96, 6.36), (4.59, 6.32), (6.5, 6.32)]
+    pad_set("pad-xbox", 13, 8.86, outline(13, xbox), lambda d, px: None, (256, 256))
+
+    # DualSense: a flat top with the touchpad in it, long grips reaching down.
+    ps = [(6.5, 0), (5.14, .03), (3.81, .12), (2.65, .02), (1.98, .06), (1.59, .5), (1.2, .95), (.95, 1.54),
+          (.72, 2.13), (.52, 2.74), (.36, 3.35), (.22, 3.98), (.11, 4.63), (.03, 5.28), (0, 5.96), (.06, 6.62),
+          (.17, 7.26), (.39, 7.86), (.79, 8.37), (1.39, 8.52), (1.91, 8.18), (2.24, 7.63), (2.49, 7.04),
+          (2.71, 6.45), (2.99, 5.88), (3.59, 5.66), (4.6, 5.66), (6.5, 5.66)]
 
     def ps_details(d, px):
-        d.rounded_rectangle([px(4.9), px(.3), px(8.1), px(1.75)], radius=px(.3), fill=255)
-    pad_set("pad-ps", 13, 6.6, ps, ps_details, (256, 128))
+        d.rounded_rectangle([px(3.85), px(.1), px(9.15), px(2.85)], radius=px(.4), fill=255)
+    pad_set("pad-ps", 13, 8.52, outline(13, ps), ps_details, (256, 256))
 
-    # Switch Pro: squarer shoulders, shorter grips.
-    def switch(d, px):
-        d.rounded_rectangle([px(.7), px(.1), px(11.7), px(3.6)], radius=px(1.0), fill=255)
-        grips(d, px, ((2.4, 4.15), (10.0, 4.15)), 2.0, 2.0, 2.6)
-    pad_set("pad-switch", 12.4, 6.35, switch, lambda d, px: None, (256, 128))
+    # Switch Pro: a broad, squarer top and grips that drop nearly straight.
+    switch = [(6.5, 0), (4.5, 0), (3.22, 0), (2.56, 0), (2.0, .25), (1.55, .67), (1.17, 1.16), (.93, 1.73),
+              (.78, 2.33), (.67, 2.94), (.54, 3.55), (.43, 4.17), (.32, 4.78), (.22, 5.41), (.12, 6.03),
+              (.04, 6.66), (0, 7.3), (.08, 7.93), (.37, 8.47), (.89, 8.82), (1.5, 8.83), (2.01, 8.47),
+              (2.34, 7.94), (2.62, 7.4), (2.89, 6.85), (3.25, 6.34), (3.86, 6.2), (4.6, 6.2), (6.5, 6.2)]
+    pad_set("pad-switch", 13, 8.88, outline(13, switch), lambda d, px: None, (256, 256))
 
-    # Steam Deck: a wide handheld, the screen in the middle, a trackpad under
-    # each thumb.
-    def deck(d, px):
-        d.rounded_rectangle([px(.08), px(.08), px(16.32), px(5.32)], radius=px(1.6), fill=255)
+    # Steam Deck: a wide handheld, flat on top, the bottom corners rounder than
+    # the top ones; the screen in the middle, a trackpad under each stick.
+    deck = [(8.2, 0), (4.0, 0), (1.5, .05), (.55, .45), (.12, 1.3), (0, 2.6), (.05, 4.2), (.3, 5.4),
+            (.9, 6.25), (2.0, 6.58), (4.0, 6.6), (8.2, 6.6)]
 
     def deck_details(d, px):
-        d.rounded_rectangle([px(4.6), px(.7), px(11.8), px(4.7)], radius=px(.25), fill=255)
-        for x in (1.35, 13.15):
-            d.rounded_rectangle([px(x), px(2.45), px(x + 1.9), px(4.35)], radius=px(.35), fill=255)
-    pad_set("pad-deck", 16.4, 5.4, deck, deck_details, (256, 128))
+        d.rounded_rectangle([px(4.75), px(.55), px(11.65), px(6.05)], radius=px(.25), fill=255)
+        for x in (2.55, 12.85):
+            d.rounded_rectangle([px(x), px(2.45), px(x + 2.0), px(4.45)], radius=px(.35), fill=255)
+    pad_set("pad-deck", 16.4, 6.6, outline(16.4, deck), deck_details, (256, 128))
 
-    # Steam Controller: two round trackpads up top, the stick low on the left.
-    def steam(d, px):
-        d.rounded_rectangle([px(.4), px(.08), px(12.6), px(3.3)], radius=px(1.6), fill=255)
-        grips(d, px, ((2.2, 4.4), (10.8, 4.4)), 2.0, 2.2, 2.6)
-        d.rounded_rectangle([px(3.6), px(2.5), px(9.4), px(5.6)], radius=px(1.0), fill=255)
+    # Steam Controller: two round trackpads up top, grips flaring down and out,
+    # the stick and the face buttons low in the middle between them.
+    steam = [(6.5, .05), (4.5, .05), (2.6, .1), (1.3, .35), (.5, 1.0), (.15, 2.1), (.2, 3.4), (.55, 4.7),
+             (1.1, 5.9), (1.8, 6.7), (2.6, 6.75), (3.3, 6.3), (3.8, 5.85), (4.6, 5.75), (6.5, 5.75)]
 
     def steam_details(d, px):
         for cx in (3.2, 9.8):
             d.ellipse([px(cx - 1.35), px(2.0 - 1.35), px(cx + 1.35), px(2.0 + 1.35)], fill=255)
-    pad_set("pad-steam", 13, 6.8, steam, steam_details, (256, 128))
+    pad_set("pad-steam", 13, 6.8, outline(13, steam), steam_details, (256, 128))
 
     print("wrote", len(os.listdir(OUT)), "files to", OUT)
 

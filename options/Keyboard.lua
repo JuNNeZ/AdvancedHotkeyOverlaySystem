@@ -251,10 +251,10 @@ local MOUSE_BLOCK = { key = "mouse", body = { .5, 0, 4, 6.25 }, w = 4.6, h = 6.2
 	{ "BUTTON5", "M5", 0, 3.9, .85, .85 },
 } }
 
--- The controllers, one per brand, in key units. Button positions follow
--- ConsolePort's layouts for the same devices (Model/Gamepad/*.lua), scaled to
--- these units; the bodies are AHOS's own (Tools/MakePanelArt.py, pad-*), drawn in
--- the same units so the details (touchpad, screen, trackpads) line up. A key is
+-- The controllers, one per brand, in key units. The bodies are AHOS's own
+-- (Tools/MakePanelArt.py, pad-*): outlines that follow the real controllers,
+-- drawn in the same units, and the buttons sit where they do on those
+-- controllers, so the details (touchpad, screen, trackpads) line up. A key is
 -- placed by its centre: C(token, x, y, w, h).
 local function C(token, x, y, w, h) return { token, nil, x - w / 2, y - h / 2, w, h } end
 local function Shoulders(left, right)
@@ -286,38 +286,38 @@ end
 
 local PAD_DEVICES = {
 	-- offset sticks, the guide button on top, View and Menu beside it
-	xbox = { name = "Xbox", order = 1, style = "xbox", art = "pad-xbox", w = 13, h = 8, body = { .3, 1.65, 12.4, 6.35 },
-		keys = Keys(Shoulders(2.6, 10.4),
-			C("PADLSTICK", 2.85, 3.0, 1.4, 1.4), Dpad(4.6, 5.3, .85, .9),
-			Face(10.55, 3.3, .95, .95), C("PADRSTICK", 8.4, 5.2, 1.4, 1.4),
-			C("PADBACK", 5.3, 2.75, .8, .55), C("PADFORWARD", 7.7, 2.75, .8, .55),
-			C("PADSYSTEM", 6.5, 2.0, .9, .6), C("PADSOCIAL", 6.5, 3.5, .7, .45)) },
+	xbox = { name = "Xbox", order = 1, style = "xbox", art = "pad-xbox", w = 13.4, h = 10.5, body = { .2, 1.6, 13, 8.86 },
+		keys = Keys(Shoulders(3.3, 10.1),
+			C("PADLSTICK", 3.37, 3.81, 1.4, 1.4), Dpad(4.94, 5.95, .8, .8),
+			Face(10.1, 3.85, .85, .88), C("PADRSTICK", 8.43, 5.84, 1.4, 1.4),
+			C("PADBACK", 5.75, 3.81, .75, .5), C("PADFORWARD", 7.65, 3.81, .75, .5),
+			C("PADSYSTEM", 6.7, 2.44, .9, .6), C("PADSOCIAL", 6.7, 4.4, .65, .42)) },
 	-- DualSense: D-pad and face buttons up top, sticks side by side below, the
 	-- touchpad between Create and Options (its halves are two buttons), PS and mic below
-	ps = { name = "PlayStation", order = 2, style = "ps", art = "pad-ps", w = 13.4, h = 8.2, body = { .2, 1.6, 13, 6.6 },
-		keys = Keys(Shoulders(2.4, 11.0),
-			Dpad(2.6, 3.4, .8, .85), Face(10.8, 3.4, .95, .9),
-			C("PADBACK", 5.92, 2.6, 1.5, 1.25), C("PAD6", 7.48, 2.6, 1.5, 1.25),
-			C("PADSOCIAL", 4.4, 2.05, .5, .75), C("PADFORWARD", 9.0, 2.05, .5, .75),
-			C("PADLSTICK", 4.6, 5.3, 1.3, 1.3), C("PADRSTICK", 8.8, 5.3, 1.3, 1.3),
-			C("PADSYSTEM", 6.7, 4.6, .75, .55), C("PAD5", 6.7, 5.35, .75, .42)) },
+	ps = { name = "PlayStation", order = 2, style = "ps", art = "pad-ps", w = 13.4, h = 10.15, body = { .2, 1.6, 13, 8.52 },
+		keys = Keys(Shoulders(2.7, 10.7),
+			Dpad(2.63, 3.94, .75, .78), Face(10.8, 3.94, .9, .94),
+			C("PADBACK", 5.45, 3.0, 2.3, 1.5), C("PAD6", 7.95, 3.0, 2.3, 1.5),
+			C("PADSOCIAL", 3.68, 2.53, .5, .75), C("PADFORWARD", 9.72, 2.53, .5, .75),
+			C("PADLSTICK", 4.62, 5.73, 1.3, 1.3), C("PADRSTICK", 8.78, 5.73, 1.3, 1.3),
+			C("PADSYSTEM", 6.7, 5.77, .75, .55), C("PAD5", 6.7, 6.45, .75, .42)) },
 	-- Switch Pro: like Xbox in shape, with − and + and Capture and Home in the middle
-	switch = { name = "Nintendo Switch", order = 3, style = "switch", art = "pad-switch", w = 13, h = 8, body = { .3, 1.65, 12.4, 6.35 },
-		keys = Keys(Shoulders(2.6, 10.4),
-			C("PADLSTICK", 2.85, 3.05, 1.35, 1.35), Dpad(4.5, 5.25, .85, .9),
-			Face(10.55, 3.3, .95, .95), C("PADRSTICK", 8.35, 5.2, 1.35, 1.35),
-			C("PADBACK", 5.1, 2.3, .6, .6), C("PADFORWARD", 7.9, 2.3, .6, .6),
-			C("PADSOCIAL", 5.7, 3.3, .6, .6), C("PADSYSTEM", 7.3, 3.3, .6, .6)) },
+	switch = { name = "Nintendo Switch", order = 3, style = "switch", art = "pad-switch", w = 13.4, h = 10.5, body = { .2, 1.6, 13, 8.88 },
+		keys = Keys(Shoulders(3.0, 10.4),
+			C("PADLSTICK", 3.14, 3.97, 1.35, 1.35), Dpad(4.69, 5.89, .75, .78),
+			Face(10.11, 4.18, .9, .97), C("PADRSTICK", 8.48, 5.91, 1.35, 1.35),
+			C("PADBACK", 5.11, 3.17, .55, .55), C("PADFORWARD", 8.29, 3.17, .55, .55),
+			C("PADSOCIAL", 5.75, 4.18, .6, .6), C("PADSYSTEM", 7.65, 4.18, .6, .6)) },
 	-- Steam Deck: the screen in the middle, D-pad and stick on the left, face
-	-- buttons and stick on the right, a trackpad under each thumb; L4, L5, R4 and
-	-- R5 on the back are the paddles
-	deck = { name = "Steam Deck", order = 4, style = "xbox", art = "pad-deck", w = 16.4, h = 7, body = { 0, 1.6, 16.4, 5.4 },
+	-- buttons and stick on the right, a trackpad under each stick and STEAM and
+	-- ... under those; L4, L5, R4 and R5 on the back are the paddles
+	deck = { name = "Steam Deck", order = 4, style = "xbox", art = "pad-deck", w = 16.4, h = 8.2, body = { 0, 1.6, 16.4, 6.6 },
 		legends = { PADPADDLE1 = "L4", PADPADDLE2 = "L5", PADPADDLE3 = "R4", PADPADDLE4 = "R5" },
 		keys = Keys(Shoulders(1.9, 14.5),
-			Dpad(1.55, 3.05, .75, .75), C("PADLSTICK", 3.45, 2.85, 1.1, 1.1),
-			Face(14.85, 3.05, .75, .75), C("PADRSTICK", 12.95, 2.85, 1.1, 1.1),
-			C("PADBACK", 3.5, 1.95, .7, .38), C("PADFORWARD", 12.9, 1.95, .7, .38),
-			C("PADSYSTEM", 1.0, 6.45, .8, .4), C("PADSOCIAL", 15.4, 6.45, .8, .4)) },
+			Dpad(1.55, 3.05, .75, .75), C("PADLSTICK", 3.55, 2.95, 1.15, 1.15),
+			Face(14.85, 3.05, .75, .75), C("PADRSTICK", 12.85, 2.95, 1.15, 1.15),
+			C("PADBACK", 2.45, 1.95, .65, .38), C("PADFORWARD", 13.95, 1.95, .65, .38),
+			C("PADSYSTEM", 3.55, 6.6, .9, .4), C("PADSOCIAL", 12.85, 6.6, .9, .4)) },
 	-- Steam Controller: two round trackpads up top (the left one clicks as a
 	-- D-pad, the right one as the right stick), one stick low on the left
 	steam = { name = "Steam Controller", order = 5, style = "xbox", art = "pad-steam", w = 13.4, h = 8.4, body = { .2, 1.6, 13, 6.8 },
