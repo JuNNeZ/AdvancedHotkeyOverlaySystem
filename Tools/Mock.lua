@@ -358,6 +358,9 @@ function Mock.New(opts)
   -- game.actions[slot] = true puts something on an action slot
   game.actions = {}
   env.C_ActionBar = { HasAction = function(slot) return game.actions[slot] and true or false end }
+  -- what the game's key bindings for Blizzard's action buttons run
+  env.ActionButtonDown = function(id) end
+  env.MultiActionButtonDown = function(bar, id) end
   env.hooksecurefunc = function(target, method, hook)
     if type(target) == "string" then target, method, hook = env, target, method end
     local original = target[method]

@@ -119,6 +119,7 @@ function Display:UpdateAllOverlays()
         self:EnsureButtonVisibilityHook(button)
         self:EnsureButtonHotkeyHook(button)
         local ok, err = self:SafeUpdateOverlayForButton(button)
+        self:ApplyRangeDot(button)
         if not ok and addon.db and addon.db.profile and addon.db.profile.debug then
             addon:Print("[AHOS DEBUG] Could not update " .. (GetSafeName(button) or "<inaccessible>") .. ": " .. addon:SafeToString(err, "unknown error"))
         end
@@ -465,8 +466,10 @@ function Display:UpdateOverlayForButton(button)
     end
         if hotkeyTextRegion then
             if hideOrig and isRetail and not useNative then
-                -- Retail: with no overlay text, do NOT suppress native labels; restore/show original
-                self:SquelchHotkeyRegions(button, false)
+                -- Retail: with no overlay text, keep the native label's own key text (a key
+                -- AHOS could not read still shows), but stay squelched: that blanks the
+                -- range dot Blizzard and LibActionButton put on a button with no key,
+                -- now and each time they redraw it.
                 local orig = originalHotkeyTexts[buttonName]
                 if orig and not IsFallbackHotkeyGlyph(orig) then
                     hotkeyTextRegion:SetText(orig)
@@ -697,6 +700,7 @@ function Display:RemoveAllOverlays()
             if hotkeyTextRegion and not addon:IsFrameShownSafe(hotkeyTextRegion) then
                 hotkeyTextRegion:Show()
             end
+            self:ApplyRangeDot(button)
         end)
         if not ok and addon.db and addon.db.profile and addon.db.profile.debug then
             addon:Print("[AHOS DEBUG] Native hotkey restore failed: " .. addon:SafeToString(err, "unknown error"))

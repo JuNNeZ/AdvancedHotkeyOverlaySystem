@@ -2,11 +2,15 @@
 
 Readable, styled hotkey text on every action bar, with a keyboard you can see, visibility rules, and drag-and-drop placement.
 
+![Before and after](IMAGE-before-after)
+
 ## What does this addon do?
 
-AHOS replaces the hotkey text on your action buttons with text you style yourself: font, size, colour, outline, shadow, glow, a plate behind it, and where it sits on the button. It works on the default Blizzard bars and on AzeriteUI, Bartender4, Dominos, DiabolicUI, LUI and Neuron, and steps aside when ElvUI is loaded.
+The game's hotkey text is small, white and cut short: "s-Q", "a-c-s-1", "Mous…". AHOS replaces it with text you style yourself: font, size, colour, outline, shadow, glow, a plate behind it, and where it sits on the button. Shift, Ctrl and Alt can each have their own colour, so you read a bind at a glance.
 
-It runs on Retail, WoW Forever and Classic.
+It works on the default Blizzard bars and on AzeriteUI, Bartender4, Dominos, DiabolicUI, LUI and Neuron, and runs on Retail, WoW Forever and Classic.
+
+![Colour by modifier on AzeriteUI](IMAGE-colour-by-modifier)
 
 ## New in 3.0
 
@@ -18,6 +22,23 @@ It runs on Retail, WoW Forever and Classic.
 - **Presets and templates**: Blizzard Style, Big and Centered, Bottom Corner, Compact, plus Tank, Healer and Damage. Snapshots are taken automatically, and `/ahos rollback` takes you back.
 - **Inspector**: point at any action button to see which bar addon drew it, the key that presses it, and why AHOS shows the text it does.
 
+![Edit mode: drag the text into place](IMAGE-edit-mode-gif)
+
+## Supported bar addons
+
+| Bar addon | What AHOS draws on |
+|---|---|
+| Blizzard | Main bar, the bottom, side and extra bars (5-7), pet, stance and possess bars |
+| AzeriteUI | Action bars 1-8, pet and stance bars |
+| Bartender4 | Every action bar, pet and stance bars |
+| Dominos | Every action bar, also past the usual 200 buttons |
+| DiabolicUI | Action bars, small bars, pet and stance bars |
+| LUI | Bottom and side bars |
+| Neuron | Action and pet bars, including the keys Neuron keeps on its buttons |
+| ElvUI | AHOS steps aside and warns you, since ElvUI draws its own hotkeys |
+
+The Status page in the options window shows which bar addons AHOS found and how many buttons it draws on.
+
 ## Features
 
 ### Looks
@@ -25,25 +46,37 @@ It runs on Retail, WoW Forever and Classic.
 - Font, size, colour, outline, shadow colour and offset, and glow
 - A background plate behind the text
 - Colour by modifier: Shift, Ctrl and Alt bindings each get their own colour
-- A combat style, and a flash or pulse when you press a button
+- A combat style, and a flash or pulse in a colour of your choice when you press a button
 - Mouse button icons, and both keys on a button bound to two
 - Follow Masque Skin: the text goes where your Masque skin puts the hotkey
+- Buttons with no key show nothing, not the game's range dot
 
 ### Placement
 
 - Anchor on a 3×3 grid, with X and Y offsets
 - Per bar: text size, show on mouseover, and a position of its own
 - Drag and drop on your real bars with `/ahos edit`
+- Leave a whole bar, or a single button, to its own hotkey text
 
 ### Abbreviations
+
+![The Abbreviations keyboard](IMAGE-keyboard)
 
 - Every key can have its own abbreviation
 - Keyboard layouts: English (US and UK), Danish, Norwegian, Swedish/Finnish, German, French, Russian, Ukrainian, Korean and Taiwanese
 - Cyrillic, Korean and Chinese key names are drawn in the game's own fonts on any client
 
+### Controllers
+
+![The Controller tab](IMAGE-controller)
+
+- Xbox, PlayStation, Nintendo Switch Pro, Steam Deck and Steam Controller, picked automatically from the controller you use
+- Gamepad buttons drawn as the controller's own button icons on your bars
+
 ### Profiles
 
 - Per-character and shared profiles, with import and export
+- Presets, templates and snapshots you can roll back to
 - Switch profile by specialization or talent loadout
 - `/ahos profile <name>` switches profile, making it if it does not exist yet
 
@@ -65,26 +98,29 @@ The options window is in English, German, Spanish, French, Portuguese, Russian, 
 - `/ahos reset` resets the profile
 - `/ahos help` lists every command
 
-## Troubleshooting
+## FAQ
+
+**Does it work in combat?**
+Yes. AHOS only draws text on top of your buttons; it never touches what they do, so nothing is blocked in combat. Edit mode is the one exception: it does not start in combat, and it ends when combat starts.
+
+**Can I go back to how it looked before?**
+Every preset, import and reset takes a snapshot first. `/ahos rollback` puts it back, and `/ahos toggle` turns AHOS off and gives the buttons their own text.
+
+**A button shows the wrong text, or none.**
+Open the Inspector page, click Pick a Button and point at it. It tells you the bar, the key and why AHOS shows what it does. Copy Details puts it all in a box you can paste into a bug report.
 
 **Overlays not showing?**
-
-- Check that AHOS is on with `/ahos toggle`
-- Run `/ahos refresh` to find your bars again
-- Open the Status page in the options window to see which bar addons AHOS found and how many buttons it draws on
-
-**A button shows the wrong text?**
-
-- Open the Inspector page, click Pick a Button and point at it
-
-**Wrong UI detected?**
-
-- Run `/ahos detectui`
+Check that AHOS is on with `/ahos toggle`, run `/ahos refresh` to find your bars again, and look at the Status page. If the wrong UI was detected, run `/ahos detectui`.
 
 ## Requirements
 
 - World of Warcraft Retail, WoW Forever or Classic (current patches)
 - All libraries are included
+
+## Support
+
+- Bugs and ideas: [GitHub issues](https://github.com/JuNNeZ/AdvancedHotkeyOverlaySystem/issues)
+- Support the work: [Ko-fi](https://ko-fi.com/junnez) or [Patreon](https://www.patreon.com/junnez)
 
 ---
 

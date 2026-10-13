@@ -94,11 +94,16 @@ local function RefreshNativeHotkey(button)
         methodNames = provider and provider.hotkey_update_method and { provider.hotkey_update_method }
             or { "UpdateHotkeys", "SetHotkeys" }
     end
+    -- Blizzard's UpdateHotkeys(actionButtonType) reads "ACTIONBUTTON" .. id when it
+    -- is given no type, so a bottom-right bar button would show the main bar's key.
+    -- Blizzard passes the button's own buttonType; so must we.
+    local typeOk, buttonType = pcall(function() return button.buttonType end)
+    if not typeOk or type(buttonType) ~= "string" or not addon:IsValueAccessible(buttonType) then buttonType = nil end
 
     for _, methodName in ipairs(methodNames) do
         local methodOk, method = pcall(function() return button[methodName] end)
         if methodOk and type(method) == "function" then
-            local ok = pcall(method, button)
+            local ok = pcall(method, button, buttonType)
             if ok then return true end
         end
     end

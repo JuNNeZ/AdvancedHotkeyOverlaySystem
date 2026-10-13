@@ -187,6 +187,45 @@ addon.Core:OnEnable()
 update()
 check(overlay(B.r2), "overlays back on")
 
+-- Blizzard's UpdateHotkeys(actionButtonType) reads "ACTIONBUTTON" .. id when it is
+-- given no type. An empty button on the bottom-right bar must not show the main
+-- bar's key for its number.
+game.bindings.ACTIONBUTTON7 = "SHIFT-E"
+local br7 = game.MakeButton("MultiBarBottomRightButton7", { action = 55 })
+br7.buttonType = "MULTIACTIONBAR2BUTTON"
+br7.GetID = function() return 7 end
+br7.UpdateHotkeys = function(self, actionButtonType)
+  local key = env.GetBindingKey((actionButtonType or "ACTIONBUTTON") .. self:GetID())
+  -- no key: Blizzard writes RANGE_INDICATOR, the dot it shows while in range
+  self.HotKey:SetText(key and env.GetBindingText(key, 1) or "\226\151\143")
+end
+update()
+check(not overlay(br7), "no overlay on an unbound bottom-right button")
+check(br7.hotkey.text ~= "s-E", "its label does not show the main bar's key: " .. tostring(br7.hotkey.text))
+eq(br7.hotkey.text, "", "nor the range dot")
+br7:UpdateHotkeys(br7.buttonType)
+eq(br7.hotkey.text, "", "not even when Blizzard redraws it")
+addon.db.profile.enabled = false
+addon.Core:OnDisable()
+game.flush()
+check(br7.hotkey.text ~= "s-E", "nor with AHOS off: " .. tostring(br7.hotkey.text))
+eq(br7.hotkey.text, "\226\151\143", "with AHOS off the button shows the game's own range dot")
+-- Hide the Range Dot works with AHOS off too
+profile.display.hideRangeDot = true
+addon.Core:FullUpdate()
+game.flush()
+eq(br7.hotkey.text, "", "Hide the Range Dot blanks it with AHOS off")
+br7:UpdateHotkeys(br7.buttonType)
+eq(br7.hotkey.text, "", "and keeps it blank when the game redraws it")
+profile.display.hideRangeDot = false
+br7:UpdateHotkeys(br7.buttonType)
+eq(br7.hotkey.text, "\226\151\143", "turned off, the dot is back")
+addon.db.profile.enabled = true
+addon.Core:OnEnable()
+game.bindings.ACTIONBUTTON7 = nil
+Keybinds:ClearCache()
+update()
+
 ---------------------------------------------------------------------------
 -- Visibility
 ---------------------------------------------------------------------------
@@ -291,8 +330,19 @@ profile.display.pressAnimation = "pulse"
 game.time = game.time + 1
 B.ab1:SetButtonState("PUSHED")
 check(o:GetScale() > scaleBefore, "a pulse grows the text")
+check(o.text.textColor[2] == 0.82, "in the press colour")
 Visibility.Step(1)
 check(math.abs(o:GetScale() - scaleBefore) < 1e-6, "and it settles")
+check(o.text.textColor[2] == 1, "and its colour")
+-- A key bound to a Blizzard button runs ActionButtonDown / MultiActionButtonDown.
+profile.display.pressAnimation = "flash"
+game.time = game.time + 1
+env.ActionButtonDown(1)
+check(o.text.textColor[2] == 0.82, "a key press on the main bar flashes the text")
+Visibility.Step(1)
+env.MultiActionButtonDown("MultiBarRight", 2)
+check(overlay(B.r2).text.textColor[2] == 0.82, "and one on another Blizzard bar")
+Visibility.Step(1)
 profile.display.pressAnimation = "none"
 
 ---------------------------------------------------------------------------

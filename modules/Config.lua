@@ -126,6 +126,7 @@ function Config:GetDefaultProfile()
             scale = 0.95,
             alpha = 1,
             hideOriginal = true,
+            hideRangeDot = false,
             smartPositioning = true,
             border = "none",
             borderColor = {0,0,0,1},

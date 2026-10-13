@@ -13,3 +13,6 @@ __pycache__/
 /.claude/
 /.codex/
 /.github/agents/
+
+# Raw and cropped screenshots for the CurseForge page
+/screenshots/

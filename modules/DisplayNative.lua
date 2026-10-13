@@ -301,6 +301,40 @@ function Display:SquelchHotkeyRegions(button, squelch)
     end
 end
 
+-- Hide the Range Dot: Blizzard and LibActionButton write RANGE_INDICATOR (the dot)
+-- on a button with no key and show it while its action is in range. With the
+-- setting on, the dot is blanked each time it is written or shown, whether AHOS is
+-- drawing or turned off.
+local rangeDotHooked = setmetatable({}, { __mode = "k" })
+
+local function HideRangeDotWanted()
+    local db = addon.db and addon.db.profile
+    return db and db.display and db.display.hideRangeDot and true or false
+end
+
+local function BlankRangeDot(fs)
+    if guardSetText[fs] or not HideRangeDotWanted() then return end
+    local text = GetSafeText(fs)
+    if text and IsFallbackHotkeyGlyph(text) then
+        guardSetText[fs] = true
+        fs:SetText("")
+        guardSetText[fs] = nil
+    end
+end
+
+---@param button Button
+function Display:ApplyRangeDot(button)
+    if not button or not HideRangeDotWanted() then return end
+    local fs = NativeHotkeyRegion(button, GetSafeName(button))
+    if not fs then return end
+    if not rangeDotHooked[fs] and type(hooksecurefunc) == "function" then
+        rangeDotHooked[fs] = true
+        pcall(hooksecurefunc, fs, "SetText", BlankRangeDot)
+        pcall(hooksecurefunc, fs, "Show", BlankRangeDot)
+    end
+    BlankRangeDot(fs)
+end
+
 -- Retail 12.1 updates Blizzard hotkeys through ActionBarActionButtonMixin:UpdateHotkeys;
 -- the old global ActionButton_UpdateHotkeys hook no longer exists. Hook the actual
 -- button method instead, which also works for supported third-party providers.

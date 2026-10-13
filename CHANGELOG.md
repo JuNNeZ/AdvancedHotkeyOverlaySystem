@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.1] - 2026-10-13
+
+### Added (3.0.1)
+
+- Hide the Range Dot (Display page): the dot the game puts on a button with no key while its action is in range is hidden, also while AHOS is turned off. Off by default.
+
+### Changed (3.0.1)
+
+- The controllers on the Controller tab are redrawn: the Xbox, DualSense and Switch Pro bodies follow the real controllers' outlines, the Steam Deck is taller with a trackpad under each stick, and every button sits where it does on that controller.
+
+- Pulse now flashes in the Flash Colour too, as well as growing; the colour can be picked for either.
+
+### Fixed (3.0.1)
+
+- With Hide Original Hotkey Text on, a button with no key showed the range dot (●) that Blizzard and LibActionButton (AzeriteUI, Bartender4, DiabolicUI) put on it. It now shows nothing, also after the bar redraws it. A key AHOS cannot read still shows the button's own text.
+- Pressing a key bound to a button on Blizzard's bars did not flash or pulse the text: the game runs those keys through ActionButtonDown and MultiActionButtonDown, which AHOS now listens to as well as clicks.
+- Empty buttons on Blizzard's extra bars (bottom right, bottom left, right, left and bars 5-7) showed the main bar's key for their number: the sixth button showed "6", the twelfth "a-c-s-1". AHOS asked the button to redraw its label without saying which bar it is on, and Blizzard then reads the main bar's binding. AHOS now passes the bar's own binding type, as Blizzard does, so an empty button stays empty and turning AHOS off puts back each bar's own keys.
+
 ## [3.0.0] - 2026-10-13
 
 First published as 2.6.0; renumbered to 3.0.0 because of how much changed. The content is the same.

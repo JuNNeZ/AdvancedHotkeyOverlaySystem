@@ -72,6 +72,14 @@ function Groups.display()
                             end
                         end,
                     },
+                    hideRangeDot = {
+                        type = "toggle",
+                        name = L.HIDE_RANGE_DOT or "Hide the Range Dot",
+                        desc = L.HIDE_RANGE_DOT_DESC or "The game puts a dot on a button with no key while its action is in range. Hide it, also while AHOS is turned off.",
+                        order = 1.1,
+                        get = function() local db = getSafeProfile() return db.display and db.display.hideRangeDot end,
+                        set = function(_, val) local db = getSafeProfile() if db.display then db.display.hideRangeDot = val; addon.Core:FullUpdate() end end,
+                    },
                     anchor = {
                         type = "select",
                         name = L.ANCHOR_POINT or "Anchor Point",
@@ -331,7 +339,7 @@ function Groups.display()
                             },
                             pressColor = colorOption(2, L.PRESS_COLOR or "Flash Colour", L.PRESS_COLOR_DESC or "The colour the text flashes when its button is pressed.",
                                 function() return getSafeProfile().display or {} end, "pressColor", false,
-                                function() local db = getSafeProfile() return not (db.display and db.display.pressAnimation == "flash") end,
+                                function() local db = getSafeProfile() local mode = db.display and db.display.pressAnimation return mode ~= "flash" and mode ~= "pulse" end,
                                 function() end),
                             background = {
                                 type = "toggle",

@@ -252,10 +252,9 @@ local function Step(elapsed)
         local p = math.min(1, anim.t / anim.duration)
         if anim.mode == "pulse" then
             overlay:SetScale(anim.scale * (1 + 0.35 * (1 - p)))
-        else
-            local c, n = anim.color, anim.normal
-            overlay.text:SetTextColor(c[1] + (n[1] - c[1]) * p, c[2] + (n[2] - c[2]) * p, c[3] + (n[3] - c[3]) * p, n[4] or 1)
         end
+        local c, n = anim.color, anim.normal
+        overlay.text:SetTextColor(c[1] + (n[1] - c[1]) * p, c[2] + (n[2] - c[2]) * p, c[3] + (n[3] - c[3]) * p, n[4] or 1)
         if p >= 1 then
             if anim.mode == "pulse" then overlay:SetScale(anim.scale) end
             anims[overlay] = nil
@@ -428,12 +427,12 @@ function Visibility:Press(button)
     local anim = { t = 0, mode = mode, duration = mode == "pulse" and 0.3 or 0.4 }
     if mode == "pulse" then
         anim.scale = running and running.scale or overlay:GetScale() or 1
-    else
-        local r, g, b, a = overlay.text:GetTextColor()
-        anim.normal = running and running.normal or { r or 1, g or 1, b or 1, a or 1 }
-        local c = type(profile.display.pressColor) == "table" and profile.display.pressColor or {1, 0.82, 0.2}
-        anim.color = { c[1] or 1, c[2] or 1, c[3] or 1 }
     end
+    -- both flash in the press colour; a pulse also grows
+    local r, g, b, a = overlay.text:GetTextColor()
+    anim.normal = running and running.normal or { r or 1, g or 1, b or 1, a or 1 }
+    local c = type(profile.display.pressColor) == "table" and profile.display.pressColor or {1, 0.82, 0.2}
+    anim.color = { c[1] or 1, c[2] or 1, c[3] or 1 }
     anims[overlay] = anim
     -- the first frame at once, so the press is seen on the frame it happens
     Step(0)
@@ -476,6 +475,29 @@ function Visibility:OnEnable()
         if Settings().modifierOnly then Visibility:Refresh(true) end
     end)
     self:UpdateTicker()
+    self:HookBindingPresses()
+end
+
+-- A key bound to a Blizzard action button runs ActionButtonDown(id) or
+-- MultiActionButtonDown(bar, id) from the game's bindings, which need not go
+-- through the button's SetButtonState or a click. Hook those too, so a key press
+-- on Blizzard's bars flashes the text like a click does.
+local bindingPressesHooked
+function Visibility:HookBindingPresses()
+    if bindingPressesHooked or type(hooksecurefunc) ~= "function" then return end
+    bindingPressesHooked = true
+    if type(ActionButtonDown) == "function" then
+        pcall(hooksecurefunc, "ActionButtonDown", function(id)
+            local button = (type(GetActionButtonForID) == "function" and GetActionButtonForID(id)) or _G["ActionButton" .. tostring(id)]
+            if button then Visibility:Press(button) end
+        end)
+    end
+    if type(MultiActionButtonDown) == "function" then
+        pcall(hooksecurefunc, "MultiActionButtonDown", function(bar, id)
+            local button = type(bar) == "string" and _G[bar .. "Button" .. tostring(id)]
+            if button then Visibility:Press(button) end
+        end)
+    end
 end
 
 -- After any setting on the Display page changes.
