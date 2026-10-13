@@ -8,3 +8,8 @@ AdvancedHotkeyOverlaySystem.code-workspace
 
 # Python bytecode from Tools/
 __pycache__/
+
+# Local AI agent definitions (wow-addon-architect) - not part of the addon
+/.claude/
+/.codex/
+/.github/agents/
