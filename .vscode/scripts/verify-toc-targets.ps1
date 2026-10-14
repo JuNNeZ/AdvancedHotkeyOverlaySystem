@@ -5,12 +5,12 @@ $root = Split-Path -Parent $root
 
 $expected = @{
     'AdvancedHotkeyOverlaySystem.toc' = @{
-        'Interface' = '110107, 110200, 120000, 120001, 120005, 120007, 120100'
+        'Interface' = '110107, 110200, 120000, 120001, 120005, 120007, 120100, 120105'
         'X-Compatible-With' = '120100'
         'X-Min-Interface' = '110107'
     }
     'AdvancedHotkeyOverlaySystem_Mainline.toc' = @{
-        'Interface' = '110107, 110200, 120000, 120001, 120005, 120007, 120100'
+        'Interface' = '110107, 110200, 120000, 120001, 120005, 120007, 120100, 120105'
         'X-Compatible-With' = '120100'
         'X-Min-Interface' = '110107'
     }

@@ -573,6 +573,9 @@ function Display:UpdateOverlayForButton(button)
             -- the visibility rules faded out.
             if db and db.display and (tonumber(db.display.alpha) or 1) <= 0 then return end
             if overlay._ahosFaded then return end
+            -- A button that is not on screen (a bar shown later, a page not up)
+            -- hides its overlay with it; that is not a skin failure either.
+            if not addon:IsFrameVisibleSafe(button) then return end
 
             -- Re-evaluate visibility a moment later
             local hidden = (not addon:IsFrameVisibleSafe(overlay)) or (not addon:IsFrameVisibleSafe(overlay.text))

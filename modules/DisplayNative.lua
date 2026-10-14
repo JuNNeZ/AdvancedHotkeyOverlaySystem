@@ -25,6 +25,13 @@ function Display:UseNativeRewrite()
     return v and true or false
 end
 
+-- The button's own hotkey label, for the press animation.
+---@param button Button
+---@return FontString|nil
+function Display:GetNativeHotkeyRegion(button)
+    return NativeHotkeyRegion(button, GetSafeName(button))
+end
+
 function Display:UseSmartStrata()
     local db = addon and addon.db and addon.db.profile
     local v = db and db.display and db.display.smartStrata

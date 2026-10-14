@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.3] - 2026-10-14
+
+### Fixed (3.0.3)
+
+- The press flash and pulse showed only on the main action bar. On Blizzard's other bars the overlay could be taken for a skin failure while the bar was still hidden at login, so the button's own label was written as well and drawn over the flashing text. A button that is not on screen no longer falls back to its own label, and a button whose own label AHOS writes into flashes that label.
+- The buttons and tooltips on the Status, About & Support and Abbreviations settings, Smart Frame Layering, Export Current Profile, and the addon's popups and chat messages are translated into every language AHOS ships (57 strings that were English everywhere). The About and Help text in English is the current one.
+
 ## [3.0.2] - 2026-10-13
 
 ### Added (3.0.2)

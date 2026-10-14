@@ -18,17 +18,15 @@ It works on the default Blizzard bars and on AzeriteUI, Bartender4, Dominos, Dia
 - **Presets and templates:** Blizzard Style, Big and Centered, Bottom Corner, Compact, plus Tank, Healer and Damage. Snapshots are taken automatically, and /ahos rollback takes you back.
 - **Inspector:** point at any action button to see which bar addon drew it, the key that presses it, and why AHOS shows the text it does.
 
-## Recent Updates (v3.0.2)
+## Recent Updates (v3.0.3)
+
+- The press flash and pulse work on every Blizzard bar, not only the main one.
+- The Status, About & Support and Abbreviations settings, their tooltips, and the addon's popups and messages are translated into every language AHOS ships.
+
+From 3.0.2:
 
 - Every page of the options window that runs past the bottom has a clear scrollbar, so no setting below the fold is missed.
 - A key press flashes or pulses the text once, not again when the key is let go.
-
-From 3.0.1:
-
-- Empty buttons on Blizzard's extra bars no longer show the main bar's key for their number.
-- Buttons with no key show nothing, not the game's range dot. The new Hide the Range Dot setting hides it even while AHOS is turned off.
-- Key presses on Blizzard's bars flash and pulse the text, and Pulse uses your press colour too.
-- The controllers on the Controller tab are redrawn to follow the real controllers.
 
 ## Supported bar addons
 

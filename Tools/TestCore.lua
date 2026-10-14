@@ -359,6 +359,18 @@ game.time = game.time + 0.3
 B.ab1:GetScript("PostClick")(B.ab1)
 check(o.text.textColor[2] == 0.82, "and so does the next click soon after")
 Visibility.Step(1)
+-- A button whose own label AHOS writes into flashes that label.
+profile.display.nativeRewrite = true
+Display:UpdateOverlayForButton(B.ab1)
+eq(Display:GetButtonState("ActionButton1"), "native", "the main bar writes into its own labels")
+game.time = game.time + 1
+env.ActionButtonDown(1)
+check(B.ab1.HotKey.textColor and B.ab1.HotKey.textColor[2] == 0.82, "a key press flashes the native label")
+Visibility.Step(1)
+check(B.ab1.HotKey.textColor[2] ~= 0.82, "and it fades back")
+profile.display.nativeRewrite = nil
+Display:UpdateOverlayForButton(B.ab1)
+eq(Display:GetButtonState("ActionButton1"), "overlay", "and back to the overlay")
 profile.display.pressAnimation = "none"
 
 ---------------------------------------------------------------------------

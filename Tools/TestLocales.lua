@@ -12,12 +12,7 @@ end
 local LOCALES = { "enUS", "deDE", "esES", "esMX", "frFR", "ptBR", "ruRU", "koKR", "zhCN", "zhTW" }
 -- Strings the modules have always carried in English only; new ones may not join them.
 local ENGLISH_ONLY = {
-  ABOUT_AND_SUPPORT = true, DEBUGGING = true, DEBUGGING_INFO = true, DETECT_UI_NOW = true,
-  DETECT_UI_NOW_DESC = true, DOMINOS_COMPAT_NOTE = true, EASTER_EGG_JUNNEZ = true,
-  ENABLE_TROUBLESHOOTING_TOOLS = true, ENABLE_TROUBLESHOOTING_TOOLS_DESC = true, EXPORT_PROFILE_DESC = true,
-  OPEN_DEBUG_LOG = true, OPEN_DEBUG_LOG_DESC = true, PRAISE_JUNNEZ = true, QUICK_SWITCHES = true,
-  REFRESH_OVERLAYS = true, REFRESH_OVERLAYS_DESC = true, RENDER_MODE_INFO = true, SLASH_CLASSIC = true,
-  SMART_STRATA = true, SMART_STRATA_DESC = true, STATUS = true,
+  EASTER_EGG_JUNNEZ = true, PRAISE_JUNNEZ = true, SLASH_CLASSIC = true,
 }
 
 local function read(path)

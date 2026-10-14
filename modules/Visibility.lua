@@ -23,7 +23,7 @@ local Visibility = addon.Visibility
 
 local tracked = setmetatable({}, { __mode = "k" })   -- overlay -> button
 local natives = setmetatable({}, { __mode = "k" })   -- rewritten native label -> button
-local anims = setmetatable({}, { __mode = "k" })     -- overlay -> running press animation
+local anims = setmetatable({}, { __mode = "k" })     -- overlay or native label -> running press animation
 local hookedEnter = setmetatable({}, { __mode = "k" })
 local hookedPress = setmetatable({}, { __mode = "k" })
 local lastPress = setmetatable({}, { __mode = "k" })
@@ -248,17 +248,17 @@ local function Step(elapsed)
             if current ~= target then busy = true end
         end
     end
-    for overlay, anim in pairs(anims) do
+    for target, anim in pairs(anims) do
         anim.t = anim.t + elapsed
         local p = math.min(1, anim.t / anim.duration)
-        if anim.mode == "pulse" then
-            overlay:SetScale(anim.scale * (1 + 0.35 * (1 - p)))
+        if anim.scale then
+            target:SetScale(anim.scale * (1 + 0.35 * (1 - p)))
         end
         local c, n = anim.color, anim.normal
-        overlay.text:SetTextColor(c[1] + (n[1] - c[1]) * p, c[2] + (n[2] - c[2]) * p, c[3] + (n[3] - c[3]) * p, n[4] or 1)
+        anim.text:SetTextColor(c[1] + (n[1] - c[1]) * p, c[2] + (n[2] - c[2]) * p, c[3] + (n[3] - c[3]) * p, n[4] or 1)
         if p >= 1 then
-            if anim.mode == "pulse" then overlay:SetScale(anim.scale) end
-            anims[overlay] = nil
+            if anim.scale then target:SetScale(anim.scale) end
+            anims[target] = nil
         else
             busy = true
         end
@@ -433,19 +433,35 @@ function Visibility:Press(button, down)
     if lastPress[button] and now - lastPress[button] < 0.1 then return end
     lastPress[button] = now
     local name = GetName(button)
-    local overlay = name and addon.Display.GetActiveOverlays and addon.Display:GetActiveOverlays()[name]
-    if not overlay or not overlay.text then return end
-    local running = anims[overlay]
-    local anim = { t = 0, mode = mode, duration = mode == "pulse" and 0.3 or 0.4 }
-    if mode == "pulse" then
-        anim.scale = running and running.scale or overlay:GetScale() or 1
+    if not name then return end
+    -- The text on screen: AHOS's overlay, or the button's own label when AHOS
+    -- writes into that instead (a bar addon's skin, or the overlay fallback).
+    local target, text
+    if addon.Display.GetButtonState and addon.Display:GetButtonState(name) == "native" then
+        for region, owner in pairs(natives) do
+            if owner == button then target = region break end
+        end
+        target = target or (addon.Display.GetNativeHotkeyRegion and addon.Display:GetNativeHotkeyRegion(button))
+        text = target
+    else
+        target = addon.Display.GetActiveOverlays and addon.Display:GetActiveOverlays()[name]
+        text = target and target.text
+    end
+    if not target or not text or not text.SetTextColor then return end
+    local running = anims[target]
+    local anim = { t = 0, mode = mode, text = text, duration = mode == "pulse" and 0.3 or 0.4 }
+    -- a native label is the bar's own region: it flashes but is not resized
+    if mode == "pulse" and target ~= text then
+        anim.scale = running and running.scale or target:GetScale() or 1
+    elseif running and running.scale then
+        target:SetScale(running.scale)
     end
     -- both flash in the press colour; a pulse also grows
-    local r, g, b, a = overlay.text:GetTextColor()
+    local r, g, b, a = text:GetTextColor()
     anim.normal = running and running.normal or { r or 1, g or 1, b or 1, a or 1 }
     local c = type(profile.display.pressColor) == "table" and profile.display.pressColor or {1, 0.82, 0.2}
     anim.color = { c[1] or 1, c[2] or 1, c[3] or 1 }
-    anims[overlay] = anim
+    anims[target] = anim
     -- the first frame at once, so the press is seen on the frame it happens
     Step(0)
     Run()

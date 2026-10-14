@@ -178,3 +178,7 @@ COLUMN = {"deDE": 0, "esES": 1, "esMX": 1, "frFR": 2, "ptBR": 3, "ruRU": 4, "koK
 from translations_roadmap import CONSTANTS as _ROADMAP_CONSTANTS, WINDOW as _ROADMAP_WINDOW  # noqa: E402
 CONSTANTS.update(_ROADMAP_CONSTANTS)
 WINDOW.update(_ROADMAP_WINDOW)
+
+# The older option pages and the addon's popups and messages, English-only until 3.0.3.
+from translations_legacy import CONSTANTS as _LEGACY_CONSTANTS  # noqa: E402
+CONSTANTS.update(_LEGACY_CONSTANTS)
