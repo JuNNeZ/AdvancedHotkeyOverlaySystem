@@ -1,17 +1,15 @@
 # Advanced Hotkey Overlay System (AHOS)
 
-![Version](https://img.shields.io/badge/version-3.0.3-cyan)
+![Version](https://img.shields.io/badge/version-3.1.0-cyan)
 
-A modular, robust hotkey overlay system for World of Warcraft action bars, with dedicated support for Blizzard bars, AzeriteUI, Bartender4, Dominos, DiabolicUI, LUI and Neuron.
+A modular, robust hotkey overlay system for World of Warcraft action bars, with dedicated support for Blizzard bars, AzeriteUI, Bartender4, Dominos, DiabolicUI, LUI, Neuron, MelloUI, EllesmereUI, SpartanUI, DaylightUI, ForeverUI, NDui, GW2 UI and ElvUI.
 
-## Version 3.0.3 Highlights
+## Version 3.1.0 Highlights
 
-- When the hotkey text shows: fade it out of combat, show it only on mouseover per bar or while a modifier is held, or write a Lua condition of your own. A different colour and size in combat, and a flash or pulse when you press a button.
-- `/ahos edit`: drag the hotkey text into place on your own bars; Shift-drag moves one bar. Bars can also have a place of their own.
-- Presets and Tank, Healer and Damage templates, snapshots with `/ahos rollback`, `/ahos profile <name>`, and switching profile by specialization or talent loadout.
-- Shadow colour, glow and a background plate; mouse button icons; both keys on a button with two; Follow Masque Skin.
-- LUI and Neuron support; Russian, Ukrainian, Korean and Taiwanese keyboards, with their letters drawn in the game's own fonts on any client.
-- Sharp new switches and sliders, Keycap Gold as the default theme, and the classic Ace3 window removed.
+- New integrations for MelloUI, EllesmereUI (including standalone Action Bars), SpartanUI native bars, DaylightUI, ForeverUI (Solindius), NDui and ElvUI; GW2 UI is detected and uses its Blizzard buttons.
+- Stable bindings through action-bar paging, live binding updates, native hotkey suppression and per-bar settings for the new custom buttons.
+- ElvUI support is enabled by default without a conflict popup. An earlier explicit choice to disable AHOS with ElvUI is preserved; change it under ElvUI Compatibility.
+- Compatibility fixtures run against all four client manifests. In-game testing of the new integrations remains outstanding; see [compatibility details](wiki/Compatibility.md).
 
 ## Features
 

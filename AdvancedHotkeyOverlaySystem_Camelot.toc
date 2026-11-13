@@ -2,7 +2,7 @@
 ## Title: Advanced Hotkey Overlay System
 ## Notes: |cffffd700Advanced Hotkey Overlay System|r |cff00D4AA- Intelligent UI detection, live updates, and beautiful customization.|r
 ## Author: |cff00D4AAJuNNeZ|r
-## Version: 3.0.3
+## Version: 3.1.0
 ## SavedVariables: AdvancedHotkeyOverlaySystemDB
 ## IconTexture: Interface\AddOns\AdvancedHotkeyOverlaySystem\media\logo.tga
 ## X-Category: Action Bars
@@ -14,7 +14,7 @@
 ## X-Game-Version: Forever
 ## X-Flavor: Forever
 ## X-PackageMeta-ID: ahos-unified
-## OptionalDeps: Ace3
+## OptionalDeps: Ace3, MelloUI, EllesmereUIActionBars, SpartanUI, DaylightUI_ActionBars, ForeverUI, NDui, GW2_UI, ElvUI
 
 # Libraries
 Libs\LibStub\LibStub.lua

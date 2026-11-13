@@ -6,7 +6,7 @@ Readable, styled hotkey text on every action bar, with a keyboard you can see, v
 
 The game's hotkey text is small, white and cut short: "s-Q", "a-c-s-1", "Mous...". AHOS replaces it with text you style yourself: font, size, colour, outline, shadow, glow, a plate behind it, and where it sits on the button. Shift, Ctrl and Alt can each have their own colour, so you read a bind at a glance.
 
-It works on the default Blizzard bars and on AzeriteUI, Bartender4, Dominos, DiabolicUI, LUI and Neuron, and runs on Retail, WoW Forever and Classic.
+It works on the default Blizzard bars and on AzeriteUI, Bartender4, Dominos, DiabolicUI, LUI, Neuron, MelloUI, EllesmereUI, SpartanUI, DaylightUI, ForeverUI, NDui, GW2 UI and ElvUI, and runs on Retail, WoW Forever and Classic.
 
 ## New in 3.0
 
@@ -18,15 +18,13 @@ It works on the default Blizzard bars and on AzeriteUI, Bartender4, Dominos, Dia
 - **Presets and templates:** Blizzard Style, Big and Centered, Bottom Corner, Compact, plus Tank, Healer and Damage. Snapshots are taken automatically, and /ahos rollback takes you back.
 - **Inspector:** point at any action button to see which bar addon drew it, the key that presses it, and why AHOS shows the text it does.
 
-## Recent Updates (v3.0.3)
+## Recent Updates (v3.1.0)
 
-- The press flash and pulse work on every Blizzard bar, not only the main one.
-- The Status, About & Support and Abbreviations settings, their tooltips, and the addon's popups and messages are translated into every language AHOS ships.
-
-From 3.0.2:
-
-- Every page of the options window that runs past the bottom has a clear scrollbar, so no setting below the fold is missed.
-- A key press flashes or pulses the text once, not again when the key is let go.
+- Added MelloUI, EllesmereUI / standalone Action Bars, SpartanUI native bars, DaylightUI, ForeverUI (Solindius), NDui and ElvUI integrations.
+- GW2 UI is detected and uses the standard Blizzard-button integration.
+- The new custom bars support live binding changes, stable keys through paging, native text suppression and per-bar settings.
+- ElvUI support now defaults to enabled without a conflict popup. An earlier explicit opt-out is preserved; use ElvUI Compatibility to enable AHOS text again.
+- Offline compatibility tests pass for Retail, Forever, Mists and Classic Era. In-game verification of the new integrations is still pending.
 
 ## Supported bar addons
 
@@ -37,7 +35,14 @@ From 3.0.2:
 - **DiabolicUI:** action bars, small bars, pet and stance bars
 - **LUI:** bottom and side bars
 - **Neuron:** action and pet bars, including the keys Neuron keeps on its buttons
-- **ElvUI:** AHOS steps aside and warns you, since ElvUI draws its own hotkeys
+- **MelloUI:** own action bars 1-8, pet and stance bars; Blizzard bar skins use the standard integration
+- **EllesmereUI:** all ten action bars, including the two custom bars
+- **SpartanUI:** native action bars, or Bartender4 through the existing integration
+- **DaylightUI:** action bars 1-8
+- **ForeverUI (Solindius):** action bars 1-8 and its own pet buttons
+- **NDui:** Forever action bars 1-8 and older Classic custom class bars
+- **GW2 UI:** its reused Blizzard buttons
+- **ElvUI:** direct action bar support; an earlier explicit opt-out is preserved in ElvUI Compatibility
 
 The Status page in the options window shows which bar addons AHOS found and how many buttons it draws on.
 

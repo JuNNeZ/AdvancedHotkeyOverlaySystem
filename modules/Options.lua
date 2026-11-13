@@ -40,7 +40,7 @@ end
 
 local function getLoadedProviderNotes()
     local notes = {}
-    for _, key in ipairs({ "Dominos", "Bartender4", "DiabolicUI3", "LUI", "Neuron" }) do
+    for _, key in ipairs(addon.ProviderOrder) do
         local provider = addon and addon.GetProviderInfo and addon:GetProviderInfo(key)
         if provider and provider.compatibility_note and isProviderLoaded(key) then
             notes[#notes + 1] = "- " .. provider.compatibility_note
@@ -60,7 +60,7 @@ local function getDiagnosticsSummary()
 
     local parts = { "Detected buttons: " .. tostring(diagnostics.total or 0) }
     local providerParts = {}
-    for _, key in ipairs({ "Blizzard", "AzeriteUI", "Dominos", "Bartender4", "DiabolicUI3", "LUI", "Neuron" }) do
+    for _, key in ipairs(addon.ProviderOrder) do
         local count = diagnostics.providers and diagnostics.providers[key]
         if count and count > 0 then
             providerParts[#providerParts + 1] = string.format("%s %d", getDisplayUIName(key), count)
@@ -84,8 +84,14 @@ local function getSupportBlurb()
         "- DiabolicUI",
         "- LUI",
         "- Neuron",
+        "- MelloUI",
         "",
-        "Conflict-aware handling:",
+        "- EllesmereUI",
+        "- SpartanUI",
+        "- DaylightUI",
+        "- ForeverUI",
+        "- NDui",
+        "- GW2 UI (Blizzard buttons)",
         "- ElvUI",
         "",
         "Current detected provider: " .. getDetectedUIText(),

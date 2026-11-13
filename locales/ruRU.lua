@@ -85,7 +85,7 @@ L.AUTO_SWITCH_PROFILE_DESC = "Автоматически менять профи
 -- Integration/Compatibility
 L.INTEGRATION_COMPAT = "Интеграция/Совместимость"
 L.ENABLE_ELVUI_COMPAT = "Включить совместимость с ElvUI"
-L.ENABLE_ELVUI_COMPAT_DESC = "Принудительно включать overlay даже при загрузке ElvUI (возможны конфликты)."
+L.ENABLE_ELVUI_COMPAT_DESC = "Показывать подписи клавиш AHOS на панелях ElvUI. Отключите, чтобы сохранить текст ElvUI. По умолчанию включено."
 L.SHOW_PERF_METRICS = "Показывать метрики производительности"
 L.SHOW_PERF_METRICS_DESC = "Показывать время обновлений и включать логирование производительности."
 

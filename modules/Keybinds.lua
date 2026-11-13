@@ -138,6 +138,13 @@ end
 local function ResolveProviderExplicitBinding(buttonName, provider, button)
     local bound = ProviderBoundKeys(button, provider)
     if bound then return bound[1] end
+    -- MelloUI mirrors the game's command onto its own button. Match its own
+    -- UpdateHotkeys precedence, keeping bar 1's key stable when its action pages.
+    if provider and provider.command_binding_first then
+        local command = GetButtonCommandName(button, provider)
+        local key = command and FirstBindingKey(command)
+        if key and key ~= "" then return key end
+    end
     if not buttonName or not provider or not provider.binding_rules then return nil end
     for _, rule in ipairs(provider.binding_rules) do
         if buttonName:match(rule.matcher) then
@@ -235,6 +242,12 @@ local function GetBindingCommandFromButtonName(buttonName)
     n = buttonName:match("^MultiBar7ActionButton(%d+)$")
     if n then return "MULTIACTIONBAR7BUTTON" .. n end
     -- Stance/Shapeshift & Pet & Possess bars
+    n = buttonName:match("^ForeverUIPetButton(%d+)$")
+    if n then return "BONUSACTIONBUTTON" .. n end
+    n = buttonName:match("^MelloUIStanceBarButton(%d+)$")
+    if n then return "SHAPESHIFTBUTTON" .. n end
+    n = buttonName:match("^MelloUIPetBarButton(%d+)$")
+    if n then return "BONUSACTIONBUTTON" .. n end
     n = buttonName:match("^StanceButton(%d+)$")
     if n then return "SHAPESHIFTBUTTON" .. n end
     n = buttonName:match("^PetActionButton(%d+)$")

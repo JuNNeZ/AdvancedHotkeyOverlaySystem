@@ -133,7 +133,7 @@ L.AUTO_SWITCH_PROFILE_DESC = "Automatically switch profiles when changing specia
 -- Integration/Compatibility
 L.INTEGRATION_COMPAT = "Integration/Compatibility"
 L.ENABLE_ELVUI_COMPAT = "Enable ElvUI Compatibility"
-L.ENABLE_ELVUI_COMPAT_DESC = "Force overlays even if ElvUI is loaded (may cause conflicts)."
+L.ENABLE_ELVUI_COMPAT_DESC = "Use AHOS hotkey text on ElvUI action bars. Disable to keep ElvUI's own text. Enabled by default."
 L.SHOW_PERF_METRICS_DESC = "Show overlay update times and enable performance logging."
 
 -- Advanced/Debug windows and actions
@@ -188,7 +188,7 @@ L.MODIFIER_COLOR_SHIFT = "Shift"
 -- The window's own strings are keyed by their English text and need no entry here.
 L.ABBREVIATION_PREVIEW = "Preview (Ctrl + Shift + Mouse Button 4)"
 L.ABOUT_AND_SUPPORT = "About & Support"
-L.ABOUT_TEXT = "|cffFFD700Advanced Hotkey Overlay System|r\n\nA modular hotkey overlay system for World of Warcraft action bars with dedicated support for Blizzard, AzeriteUI, Dominos, Bartender4, DiabolicUI, LUI and Neuron.\n\n|cffFFD700Made by:|r JuNNeZ\n|cffFFD700Libraries:|r Ace3, LibDBIcon-1.0, LibSharedMedia-3.0, LibSerialize, LibDeflate.\n\nFor support, please visit the CurseForge or GitHub project pages.\nThank you for using AHOS!"
+L.ABOUT_TEXT = "|cffFFD700Advanced Hotkey Overlay System|r\n\nA modular hotkey overlay system for World of Warcraft action bars with dedicated support for Blizzard, AzeriteUI, Dominos, Bartender4, DiabolicUI, LUI, Neuron, MelloUI, EllesmereUI, SpartanUI, DaylightUI, ForeverUI, NDui, GW2 UI and ElvUI.\n\n|cffFFD700Made by:|r JuNNeZ\n|cffFFD700Libraries:|r Ace3, LibDBIcon-1.0, LibSharedMedia-3.0, LibSerialize, LibDeflate.\n\nFor support, please visit the CurseForge or GitHub project pages.\nThank you for using AHOS!"
 L.ADDON_INITIALIZING = "Addon is initializing. Please close and reopen this window in a few seconds."
 L.ADDON_NAME = "Advanced Hotkey Overlay System"
 L.ANCHOR_BOTTOM = "Bottom"

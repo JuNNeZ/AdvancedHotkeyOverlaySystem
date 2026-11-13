@@ -18,7 +18,7 @@ local Mock = dofile("Tools/Mock.lua")
 local toc = arg and arg[1]
 local game = Mock.New({
   toc = toc,
-  loaded = { Dominos = true, Bartender4 = true, LUI = true, Neuron = true },
+  loaded = { Dominos = true, Bartender4 = true, LUI = true, Neuron = true, MelloUI = true },
   bindings = {
     ACTIONBUTTON1 = "SHIFT-Q",
     ACTIONBUTTON2 = { "E", "CTRL-E" },        -- two keys on one button
@@ -27,6 +27,10 @@ local game = Mock.New({
     ACTIONBUTTON5 = "MOUSEWHEELUP",
     MULTIACTIONBAR1BUTTON3 = "CTRL-3",
     MULTIACTIONBAR3BUTTON2 = "CTRL-W",
+    BONUSACTIONBUTTON2 = "CTRL-P",
+    SHAPESHIFTBUTTON3 = "ALT-R",
+    ["CLICK MelloUIActionBar1Button1:Keybind"] = "F9",
+    ["CLICK MelloUIActionBar8Button12:Keybind"] = { "F10", "SHIFT-F10" },
     ["CLICK DominosActionButton5:HOTKEY"] = "ALT-SHIFT-5",
     ["CLICK DominosActionButton205:HOTKEY"] = "F7",
     ["CLICK BT4Button13:Keybind"] = "SHIFT-F",
@@ -65,6 +69,15 @@ local neuronBar = env.CreateFrame("Frame", "NeuronActionBar1", env.UIParent)
 B.neuron = game.MakeButton("NeuronActionBar1_ActionButton3", { parent = neuronBar, action = 90, hotkeyField = "Hotkey" })
 B.neuron.keys = { hotKeys = ":F:SHIFT-G:" }
 env.Neuron = {}
+B.mello = game.MakeButton("MelloUIActionBar1Button1", { action = 73 })
+B.mello.commandName = "ACTIONBUTTON1"
+B.mello.UpdateHotkeys = function(self)
+  self.HotKey:SetText(env.GetBindingKey(self.commandName) or "F9")
+end
+B.melloLast = game.MakeButton("MelloUIActionBar8Button12", { action = 180 })
+B.melloLast.commandName = "MULTIACTIONBAR7BUTTON12"
+B.melloPet = game.MakeButton("MelloUIPetBarButton2")
+B.melloStance = game.MakeButton("MelloUIStanceBarButton3")
 
 local function update()
   addon.Core:FullUpdate()
@@ -87,6 +100,22 @@ eq(Keybinds:GetBinding(B.neuron), "F", "Neuron through the key list on the butto
 eq(Keybinds:GetSecondBindingText(B.neuron), "SHIFT-G", "Neuron's second key")
 eq(Keybinds:GetSecondBindingText(B.ab2), "CTRL-E", "a command's second key")
 eq(Keybinds:GetSecondBindingText(B.ab1), nil, "one key, no second")
+eq(Keybinds:GetBinding(B.mello), "SQ", "MelloUI command wins over CLICK and paged action slot")
+eq(Keybinds:GetBinding(B.melloLast), "F10", "MelloUI eighth bar CLICK :Keybind fallback")
+eq(Keybinds:GetSecondBindingText(B.melloLast), "SHIFT-F10", "MelloUI second CLICK binding")
+eq(Keybinds:GetBinding(B.melloPet), "CP", "MelloUI pet uses BONUSACTIONBUTTON")
+eq(Keybinds:GetBinding(B.melloStance), "AR", "MelloUI stance binding")
+check(overlay(B.mello) and overlay(B.melloLast) and overlay(B.melloPet) and overlay(B.melloStance), "MelloUI overlays on action, pet and stance buttons")
+B.mello:UpdateHotkeys()
+game.flush()
+eq(B.mello.hotkey.text, "", "MelloUI native hotkey redraw stays hidden under the overlay")
+game.bindings.ACTIONBUTTON1 = "CTRL-Q"
+game.fire("UPDATE_BINDINGS")
+game.flush()
+eq(Keybinds:GetBinding(B.mello), "CQ", "MelloUI binding changes update without reload")
+game.bindings.ACTIONBUTTON1 = "SHIFT-Q"
+game.fire("UPDATE_BINDINGS")
+game.flush()
 
 local tracked = {}
 for _, b in ipairs(Bars:GetAllButtons(true)) do tracked[b:GetName()] = true end
@@ -101,6 +130,9 @@ eq(key, "LUI:Left1", "LUI side bar key")
 check(label:find("Left Sidebar 1", 1, true), "LUI side bar label: " .. tostring(label))
 eq((Bars:GetBarInfo("NeuronActionBar2_ActionButton7")), "Neuron:2", "Neuron bar key")
 eq((Bars:GetBarInfo("DominosActionButton205")), "Dominos:18", "Dominos bar from the global index")
+eq((Bars:GetBarInfo("MelloUIActionBar8Button12")), "MelloUI:8", "MelloUI per-bar settings")
+eq((Bars:GetBarInfo("MelloUIPetBarButton2")), "MelloUI:pet", "MelloUI pet bar settings")
+eq((Bars:GetBarInfo("MelloUIStanceBarButton3")), "MelloUI:stance", "MelloUI stance bar settings")
 
 -- Abbreviations
 profile.text.mouseIcons = true

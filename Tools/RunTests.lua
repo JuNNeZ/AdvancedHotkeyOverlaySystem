@@ -6,7 +6,7 @@
 --
 -- Each suite runs in a process of its own, so one client's globals never leak
 -- into the next. Exits non-zero when anything fails, for CI.
-local SUITES = { "TestPanel", "TestCore", "TestLocales" }
+local SUITES = { "TestPanel", "TestCore", "TestCompatibility", "TestLocales" }
 local TOCS = {
   "AdvancedHotkeyOverlaySystem_Mainline.toc",
   "AdvancedHotkeyOverlaySystem_Camelot.toc",

@@ -89,6 +89,9 @@ end
 
 function addon:GetButtonActionSlot(button)
     if not button then return nil end
+    -- ForeverUI's pet "action" is a pet slot, not a player action slot.
+    local petOk, petSlot = pcall(function() return button.fuiPetSlot end)
+    if petOk and self:IsValueAccessible(petSlot) and type(petSlot) == "number" then return nil end
 
     local ok, action = pcall(function() return button.action end)
     if not ok or not self:IsValueAccessible(action) then
@@ -134,16 +137,40 @@ function addon:IsFrameVisibleSafe(frame)
 end
 
 local PROVIDER_ORDER = {
+    "EllesmereUI", "SpartanUI", "DaylightUI", "ForeverUI", "NDui", "ElvUI",
+    "MelloUI",
     "AzeriteUI",
     "Dominos",
     "Bartender4",
     "DiabolicUI3",
     "LUI",
     "Neuron",
-    "Blizzard",
+    "GW2_UI", "Blizzard",
 }
 
 addon.ProviderRegistry = {
+    -- Verified against MelloCro/MelloUI 235d63e (OwnActionBars/OwnSpecialBars).
+    MelloUI = {
+        key = "MelloUI",
+        label = "MelloUI",
+        addon = "MelloUI",
+        color_hex = "ff66d9cc",
+        color_rgb = {0.40, 0.85, 0.80},
+        supported = true,
+        compatibility_note = "MelloUI's own action, pet and stance bars are supported. Its Blizzard bar skins use the standard Blizzard integration.",
+        button_patterns = {
+            "^MelloUIActionBar%d+Button%d+$",
+            "^MelloUIPetBarButton%d+$",
+            "^MelloUIStanceBarButton%d+$",
+        },
+        button_scanners = { globals = {} },
+        command_fields = { "commandName", "bindingAction" },
+        command_binding_first = true,
+        binding_rules = {
+            { matcher = "^MelloUIActionBar%d+Button%d+$", suffixes = { ":Keybind" } },
+        },
+        hotkey_update_method = "UpdateHotkeys",
+    },
     Blizzard = {
         key = "Blizzard",
         label = "Blizzard",
@@ -348,10 +375,67 @@ addon.ProviderRegistry = {
         globals = { "ElvUI" },
         color_hex = "ff1784d1",
         color_rgb = {0.09, 0.52, 0.82},
-        supported = false,
-        conflict_only = true,
+        supported = true,
+        compatibility_note = "ElvUI action bars are supported directly. An earlier choice to disable AHOS with ElvUI is preserved; enable ElvUI Compatibility to use AHOS text.",
     },
 }
+
+-- Custom-button providers share discovery and LibActionButton's binding fields.
+-- Source revisions and client-specific differences are recorded in wiki/Compatibility.md.
+local function CustomProvider(key, label, addonNames, patterns, fields, commandFirst)
+    local provider = addon.ProviderRegistry[key] or {}
+    provider.key, provider.label = key, label
+    provider.addons = addonNames
+    provider.supported = true
+    provider.color_hex, provider.color_rgb = provider.color_hex or "ff66d9cc", provider.color_rgb or {0.40, 0.85, 0.80}
+    provider.button_patterns = patterns
+    provider.button_scanners = { globals = {} }
+    provider.command_fields = fields or { "commandName", "keyBoundTarget", "bindName" }
+    provider.command_binding_first = commandFirst
+    provider.hotkey_update_methods = { "UpdateHotkeys", "SetHotkeys" }
+    provider.compatibility_note = provider.compatibility_note or (label .. " custom action buttons are supported; reused Blizzard pet and stance buttons use the standard integration.")
+    addon.ProviderRegistry[key] = provider
+    return provider
+end
+local function Scan(provider, prefix, count)
+    table.insert(provider.button_scanners.globals, { prefix = prefix, max = count })
+end
+local eui = CustomProvider("EllesmereUI", "EllesmereUI", { "EllesmereUIActionBars" }, { "^EABButton%d+$" }, nil, true)
+Scan(eui, "EABButton", 180)
+local sui = CustomProvider("SpartanUI", "SpartanUI", { "SpartanUI" }, { "^SUI_ActionBar%d+Button%d+$" })
+sui.binding_rules = { { matcher = "^SUI_ActionBar%d+Button%d+$", suffixes = { ":Keybind" } } }
+local day = CustomProvider("DaylightUI", "DaylightUI", { "DaylightUI_ActionBars" }, { "^DaylightUIBar%d+Button%d+$" }, nil, true)
+local fui = CustomProvider("ForeverUI", "ForeverUI", { "ForeverUI" }, { "^ForeverUIbar%d+Button%d+$", "^ForeverUIPetButton%d+$" }, { "fuiGameCommand" })
+fui.binding_rules = { { matcher = "^ForeverUIbar%d+Button%d+$", suffixes = { ":LeftButton" } } }
+fui.hotkey_fields = { "hotkey" }
+Scan(fui, "ForeverUIPetButton", 10)
+local nd = CustomProvider("NDui", "NDui", { "NDui" }, { "^NDui_ActionBar%d+Button%d+$", "^NDui_ActionBarXButton%d+$" }, nil, true)
+Scan(nd, "NDui_ActionBarXButton", 12) -- older Classic versions' extra class bar
+local elv = CustomProvider("ElvUI", "ElvUI", { "ElvUI" }, { "^ElvUI_Bar%d+Button%d+$" }, nil, true)
+elv.binding_rules = { { matcher = "^ElvUI_Bar%d+Button%d+$", suffixes = { ":Keybind" } } }
+for bar = 1, 15 do
+    Scan(elv, "ElvUI_Bar" .. bar .. "Button", 12)
+    Scan(sui, "SUI_ActionBar" .. bar .. "Button", 12)
+    if bar <= 8 then
+        Scan(day, "DaylightUIBar" .. bar .. "Button", 12)
+        Scan(fui, "ForeverUIbar" .. bar .. "Button", 12)
+        Scan(nd, "NDui_ActionBar" .. bar .. "Button", 12)
+    end
+end
+addon.ProviderRegistry.GW2_UI = {
+    key = "GW2_UI", label = "GW2 UI", addon = "GW2_UI", supported = true,
+    color_hex = "ff66d9cc", color_rgb = {0.40, 0.85, 0.80},
+    compatibility_note = "GW2 UI reuses Blizzard action, pet and stance buttons. AHOS tracks these as Blizzard bars and follows their native labels and visibility.",
+}
+addon.ProviderOrder = PROVIDER_ORDER
+
+for bar = 1, 8 do
+    table.insert(addon.ProviderRegistry.MelloUI.button_scanners.globals,
+        { prefix = "MelloUIActionBar" .. bar .. "Button", max = 12 })
+end
+for _, prefix in ipairs({ "MelloUIPetBarButton", "MelloUIStanceBarButton" }) do
+    table.insert(addon.ProviderRegistry.MelloUI.button_scanners.globals, { prefix = prefix, max = 10 })
+end
 
 function addon:GetProviderInfo(key)
     return self.ProviderRegistry[key or "Blizzard"] or self.ProviderRegistry.Blizzard
@@ -389,7 +473,7 @@ function addon:IsProviderLoaded(key)
 end
 
 function addon:IsElvUIConflictActive()
-    return self:IsProviderLoaded("ElvUI")
+    return self:IsProviderLoaded("ElvUI") and not self:ShouldShowOverlays()
 end
 
 function addon:GetDetectedProviderKey()
@@ -565,8 +649,6 @@ function addon:OnInitialize()
     if self.db.profile.debug then
         self:Print("[AHOS DEBUG] Addon initialized and all overlay update events registered.")
     end
-    -- Show a popup if ElvUI is detected and overlays are not forced
-    C_Timer.After(2, function() self:MaybeShowElvUIWarningOnLoad() end)
 end
 
 -- Called when the addon is enabled
@@ -806,55 +888,17 @@ function AdvancedHotkeyOverlaySystem:DetectUI()
     return detectedUI
 end
 
--- Optionally disable overlays if ElvUI is detected, or allow user override
+-- Direct ElvUI support, preserving an explicit profile opt-out.
 addon.elvuiDetected = false
 
 function addon:ShouldShowOverlays()
-    -- If ElvUI is loaded and user hasn't forced overlays, disable overlays
+    -- Direct ElvUI support is enabled unless the profile explicitly opted out.
     if IsAddOnLoadedCompat("ElvUI") then
         self.elvuiDetected = true
-        return self.db and self.db.profile and self.db.profile.forceOverlaysWithElvUI
+        return not (self.db and self.db.profile and self.db.profile.forceOverlaysWithElvUI == false)
     end
     self.elvuiDetected = false
     return true
-end
-
--- Show a popup if ElvUI is detected and overlays are not forced
-function addon:ShowElvUIOverlayWarning()
-    if not self.elvuiDetected or (self.db and self.db.profile and self.db.profile.forceOverlaysWithElvUI) then return end
-    if not StaticPopupDialogs["AHOS_ELVUI_WARNING"] then
-        local L = addon and addon.L or {}
-        StaticPopupDialogs["AHOS_ELVUI_WARNING"] = {
-            text = L.ELVUI_WARNING_TEXT or "ElvUI detected! Both ElvUI and Advanced Hotkey Overlay System provide keybind overlays.\n\nDo you want to disable AHO overlays (recommended)?",
-            button1 = L.ELVUI_WARNING_ACCEPT or "Yes (Disable AHO Overlays)",
-            button2 = L.ELVUI_WARNING_CANCEL or "No (Keep Both)",
-            OnAccept = function()
-                local db = self.db and self.db.profile
-                if db then db.forceOverlaysWithElvUI = false; self.Core:FullUpdate() end
-            end,
-            OnCancel = function()
-                local db = self.db and self.db.profile
-                if db then db.forceOverlaysWithElvUI = true; self.Core:FullUpdate() end
-            end,
-            timeout = 0,
-            whileDead = true,
-            hideOnEscape = true,
-            preferredIndex = 3,
-        }
-    end
-    StaticPopup_Show("AHOS_ELVUI_WARNING")
-end
-
--- Call this after DB is ready and overlays are about to be shown
-function addon:MaybeShowElvUIWarningOnLoad()
-    -- Ensure elvuiDetected is set correctly
-    self.elvuiDetected = IsAddOnLoadedCompat("ElvUI")
-    if self.db and self.db.profile and self.db.profile.debug then
-        self:Print("[AHOS DEBUG] ElvUI detected:", tostring(self.elvuiDetected), "forceOverlaysWithElvUI:", tostring(self.db.profile.forceOverlaysWithElvUI))
-    end
-    if self.elvuiDetected and self.db and self.db.profile and self.db.profile.forceOverlaysWithElvUI == nil then
-        self:ShowElvUIOverlayWarning()
-    end
 end
 
 local LibSerialize = LibStub and LibStub("LibSerialize", true)

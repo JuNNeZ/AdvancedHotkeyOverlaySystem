@@ -47,7 +47,10 @@ function Mock.New(opts)
     Hide = function(self) local was = self.shown; self.shown = false; if was and self.scripts.OnHide then self.scripts.OnHide(self) end end,
     SetShown = function(self, v) if v then self:Show() else self:Hide() end end,
     IsShown = function(self) return self.shown end,
-    IsVisible = function(self) return self.shown end,
+    IsVisible = function(self)
+      if not self.shown then return false end
+      return not self.parent or not self.parent.IsVisible or self.parent:IsVisible()
+    end,
     SetScript = function(self, k, f) self.scripts[k] = f end,
     GetScript = function(self, k) return self.scripts[k] end,
     HookScript = function(self, k, f)

@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-11-13
+
+### Added (3.1.0)
+
+- Direct action bar integration for EllesmereUI, SpartanUI native bars, DaylightUI, ForeverUI (Solindius), NDui Forever and ElvUI, plus detection of GW2 UI with its reused Blizzard buttons. Includes binding updates, native text suppression, per-bar settings and older NDui custom class bars.
+- ElvUI integration now defaults to enabled without a conflict popup. Existing profiles that explicitly disabled AHOS with ElvUI keep that choice.
+- MelloUI own action bars 1-8, pet and stance bars: button discovery, per-bar settings, native hotkey refresh handling and binding detection that keeps the main bar's key through paging. MelloUI Blizzard bar skins continue to use the Blizzard integration.
+
 ## [3.0.3] - 2026-10-14
 
 ### Fixed (3.0.3)

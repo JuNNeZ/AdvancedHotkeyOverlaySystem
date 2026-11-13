@@ -85,7 +85,7 @@ L.AUTO_SWITCH_PROFILE_DESC = "전문화 변경 시 프로필을 자동으로 전
 -- Integration/Compatibility
 L.INTEGRATION_COMPAT = "통합/호환성"
 L.ENABLE_ELVUI_COMPAT = "ElvUI 호환성 활성화"
-L.ENABLE_ELVUI_COMPAT_DESC = "ElvUI가 로드되어도 오버레이를 강제로 표시합니다(충돌 가능)."
+L.ENABLE_ELVUI_COMPAT_DESC = "ElvUI 행동 단축바에 AHOS 단축키 텍스트를 표시합니다. 끄면 ElvUI 텍스트를 유지합니다. 기본값은 켜짐입니다."
 L.SHOW_PERF_METRICS = "성능 지표 표시"
 L.SHOW_PERF_METRICS_DESC = "업데이트 시간 표시 및 성능 로그를 활성화합니다."
 

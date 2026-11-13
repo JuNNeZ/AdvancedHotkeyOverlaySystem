@@ -85,7 +85,7 @@ L.AUTO_SWITCH_PROFILE_DESC = "Beim Wechseln der Spezialisierung automatisch Prof
 -- Integration/Compatibility
 L.INTEGRATION_COMPAT = "Integration/Kompatibilität"
 L.ENABLE_ELVUI_COMPAT = "ElvUI-Kompatibilität aktivieren"
-L.ENABLE_ELVUI_COMPAT_DESC = "Overlays erzwingen, auch wenn ElvUI geladen ist (kann Konflikte verursachen)."
+L.ENABLE_ELVUI_COMPAT_DESC = "AHOS-Tastentext auf ElvUI-Aktionsleisten verwenden. Ausschalten, um ElvUIs eigenen Text zu behalten. Standardmäßig eingeschaltet."
 L.SHOW_PERF_METRICS = "Leistungswerte anzeigen"
 L.SHOW_PERF_METRICS_DESC = "Aktualisierungszeiten anzeigen und Leistungsprotokollierung aktivieren."
 

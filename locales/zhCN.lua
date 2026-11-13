@@ -85,7 +85,7 @@ L.AUTO_SWITCH_PROFILE_DESC = "切换专精时自动切换配置文件。"
 -- Integration/Compatibility
 L.INTEGRATION_COMPAT = "集成/兼容性"
 L.ENABLE_ELVUI_COMPAT = "启用 ElvUI 兼容"
-L.ENABLE_ELVUI_COMPAT_DESC = "即使加载了 ElvUI 也强制显示覆盖层（可能产生冲突）。"
+L.ENABLE_ELVUI_COMPAT_DESC = "在 ElvUI 动作条上使用 AHOS 快捷键文字。关闭后保留 ElvUI 自身的文字。默认开启。"
 L.SHOW_PERF_METRICS = "显示性能指标"
 L.SHOW_PERF_METRICS_DESC = "显示更新耗时并启用性能日志。"
 

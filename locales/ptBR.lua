@@ -84,7 +84,7 @@ L.AUTO_SWITCH_PROFILE_DESC = "Alterna automaticamente de perfil ao mudar de espe
 -- Integration/Compatibility
 L.INTEGRATION_COMPAT = "Integração/Compatibilidade"
 L.ENABLE_ELVUI_COMPAT = "Ativar compatibilidade com ElvUI"
-L.ENABLE_ELVUI_COMPAT_DESC = "Força overlays mesmo com ElvUI carregado (pode causar conflitos)."
+L.ENABLE_ELVUI_COMPAT_DESC = "Usar o texto de atalhos do AHOS nas barras do ElvUI. Desative para manter o texto do ElvUI. Ativado por padrão."
 L.SHOW_PERF_METRICS = "Mostrar métricas de desempenho"
 L.SHOW_PERF_METRICS_DESC = "Mostrar tempos de atualização e habilitar registro de desempenho."
 

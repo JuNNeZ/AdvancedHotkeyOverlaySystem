@@ -207,6 +207,13 @@ end
 -- MultiBar names for its own buttons.
 local L = addon.L or {}
 local BAR_PATTERNS = {
+    -- EAB button numbers are action slots, including custom pages 2 and 10.
+    { "^EABButton(%d+)$", nil, 12, nil, { [1] = 1, [2] = 9, [3] = 4, [4] = 5, [5] = 3, [6] = 2, [10] = 10, [13] = 6, [14] = 7, [15] = 8 } },
+    { "^SUI_ActionBar(%d+)Button" }, { "^DaylightUIBar(%d+)Button" },
+    { "^ForeverUIbar(%d+)Button" }, { "^ForeverUIPetButton", "pet" },
+    { "^NDui_ActionBar(%d+)Button" }, { "^NDui_ActionBarXButton", "class" },
+    { "^ElvUI_Bar(%d+)Button" },
+    { "^MelloUIActionBar(%d+)Button" }, { "^MelloUIPetBarButton", "pet" }, { "^MelloUIStanceBarButton", "stance" },
     { "^ActionButton%d+$", "1" }, { "^BonusActionButton%d+$", "1" },
     { "^MultiBarBottomLeft", "2" }, { "^MultiBarBottomRight", "3" },
     { "^MultiBarRight", "4" }, { "^MultiBarLeft", "5" },
@@ -254,7 +261,8 @@ function Bars:GetBarInfo(buttonName)
                 local n = tonumber(captured)
                 if n then
                     -- a global button index: twelve buttons to a bar
-                    id = tostring(pattern[3] and math.ceil(n / pattern[3]) or n)
+                    local index = pattern[3] and math.ceil(n / pattern[3]) or n
+                    id = tostring(pattern[5] and pattern[5][index] or index)
                 elseif type(captured) == "string" then
                     id = captured -- a named bar (LUI's Left1)
                 else

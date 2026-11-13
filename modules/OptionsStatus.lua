@@ -128,10 +128,10 @@ function Groups.integration()
                     elvui = {
                         type = "toggle",
             name = L.ENABLE_ELVUI_COMPAT or "ElvUI Compatibility",
-            desc = L.ENABLE_ELVUI_COMPAT_DESC or "Force overlays even if ElvUI is loaded (may cause conflicts).",
+            desc = L.ENABLE_ELVUI_COMPAT_DESC or "Use AHOS hotkey text on ElvUI action bars. Disable to keep ElvUI's own text. Enabled by default.",
                         order = 1,
                         width = "full",
-                        get = function() local db = getSafeProfile() return db.forceOverlaysWithElvUI end,
+                        get = function() local db = getSafeProfile() return db.forceOverlaysWithElvUI ~= false end,
                         set = function(_, val) local db = getSafeProfile() db.forceOverlaysWithElvUI = val; addon.Core:FullUpdate() end,
                     },
                     dominosHint = {
@@ -243,7 +243,7 @@ function Groups.about()
             name = L.ABOUT_TEXT or [[
 |cffFFD700Advanced Hotkey Overlay System|r
 
-A modular hotkey overlay system for World of Warcraft action bars with dedicated support for Blizzard, AzeriteUI, Dominos, Bartender4, DiabolicUI, LUI and Neuron.
+A modular hotkey overlay system for World of Warcraft action bars with dedicated support for Blizzard, AzeriteUI, Dominos, Bartender4, DiabolicUI, LUI, Neuron, MelloUI, EllesmereUI, SpartanUI, DaylightUI, ForeverUI, NDui, GW2 UI and ElvUI.
 
 |cffFFD700Made by:|r JuNNeZ
 |cffFFD700Libraries:|r Ace3, LibDBIcon-1.0, LibSharedMedia-3.0, LibSerialize, LibDeflate.
