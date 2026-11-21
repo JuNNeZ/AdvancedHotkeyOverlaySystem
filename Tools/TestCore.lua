@@ -117,6 +117,50 @@ game.bindings.ACTIONBUTTON1 = "SHIFT-Q"
 game.fire("UPDATE_BINDINGS")
 game.flush()
 
+-- Form and page changes can emit a burst of slot notifications. Resolve slots
+-- after dispatch, using one walk for the whole burst and the final page.
+do
+  local getAllButtons, updateButton = Bars.GetAllButtons, Display.SafeUpdateOverlayForButton
+  local walks, updates = 0, {}
+  Bars.GetAllButtons = function(self, fresh)
+    walks = walks + 1
+    return getAllButtons(self, fresh)
+  end
+  Display.SafeUpdateOverlayForButton = function(self, button)
+    updates[button] = (updates[button] or 0) + 1
+    return updateButton(self, button)
+  end
+
+  game.fire("ACTIONBAR_SLOT_CHANGED", 2)
+  game.fire("ACTIONBAR_SLOT_CHANGED", 5)
+  game.fire("ACTIONBAR_SLOT_CHANGED", 5)
+  B.ab5.action = 2
+  eq(walks, 0, "slot notifications do no button discovery during event dispatch")
+  game.flush()
+  eq(walks, 1, "slot burst shares a single walk of tracked buttons")
+  eq(updates[B.ab2], 1, "first changed slot updates")
+  eq(updates[B.ab5], 1, "button is matched using its current slot after paging")
+  eq(updates[B.dom5], 1, "another provider on the changed slot still updates")
+  eq(updates[B.ab1], nil, "unrelated buttons stay out of the partial refresh")
+
+  B.ab5.action = 5
+  Bars.GetAllButtons, Display.SafeUpdateOverlayForButton = getAllButtons, updateButton
+  local scheduleRefresh = addon.Core.ScheduleRefreshPasses
+  local series = 0
+  addon.Core.ScheduleRefreshPasses = function(self, reason)
+    series = series + 1
+    return scheduleRefresh(self, reason)
+  end
+  game.fire("UPDATE_SHAPESHIFT_FORM")
+  game.fire("UPDATE_BONUS_ACTIONBAR")
+  game.fire("ACTIONBAR_PAGE_CHANGED")
+  game.fire("ACTIONBAR_SLOT_CHANGED", 0)
+  eq(series, 0, "form transition defers refresh scheduling")
+  game.flush()
+  eq(series, 1, "form and bonus events share one recovery series")
+  addon.Core.ScheduleRefreshPasses = scheduleRefresh
+end
+
 local tracked = {}
 for _, b in ipairs(Bars:GetAllButtons(true)) do tracked[b:GetName()] = true end
 for key, button in pairs(B) do check(tracked[button:GetName()], "tracked: " .. key) end

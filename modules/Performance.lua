@@ -6,28 +6,46 @@ local addon = privateScope.addon --[[@as AHOS]]
 local Performance = addon.Performance
 
 local updateQueue = {}
+local pendingSlots = {}
 local fullUpdateScheduled = false
 local updateTimer = nil
 
 -- Default settings
 local THROTTLE_INTERVAL = 0.1 -- seconds
 
----@param button Button
-function Performance:QueueButtonUpdate(button)
-    if not addon.db or not addon.db.profile or not addon.db.profile.enabled then return end
+local function AddButtonToQueue(button)
     if not button then return end
     local ok, name = pcall(function()
         return button.GetName and button:GetName()
     end)
     if not ok or not addon:IsValueAccessible(name) or type(name) ~= "string" or name == "" then return end
     updateQueue[name] = button
-    self:ScheduleUpdate()
+    return true
+end
+
+---@param button Button
+function Performance:QueueButtonUpdate(button)
+    if not addon.db or not addon.db.profile or not addon.db.profile.enabled then return end
+    if AddButtonToQueue(button) then self:ScheduleUpdate() end
 end
 
 function Performance:QueueFullUpdate()
     if not addon.db or not addon.db.profile or not addon.db.profile.enabled then return end
     fullUpdateScheduled = true
     self:ScheduleUpdate()
+end
+
+---@param slot number
+function Performance:QueueSlotUpdate(slot)
+    if not addon.db or not addon.db.profile or not addon.db.profile.enabled then return end
+    if not addon:IsValueAccessible(slot) or type(slot) ~= "number" then return end
+    -- Slot zero means every action slot changed.
+    if slot == 0 then
+        self:QueueFullUpdate()
+    elseif not fullUpdateScheduled then
+        pendingSlots[slot] = true
+        self:ScheduleUpdate()
+    end
 end
 
 function Performance:CancelPendingUpdates()
@@ -37,6 +55,7 @@ function Performance:CancelPendingUpdates()
     updateTimer = nil
     fullUpdateScheduled = false
     wipe(updateQueue)
+    wipe(pendingSlots)
 end
 
 function Performance:ScheduleUpdate()
@@ -55,6 +74,7 @@ function Performance:ProcessQueue()
         or (addon.ShouldShowOverlays and not addon:ShouldShowOverlays()) then
         fullUpdateScheduled = false
         wipe(updateQueue)
+        wipe(pendingSlots)
         if addon.Display and addon.Display.RemoveAllOverlays then
             addon.Display:RemoveAllOverlays()
         end
@@ -72,9 +92,21 @@ function Performance:ProcessQueue()
         end
         fullUpdateScheduled = false
         wipe(updateQueue)
+        wipe(pendingSlots)
         addon.Keybinds:ClearCache()
         addon.Display:UpdateAllOverlays()
     else
+        -- Resolve the current slots once after paging settles. Multiple bar
+        -- addons can show the same slot, so include every matching button.
+        if next(pendingSlots) then
+            for _, button in ipairs(addon.Bars:GetAllButtons()) do
+                local slot = addon:GetButtonActionSlot(button)
+                if slot and pendingSlots[slot] then
+                    AddButtonToQueue(button)
+                end
+            end
+            wipe(pendingSlots)
+        end
         if addon:IsReady() and addon.db and addon.db.profile and addon.db.profile.debug then
             local count = 0
             for _ in pairs(updateQueue) do count = count + 1 end

@@ -618,7 +618,7 @@ local realUpdate, updates = addon.Core.FullUpdate, 0
 addon.Core.FullUpdate = function(self, ...) updates = updates + 1; return realUpdate(self, ...) end
 for _ = 1, 5 do addon.Core:HandleBarStateChanged("TEST") end
 game.flush()
-check(updates == 6, "five bar events and settled bars cost one update each and one follow-up, not twenty: " .. updates)
+check(updates == 2, "five bar events share one update and one follow-up when bars settle: " .. updates)
 addon.Core.FullUpdate = realUpdate
 
 ---------------------------------------------------------------------------
@@ -789,9 +789,11 @@ do
   a.Core.FullUpdate = function(self, ...) full = full + 1; return realFull(self, ...) end
   a.Display.UpdateAllOverlays = function(self, ...) all = all + 1; return realAll(self, ...) end
   fresh.fire("UPDATE_VEHICLE_ACTIONBAR")
-  check(full >= 1, "leaving a vehicle refreshes the overlays (Core's events are live)")
+  fresh.flush()
+  check(full >= 1 and all >= 1, "leaving a vehicle refreshes the overlays after the bar events settle")
   full, all = 0, 0
   fresh.fire("ACTIONBAR_SLOT_CHANGED", 5)
+  fresh.flush()
   check(all == 0 and full == 0, "one slot changing updates that slot, not every button at once")
   a.Core.FullUpdate, a.Display.UpdateAllOverlays = realFull, realAll
 

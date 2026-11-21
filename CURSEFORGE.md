@@ -18,13 +18,9 @@ It works on the default Blizzard bars and on AzeriteUI, Bartender4, Dominos, Dia
 - **Presets and templates:** Blizzard Style, Big and Centered, Bottom Corner, Compact, plus Tank, Healer and Damage. Snapshots are taken automatically, and /ahos rollback takes you back.
 - **Inspector:** point at any action button to see which bar addon drew it, the key that presses it, and why AHOS shows the text it does.
 
-## Recent Updates (v3.1.0)
+## Recent Updates (v3.1.1)
 
-- Added MelloUI, EllesmereUI / standalone Action Bars, SpartanUI native bars, DaylightUI, ForeverUI (Solindius), NDui and ElvUI integrations.
-- GW2 UI is detected and uses the standard Blizzard-button integration.
-- The new custom bars support live binding changes, stable keys through paging, native text suppression and per-bar settings.
-- ElvUI support now defaults to enabled without a conflict popup. An earlier explicit opt-out is preserved; use ElvUI Compatibility to enable AHOS text again.
-- Offline compatibility tests pass for Retail, Forever, Mists and Classic Era. In-game verification of the new integrations is still pending.
+- Reduced repeated hotkey overlay refreshes during action-bar changes, including Druid shapeshifting on WoW Forever.
 
 ## Supported bar addons
 

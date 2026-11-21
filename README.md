@@ -1,15 +1,12 @@
 # Advanced Hotkey Overlay System (AHOS)
 
-![Version](https://img.shields.io/badge/version-3.1.0-cyan)
+![Version](https://img.shields.io/badge/version-3.1.1-cyan)
 
 A modular, robust hotkey overlay system for World of Warcraft action bars, with dedicated support for Blizzard bars, AzeriteUI, Bartender4, Dominos, DiabolicUI, LUI, Neuron, MelloUI, EllesmereUI, SpartanUI, DaylightUI, ForeverUI, NDui, GW2 UI and ElvUI.
 
-## Version 3.1.0 Highlights
+## Version 3.1.1 Highlights
 
-- New integrations for MelloUI, EllesmereUI (including standalone Action Bars), SpartanUI native bars, DaylightUI, ForeverUI (Solindius), NDui and ElvUI; GW2 UI is detected and uses its Blizzard buttons.
-- Stable bindings through action-bar paging, live binding updates, native hotkey suppression and per-bar settings for the new custom buttons.
-- ElvUI support is enabled by default without a conflict popup. An earlier explicit choice to disable AHOS with ElvUI is preserved; change it under ElvUI Compatibility.
-- Compatibility fixtures run against all four client manifests. In-game testing of the new integrations remains outstanding; see [compatibility details](wiki/Compatibility.md).
+- AHOS batches action-slot updates and groups related bar events during changes such as Druid shapeshifting on WoW Forever. This reduces repeated overlay work while the action bars settle.
 
 ## Features
 

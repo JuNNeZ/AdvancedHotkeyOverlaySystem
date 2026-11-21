@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.1] - 2026-11-21
+
+### Fixed (3.1.1)
+
+- Batched action-slot updates and grouped related bar events to reduce repeated hotkey overlay work during action-bar transitions, including Druid shapeshifting on WoW Forever.
+
 ## [3.1.0] - 2026-11-13
 
 ### Added (3.1.0)

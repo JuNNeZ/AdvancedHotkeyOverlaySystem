@@ -20,6 +20,7 @@ local keyBoundCallbacksRegistered = false
 local REFRESH_PASSES = { 0.2, 0.5, 1.0 }
 local refreshTimers = {}
 local refreshSignature
+local barStateTimer
 
 local function CancelRefreshPasses(core)
     for i = #refreshTimers, 1, -1 do
@@ -51,7 +52,12 @@ function Core:ScheduleRefreshPasses(reason)
 end
 
 function Core:HandleBarStateChanged(eventName)
-    self:ScheduleRefreshPasses("Bar state event: " .. tostring(eventName))
+    -- A single transition can emit several bar events before the bars finish paging.
+    if barStateTimer then return end
+    barStateTimer = self:ScheduleTimer(function()
+        barStateTimer = nil
+        self:ScheduleRefreshPasses("Bar state event: " .. eventName)
+    end, 0.01)
 end
 
 function Core:OnInitialize()
@@ -91,6 +97,7 @@ function Core:OnDisable()
     if self.CancelAllTimers then
         pcall(self.CancelAllTimers, self)
     end
+    barStateTimer = nil
     addon:SafeCall("Core", "UnregisterEvents")
     addon:SafeCall("Display", "RemoveAllOverlays") -- Remove overlays and restore original keybinds
 end
@@ -245,16 +252,7 @@ end
 ---@param event string
 ---@param slot number 0 means every slot
 function Core:UpdateSpecificButton(_, slot)
-    if not addon.db.profile.enabled then return end
-    -- Retail uses slot 0 to signal that every action slot changed.
-    if slot == 0 then
-        addon.Performance:QueueFullUpdate()
-        return
-    end
-    -- Two bar addons can show the same slot; both need the update.
-    for _, button in ipairs(addon.Bars:GetButtonsBySlot(slot)) do
-        addon.Performance:QueueButtonUpdate(button)
-    end
+    addon.Performance:QueueSlotUpdate(slot)
 end
 
 function Core:FullUpdate(...)
